@@ -596,10 +596,15 @@ struct AtomicCASOpConversion
     Value llPtr = adaptor.getPtr();
     Value llCmp = adaptor.getCmp();
     Value llVal = adaptor.getVal();
+    Value llMask = adaptor.getMask();
 
     auto ptrElements = unpackLLElements(loc, llPtr, rewriter);
     auto cmpElements = unpackLLElements(loc, llCmp, rewriter);
     auto valElements = unpackLLElements(loc, llVal, rewriter);
+    SmallVector<Value> maskElements;
+    if (llMask) {
+      maskElements = unpackLLElements(loc, llMask, rewriter);
+    }
 
     auto valueTy = op.getType();
     auto tensorTy = dyn_cast<RankedTensorType>(valueTy);
@@ -626,13 +631,18 @@ struct AtomicCASOpConversion
       Value casVal = valElements[i];
       Value casCmp = cmpElements[i];
       Value casPtr = ptrElements[i];
+      Value pred = llMask ? maybeAnd(rewriter, loc, threadPred, maskElements[i])
+                          : threadPred;
       PTXBuilder ptxBuilderAtomicCAS;
       std::string tyId =
           valueElemNBits == 64 ? "l" : (valueElemNBits == 32 ? "r" : "h");
-      auto *dstOpr = ptxBuilderAtomicCAS.newOperand("=" + tyId, /*init=*/true);
+      auto *dstOpr = ptxBuilderAtomicCAS.newOperand("=" + tyId, /*init=*/false);
       auto *ptrOpr = ptxBuilderAtomicCAS.newAddrOperand(casPtr, "l");
       auto *cmpOpr = ptxBuilderAtomicCAS.newOperand(casCmp, tyId);
       auto *valOpr = ptxBuilderAtomicCAS.newOperand(casVal, tyId);
+      auto &mov = ptxBuilderAtomicCAS.create("mov")->o(
+          "b" + std::to_string(valueElemNBits));
+      mov(dstOpr, cmpOpr);
       auto &atom = *ptxBuilderAtomicCAS.create("atom");
       auto sTy = "b" + std::to_string(valueElemNBits);
       std::string semStr;
@@ -640,7 +650,7 @@ struct AtomicCASOpConversion
       os << op.getSem();
       auto scope = stringifyMemSyncScope(op.getScope()).str();
       atom.global().o(semStr).o(scope).o("cas").o(sTy);
-      atom(dstOpr, ptrOpr, cmpOpr, valOpr).maybePredicate(threadPred);
+      atom(dstOpr, ptrOpr, cmpOpr, valOpr).maybePredicate(pred);
 
       if (tensorTy) {
         auto retType = valueElemTy;

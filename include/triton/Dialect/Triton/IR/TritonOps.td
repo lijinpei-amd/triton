@@ -396,6 +396,8 @@ def TT_AtomicCASOp : TT_Op<"atomic_cas", [
     let description = [{
         compare $cmp with data $old at location $ptr,
 
+        if has $mask and not $mask, return $cmp.
+
         if $old == $cmp, store $val to $ptr,
 
         else store $old to $ptr,
@@ -407,6 +409,7 @@ def TT_AtomicCASOp : TT_Op<"atomic_cas", [
       Arg<TT_PtrLike, "", [MemRead<GlobalMemory>, MemWrite<GlobalMemory>]>:$ptr,
       TT_Type:$cmp,
       TT_Type:$val,
+      Optional<TT_BoolLike>:$mask,
       TT_MemSemanticAttr:$sem,
       TT_MemSyncScopeAttr:$scope
     );
@@ -416,7 +419,7 @@ def TT_AtomicCASOp : TT_Op<"atomic_cas", [
     // Explicitly list $sem and $scope rather than relying on attr-dict so
     // they're printed as strings rather than opaque integers.
     let assemblyFormat = [{
-      $sem `,` $scope `,` $ptr `,` $cmp `,` $val attr-dict `:`
+      $sem `,` $scope `,` $ptr `,` $cmp `,` $val (`,` $mask^)? attr-dict `:`
       functional-type(operands, $result)
      }];
 }

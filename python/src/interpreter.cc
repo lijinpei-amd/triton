@@ -500,57 +500,64 @@ protected:
 };
 
 template <typename T>
-void atomic_compare_exchange_strong(void *loc, void *expected,
-                                    const void *desired, size_t i,
+void atomic_compare_exchange_strong(void *loc, void *ret_,
+                                    const void *expected_, const void *desired_,
+                                    const bool *mask, size_t i,
                                     std::memory_order order) {
-  T desired_val = *(static_cast<const T *>(desired) + i);
-  T *expected_uint = static_cast<T *>(expected) + i;
-
-  if constexpr (is_reinterpret_cast_to_atomic_safe<T>) {
-    std::atomic<T> *atomic_loc = reinterpret_cast<std::atomic<T> *>(loc);
-    atomic_loc->compare_exchange_strong(*expected_uint, desired_val, order,
-                                        order);
-  } else {
-    const std::lock_guard<std::mutex> lock(atomic_op_guard);
-    T *atomic_loc = static_cast<T *>(loc);
-    if (*atomic_loc == *expected_uint) {
-      *atomic_loc = desired_val;
+  T desired_val = reinterpret_cast<const T *>(desired_)[i];
+  T expected_val = reinterpret_cast<const T *>(expected_)[i];
+  T ret_val;
+  if (mask[i]) {
+    if constexpr (is_reinterpret_cast_to_atomic_safe<T>) {
+      std::atomic<T> *atomic_loc = reinterpret_cast<std::atomic<T> *>(loc);
+      ret_val = expected_val;
+      atomic_loc->compare_exchange_strong(ret_val, desired_val, order, order);
     } else {
-      *expected_uint = *atomic_loc;
+      const std::lock_guard<std::mutex> lock(atomic_op_guard);
+      T *atomic_loc = static_cast<T *>(loc);
+      ret_val = *atomic_loc;
+      if (ret_val == expected_val) {
+        *atomic_loc = desired_val;
+      }
     }
   }
+  reinterpret_cast<T *>(ret_)[i] = ret_val;
 }
 
 class AtomicCASOp : public AtomicOp {
 public:
-  AtomicCASOp(const uint64_t *ptr, void *expected, const void *desired,
-              size_t itemsize, size_t numel, std::memory_order order)
-      : AtomicOp(ptr, numel, order), expected(expected), desired(desired),
-        itemsize(itemsize) {}
+  AtomicCASOp(const uint64_t *ptr, void *ret, const void *expected,
+              const void *desired, const bool *mask, size_t itemsize,
+              size_t numel, std::memory_order order)
+      : AtomicOp(ptr, numel, order), ret(ret), expected(expected),
+        desired(desired), mask(mask), itemsize(itemsize) {}
 
 protected:
   void applyAt(void *loc, size_t i) override {
     // Atomic operations perform bitwise comparison, so it's safe to
     // use number of bytes (itemsize) to determine the type of pointers
     if (itemsize == 1) {
-      atomic_compare_exchange_strong<uint8_t>(loc, expected, desired, i, order);
+      atomic_compare_exchange_strong<uint8_t>(loc, ret, expected, desired, mask,
+                                              i, order);
     } else if (itemsize == 2) {
-      atomic_compare_exchange_strong<uint16_t>(loc, expected, desired, i,
-                                               order);
+      atomic_compare_exchange_strong<uint16_t>(loc, ret, expected, desired,
+                                               mask, i, order);
     } else if (itemsize == 4) {
-      atomic_compare_exchange_strong<uint32_t>(loc, expected, desired, i,
-                                               order);
+      atomic_compare_exchange_strong<uint32_t>(loc, ret, expected, desired,
+                                               mask, i, order);
     } else if (itemsize == 8) {
-      atomic_compare_exchange_strong<uint64_t>(loc, expected, desired, i,
-                                               order);
+      atomic_compare_exchange_strong<uint64_t>(loc, ret, expected, desired,
+                                               mask, i, order);
     } else {
       throw std::invalid_argument("Invalid byte size");
     }
   }
 
 private:
-  void *expected;
+  void *ret;
+  const void *expected;
   const void *desired;
+  const bool *mask;
   size_t itemsize;
 };
 
@@ -717,7 +724,7 @@ void init_triton_interpreter(py::module &&m) {
 
   m.def("atomic_cas",
         [](py::array_t<uint64_t> ptr, py::array &cmp, py::array &val,
-           MemSemantic sem) -> py::array {
+           py::array_t<bool> mask, MemSemantic sem) -> py::array {
           std::memory_order order = mem_semantic_map[sem];
           int numel = ptr.size();
           auto shape =
@@ -727,12 +734,12 @@ void init_triton_interpreter(py::module &&m) {
           py::array_t<uint64_t> reshaped_ptr = ptr.reshape({numel});
           py::array reshaped_cmp = cmp.reshape({numel});
           py::array reshaped_val = val.reshape({numel});
+          py::array_t<bool> reshaped_mask = mask.reshape({numel});
           auto itemsize = cmp.itemsize();
-          memcpy(static_cast<void *>(ret.mutable_data()),
-                 static_cast<const void *>(reshaped_cmp.data()),
-                 itemsize * numel);
           AtomicCASOp(reshaped_ptr.data(), ret.mutable_data(),
-                      static_cast<const void *>(reshaped_val.data()), itemsize,
+                      static_cast<const void *>(reshaped_cmp.data()),
+                      static_cast<const void *>(reshaped_val.data()),
+                      static_cast<const bool *>(reshaped_mask.data()), itemsize,
                       numel, order)
               .apply();
           return ret.reshape(shape);
