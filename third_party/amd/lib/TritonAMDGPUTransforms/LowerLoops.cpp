@@ -2,11 +2,16 @@
 #include "Utility.h"
 #include "amd/lib/TritonAMDGPUToLLVM/AsyncUtility.h"
 #include "amd/lib/TritonAMDGPUToLLVM/TargetInfo.h"
+#include "amd/lib/TritonAMDGPUToLLVM/Utility.h"
 #include "amd/lib/TritonAMDGPUTransforms/PipelineUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
 #include "llvm/Support/Debug.h"
 #include <variant>
+
+#undef DEBUG_TYPE
+#undef DBGS
+#undef LDBG
 
 #define DEBUG_TYPE "tritonamdgpu-pipeline-lower-loops"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
@@ -316,6 +321,15 @@ bool canBeConvertedToAsyncLoad(unsigned numBuffers, tt::LoadOp loadOp,
 
     if (fitToValidDirectToLdsVecSize(vecSize, elemBitWidth, targetInfo) == 0)
       return false;
+
+    unsigned vec = axisInfoAnalysis.getContiguity(loadOp.getPtr());
+    if (auto mask = loadOp.getMask()) {
+      vec = std::min<unsigned>(vec, axisInfoAnalysis.getMaskAlignment(mask));
+    }
+    if (!LLVM::AMD::canLoadDirectToLDS(targetInfo, srcTy, sharedEnc,
+                                       srcTy.getShape(), vec)) {
+      return false;
+    }
   }
 
   // Checks whether the global pointer's contiguity and mask alignment allows
