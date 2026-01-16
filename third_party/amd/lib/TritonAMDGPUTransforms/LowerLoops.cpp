@@ -215,8 +215,9 @@ std::optional<ttg::SharedEncodingTrait> getSharedEncIfAllUsersAreDotEnc(
           canUseAsyncCopy = canBeConvertedToAsyncLoad(
               2, cast<tt::LoadOp>(loadOp), {}, axisInfoAnalysis, targetInfo);
         }
-        tempAttr = composePaddedLayout(targetInfo, dotOpEnc, srcTy, sharedOrder,
-                                       canUseAsyncCopy);
+        tempAttr = getWarpContinuousSharedEncoding(
+            cast<ttg::DistributedEncodingTrait>(userResEnc), srcTy.getShape(),
+            bitWidth, 32, sharedOrder);
         if (!tempAttr) {
           tempAttr = ttg::SwizzledSharedEncodingAttr::get(
               loadedValue.getContext(), dotOpEnc, srcTy.getShape(), sharedOrder,

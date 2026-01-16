@@ -26,4 +26,9 @@ composePaddedLayout(const triton::AMD::TargetInfo &targetInfo,
                     triton::gpu::TensorOrMemDesc srcTy,
                     ArrayRef<unsigned> sharedOrder, bool useAsyncCopy);
 
+triton::gpu::SharedLinearEncodingAttr
+getWarpContinuousSharedEncoding(triton::gpu::DistributedEncodingTrait distEnc,
+                                ArrayRef<int64_t> shapePerCGA,
+                                uint32_t elemBitSize, uint32_t bankBitSize,
+                                ArrayRef<unsigned> sharedOrder);
 #endif

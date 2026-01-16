@@ -317,3 +317,96 @@ composePaddedLayout(const tt::AMD::TargetInfo &targetInfo,
   }
   return {};
 }
+
+// Given a distributed encoding attr, returns a linear shared encoding that when
+// composed with the dist-enc, maps lanes in a warp continuously, width each
+// lane vector bitwidth being bankBitSize. Since dist-enc has no bits swizzled
+// together, it can be saparated into a product of lane-part, register-part, and
+// warp-part. To get the final contiguous linear-layout, we product a continuous
+// vec-reg, lane mapping with the rest orginal mapping. To get the
+// shared-encoding, we compose the final layout with the right inverse of
+// dist-enc.
+ttg::SharedLinearEncodingAttr
+getWarpContinuousSharedEncoding(ttg::DistributedEncodingTrait distEnc,
+                                ArrayRef<int64_t> shapePerCGA,
+                                uint32_t elemBitSize, uint32_t bankBitSize,
+                                ArrayRef<unsigned> sharedOrder) {
+  // When elemBitSize smaller than bankBitSize, per-instr bank conflict is
+  // un-avoidable, using vecCnt 1 won't waste bandwidth but cdna buffer lds has
+  // fixed stride of 4 bytes.
+  if (elemBitSize > bankBitSize) {
+    return {};
+  }
+  uint64_t vecCnt = bankBitSize / elemBitSize;
+  auto vecCntBits = llvm::Log2_32(vecCnt);
+  auto *ctx = distEnc.getContext();
+  auto shapePerCTA = getShapePerCTA(distEnc, shapePerCGA);
+  auto distLL = toLinearEncoding(distEnc, shapePerCTA).getLinearLayout();
+  auto distBases = distLL.getBases();
+  auto regBases = distBases[StringAttr::get(ctx, "register")];
+  if (regBases.size() < vecCntBits) {
+    return {};
+  }
+  auto numOutDims = sharedOrder.size();
+  SmallVector<unsigned> outDimBitSize;
+  outDimBitSize.reserve(numOutDims);
+  auto outDims = distLL.getOutDims();
+  for (auto [_, outDimSize] : outDims) {
+    auto sizeBits = llvm::Log2_32(outDimSize);
+    outDimBitSize.push_back(sizeBits);
+  }
+  SmallVector<unsigned> outDimBitSizeCumSum(numOutDims);
+  unsigned totalOutDimBitSize = 0;
+  for (auto dim : sharedOrder) {
+    outDimBitSizeCumSum[dim] = totalOutDimBitSize;
+    totalOutDimBitSize += outDimBitSize[dim];
+  }
+  triton::LinearLayout::BasesT sharedBases;
+  auto &offsetBases = sharedBases[StringAttr::get(ctx, "offset")];
+  offsetBases = std::vector<std::vector<int32_t>>(
+      totalOutDimBitSize, std::vector<int32_t>(numOutDims));
+  BitVector visitedDims(totalOutDimBitSize);
+  unsigned currOffsetBit = 0;
+  auto appendOutBase = [&](const ArrayRef<int32_t> &outBases) -> bool {
+    for (unsigned dim = 0; dim < numOutDims; ++dim) {
+      auto outBase = outBases[dim];
+      if (outBase) {
+        auto outPos = outDimBitSizeCumSum[dim] + llvm::Log2_32(outBase);
+        if (visitedDims.test(outPos)) {
+          return false;
+        }
+        visitedDims.set(outPos);
+        offsetBases[currOffsetBit][dim] = outBase;
+        currOffsetBit += 1;
+        return true;
+      }
+    }
+    return false;
+  };
+  for (unsigned i = 0; i < vecCntBits; ++i) {
+    if (!appendOutBase(regBases[i])) {
+      return {};
+    }
+  }
+  auto laneBases = distBases[StringAttr::get(ctx, "lane")];
+  for (const auto &warpBase : laneBases) {
+    if (!appendOutBase(warpBase)) {
+      return {};
+    }
+  }
+  for (auto dim : sharedOrder) {
+    auto dimStartPos = outDimBitSizeCumSum[dim];
+    for (unsigned bit = 0, end = outDimBitSize[dim]; bit < end; ++bit) {
+      if (!visitedDims.test(dimStartPos + bit)) {
+        visitedDims.set(dimStartPos + bit);
+        offsetBases[currOffsetBit][dim] = 1 << bit;
+        currOffsetBit += 1;
+      }
+    }
+  }
+  auto sharedLL = triton::LinearLayout(std::move(sharedBases), outDims, true);
+  sharedLL =
+      combineCtaCgaWithShape(sharedLL, getCGALayout(distEnc), shapePerCGA);
+  return ttg::SharedLinearEncodingAttr::get(ctx, std::move(sharedLL),
+                                            bankBitSize / CHAR_BIT);
+}
