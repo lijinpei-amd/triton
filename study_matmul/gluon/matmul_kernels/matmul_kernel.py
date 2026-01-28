@@ -1742,7 +1742,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     a0 = extract_slice(a, [64, 64], [0, 0])
     acc00 = extract_slice(acc0, [64, 128], [0, 0])
     acc00 = gl.amd.cdna3.mfma(a0, b0, acc00)
-    c00 = acc00.to(a_ptr.dtype.element_ty)
+    c00 = acc00.to(gl.float16)
     c00 = gl.convert_layout(c00, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c00, ptr=c00_base, offsets=c_slice_offsets)
 
@@ -1750,7 +1750,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     a1 = extract_slice(a, [64, 64], [64, 0])
     acc01 = extract_slice(acc0, [64, 128], [64, 0])
     acc01 = gl.amd.cdna3.mfma(a1, b0, acc01)
-    c01 = acc01.to(a_ptr.dtype.element_ty)
+    c01 = acc01.to(gl.float16)
     c01 = gl.convert_layout(c01, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c01, ptr=c01_base, offsets=c_slice_offsets)
 
@@ -1758,7 +1758,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     a2 = extract_slice(a, [64, 64], [128, 0])
     acc02 = extract_slice(acc0, [64, 128], [128, 0])
     acc02 = gl.amd.cdna3.mfma(a2, b0, acc02)
-    c02 = acc02.to(a_ptr.dtype.element_ty)
+    c02 = acc02.to(gl.float16)
     c02 = gl.convert_layout(c02, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c02, ptr=c02_base, offsets=c_slice_offsets)
 
@@ -1766,7 +1766,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     a3 = extract_slice(a, [64, 64], [192, 0])
     acc03 = extract_slice(acc0, [64, 128], [192, 0])
     acc03 = gl.amd.cdna3.mfma(a3, b0, acc03)
-    c03 = acc03.to(a_ptr.dtype.element_ty)
+    c03 = acc03.to(gl.float16)
     c03 = gl.convert_layout(c03, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c03, ptr=c03_base, offsets=c_slice_offsets)
 
@@ -1781,7 +1781,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     #a0 = extract_slice(a, [64, 64], [0, 0])
     acc10 = extract_slice(acc1, [64, 128], [0, 0])
     acc10 = gl.amd.cdna3.mfma(a0, b1, acc10)
-    c10 = acc10.to(a_ptr.dtype.element_ty)
+    c10 = acc10.to(gl.float16)
     c10 = gl.convert_layout(c10, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c10, ptr=c10_base, offsets=c_slice_offsets)
 
@@ -1789,7 +1789,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     #a1 = extract_slice(a, [64, 64], [64, 0])
     acc11 = extract_slice(acc1, [64, 128], [64, 0])
     acc11 = gl.amd.cdna3.mfma(a1, b1, acc11)
-    c11 = acc11.to(a_ptr.dtype.element_ty)
+    c11 = acc11.to(gl.float16)
     c11 = gl.convert_layout(c11, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c11, ptr=c11_base, offsets=c_slice_offsets)
 
@@ -1797,7 +1797,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     #a2 = extract_slice(a, [64, 64], [128, 0])
     acc12 = extract_slice(acc1, [64, 128], [128, 0])
     acc12 = gl.amd.cdna3.mfma(a2, b1, acc12)
-    c12 = acc12.to(a_ptr.dtype.element_ty)
+    c12 = acc12.to(gl.float16)
     c12 = gl.convert_layout(c12, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c12, ptr=c12_base, offsets=c_slice_offsets)
 
@@ -1805,7 +1805,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     #a3 = extract_slice(a, [64, 64], [192, 0])
     acc13 = extract_slice(acc1, [64, 128], [192, 0])
     acc13 = gl.amd.cdna3.mfma(a3, b1, acc13)
-    c13 = acc13.to(a_ptr.dtype.element_ty)
+    c13 = acc13.to(gl.float16)
     c13 = gl.convert_layout(c13, layout=gStoreLayoutC)
     gl.amd.cdna3.buffer_store(stored_value=c13, ptr=c13_base, offsets=c_slice_offsets)
 
@@ -2122,14 +2122,13 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     num_warps: gl.constexpr = 4
 
     gLoadLayoutA: gl.constexpr = gl.DistributedLinearLayout(
-        reg_bases=[[0, 1], [0, 2], [0, 4], [0, 8], [4, 0], [8, 0], [128, 0]], lane_bases=[[0, 16], [0, 32], [0, 64],
-                                                                                          [16, 0], [32, 0], [64, 0]],
+        reg_bases=[[0, 1], [0, 2], [0, 4], [0, 8], [4, 0], [8, 0], [128, 0]],
+        lane_bases=[[0, 16], [0, 32], [0, 64], [16, 0], [32, 0], [64, 0]],
         warp_bases=[[1, 0], [2, 0]], block_bases=[], shape=[BLOCK_M, BLOCK_K])
     gLoadLayoutB: gl.constexpr = gl.DistributedLinearLayout(
-        reg_bases=[[1, 0], [2, 0], [4, 0], [8, 0], [0, 4], [0, 8]], lane_bases=[[16, 0], [32, 0], [64, 0], [0, 16],
-                                                                                [0, 32], [0, 64]], warp_bases=[[0, 1],
-                                                                                                               [0, 2]],
-        block_bases=[], shape=[BLOCK_K, BLOCK_N // 2])
+        reg_bases=[[1, 0], [2, 0], [4, 0], [8, 0], [0, 4], [0, 8]],
+        lane_bases=[[16, 0], [32, 0], [64, 0], [0, 16], [0, 32], [0, 64]],
+        warp_bases=[[0, 1], [0, 2]], block_bases=[], shape=[BLOCK_K, BLOCK_N // 2])
 
     offs_am = gl.arange(0, BLOCK_M, gl.SliceLayout(1, gLoadLayoutA))
     offs_ak = gl.arange(0, BLOCK_K, gl.SliceLayout(0, gLoadLayoutA))
@@ -2223,6 +2222,7 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
     a = cdna4_async_copy.load_shared_relaxed(smemA.index(l_idx), dotOpLayoutA)
     b0 = cdna4_async_copy.load_shared_relaxed(smemB0.index(l_idx), dotOpLayoutB)
 
+    cdna4_async_copy.wait_group(2)
     for k in range(0, iterMax - 1, 2):
 
         sched_barrier(0)
@@ -2231,8 +2231,6 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         ## LR B1[0]
         ## AC (A+B0)[2]
         acc0 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b0, None, 'e5m2', acc0)
-
-        cdna4_async_copy.wait_group(2)
         b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(0), dotOpLayoutB)
 
         cdna4_async_copy.buffer_load_to_shared(smemA.index(0), a_base, a_offsets, mask=(k != (iterMax - 2)))
@@ -2247,9 +2245,8 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         ## DOT(A, B1)[0]
         ## LR (A+B0)[1]
         ## AC B1[2]
-        acc1 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b1, None, 'e5m2', acc1)
-
         cdna4_async_copy.wait_group(2)
+        acc1 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b1, None, 'e5m2', acc1)
         a = cdna4_async_copy.load_shared_relaxed(smemA.index(1), dotOpLayoutA)
         b0 = cdna4_async_copy.load_shared_relaxed(smemB0.index(1), dotOpLayoutB)
 
@@ -2264,9 +2261,8 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         ## DOT(A, B0)[1]
         ## LR B1[1]
         ## AC (A+B0)[3]
-        acc0 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b0, None, 'e5m2', acc0)
-
         cdna4_async_copy.wait_group(2)
+        acc0 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b0, None, 'e5m2', acc0)
         b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(1), dotOpLayoutB)
 
         cdna4_async_copy.buffer_load_to_shared(smemA.index(1), a_base, a_offsets, mask=(k != (iterMax - 2)))
@@ -2281,15 +2277,15 @@ def v10_f8(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         ## DOT(A, B1)[1]
         ## LR (A+B0)[1]
         ## AC B1[3]
-        acc1 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b1, None, 'e5m2', acc1)
-
         cdna4_async_copy.wait_group(2)
+        acc1 = gl.amd.cdna4.mfma_scaled(a, None, 'e5m2', b1, None, 'e5m2', acc1)
         a = cdna4_async_copy.load_shared_relaxed(smemA.index(0), dotOpLayoutA)
         b0 = cdna4_async_copy.load_shared_relaxed(smemB0.index(0), dotOpLayoutB)
 
         cdna4_async_copy.buffer_load_to_shared(smemB1.index(1), b_base, b1_offsets, mask=(k != (iterMax - 2)))
         cdna4_async_copy.commit_group()
 
+        cdna4_async_copy.wait_group(2)
         sched_barrier(0)
 
     cdna4_async_copy.wait_group(0)

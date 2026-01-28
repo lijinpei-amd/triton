@@ -88,12 +88,12 @@ def matmul(a, b, num_warps):
 
 def get_x_vals():
     return [
-        #(4096, 4096, 1024),
-        #(4096, 4096, 2048),
-        #(4096, 4096, 3072),
+        (4096, 4096, 1024),
+        (4096, 4096, 2048),
+        (4096, 4096, 3072),
         (4096, 4096, 4096),
-        #(4096, 4096, 8192),
-        #(4096, 4096, 16384),
+        (4096, 4096, 8192),
+        (4096, 4096, 16384),
     ]
 
 
@@ -132,9 +132,9 @@ configs.append(
         line_arg="dtype",  # Argument name whose value corresponds to a different line in the plot
         # Possible values for `line_arg`
         # Don't compare to cublas for fp8 cases as torch.matmul doesn't support fp8 at the moment.
-        line_vals=["fp16"],  # if fp8_inputs else [ref_lib.lower(), "triton"],  # Label name for the lines
-        line_names=["fp16"],  # if fp8_inputs else [ref_lib, "Triton"],  # Line styles
-        styles=[("green", "-"), ("yellow", "--")],
+        line_vals=["fp16", "bf16", "f8"],  # if fp8_inputs else [ref_lib.lower(), "triton"],  # Label name for the lines
+        line_names=["fp16", "bf16", "f8"],  # if fp8_inputs else [ref_lib, "Triton"],  # Line styles
+        styles=[("green", "-"), ("yellow", "--"), ("red", "--")],
         ylabel="TFLOPS",  # Label name for the y-axis
         plot_name="matmul-performance",  # Name for the plot, used also as a file name for saving the plot.
         args={},
