@@ -444,6 +444,7 @@ class HIPBackend(BaseBackend):
             if len(paths) > 0:
                 llvm.link_extern_libs(llvm_mod, paths)
 
+        fns[0].add_fn_attr("amdgpu-agpr-alloc", f"256")
         llvm.optimize_module(llvm_mod, llvm.OPTIMIZE_O3, options.arch, '', [], options.enable_fp_fusion)
 
         # Architectures with architected SGPRs store the workgroup id in ttmp9 (X) and ttmp7 (Y[15:0], Z[31:16]).
@@ -492,7 +493,7 @@ class HIPBackend(BaseBackend):
         amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags, options.enable_fp_fusion,
                                        False)
 
-        amdgcn = amdgcn_as(amdgcn, False)
+        # amdgcn = amdgcn_as(amdgcn, False)
 
         if "AMD_INSERT_AMDGCN" in os.environ.keys():
             insert_module_path = str(os.environ["AMD_INSERT_AMDGCN"])
