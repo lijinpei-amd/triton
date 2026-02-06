@@ -81,8 +81,8 @@ def matmul(a, b, num_warps):
         a.stride(0), a.stride(1),  #
         b.stride(0), b.stride(1),  #
         c.stride(0), c.stride(1),  #
-        BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, BLOCK_K=BLOCK_K, GRID_MN=GRID_MN, NUM_XCDS=NUM_XCDS,
-        GROUP_SIZE_M=GROUP_SIZE_M, num_warps=num_warps)
+        BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, BLOCK_K=BLOCK_K, GRID_MN=GRID_MN, NUM_XCDS=NUM_XCDS, GROUP_SIZE_M=GROUP_SIZE_M,
+        num_warps=num_warps)
     return c
 
 

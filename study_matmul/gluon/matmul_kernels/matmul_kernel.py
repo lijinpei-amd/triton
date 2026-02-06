@@ -676,13 +676,14 @@ def v6(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, stride_ak,  #
 def v7(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
        stride_bk, stride_bn,  #
        stride_cm, stride_cn, BLOCK_M: gl.constexpr, BLOCK_N: gl.constexpr, BLOCK_K: gl.constexpr,  #
+       GRID_MN: gl.constexpr, NUM_XCDS: gl.constexpr, GROUP_SIZE_M: gl.constexpr,
        ):
     '''
     v7
     Unroll the loop
     '''
 
-    pid_m, pid_n = get_pids(M, N, BLOCK_M, BLOCK_N)
+    pid_m, pid_n = get_pids(M, N, BLOCK_M, BLOCK_N, GRID_MN, NUM_XCDS, GROUP_SIZE_M)
     num_warps: gl.constexpr = 4
 
     gLoadLayoutA: gl.constexpr = gl.DistributedLinearLayout(
@@ -1645,7 +1646,7 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
 
     for k in range(0, iterMax - 1, 2):
 
-        sched_barrier(0)
+        # sched_barrier(0)
 
         ## DOT(A, B0)[0]
         ## LR B1[0]
@@ -1653,13 +1654,13 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         acc0 = gl.amd.cdna3.mfma(a, b0, acc0)
 
         cdna4_async_copy.wait_group(2)
-        b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(0), dotOpLayoutB)
-
         cdna4_async_copy.buffer_load_to_shared(smemA.index(0), a_base, a_offsets, mask=(k != (iterMax - 2)))
         cdna4_async_copy.buffer_load_to_shared(smemB0.index(0), b_base, b0_offsets, mask=(k != (iterMax - 2)))
         cdna4_async_copy.commit_group()
+        b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(0), dotOpLayoutB)
 
-        sched_barrier(0)
+
+        # sched_barrier(0)
 
         a_base += BLOCK_K * stride_ak
         b_base += BLOCK_K * stride_bk
@@ -1670,13 +1671,13 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         acc1 = gl.amd.cdna3.mfma(a, b1, acc1)
 
         cdna4_async_copy.wait_group(2)
+        cdna4_async_copy.buffer_load_to_shared(smemB1.index(0), b_base, b1_offsets, mask=(k != (iterMax - 2)))
+        cdna4_async_copy.commit_group()
         a = cdna4_async_copy.load_shared_relaxed(smemA.index(1), dotOpLayoutA)
         b0 = cdna4_async_copy.load_shared_relaxed(smemB0.index(1), dotOpLayoutB)
 
-        cdna4_async_copy.buffer_load_to_shared(smemB1.index(0), b_base, b1_offsets, mask=(k != (iterMax - 2)))
-        cdna4_async_copy.commit_group()
 
-        sched_barrier(0)
+        # sched_barrier(0)
 
         ## ---------------------------------------------------------------------
         ## Loop unroll separator
@@ -1687,13 +1688,13 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         acc0 = gl.amd.cdna3.mfma(a, b0, acc0)
 
         cdna4_async_copy.wait_group(2)
-        b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(1), dotOpLayoutB)
-
         cdna4_async_copy.buffer_load_to_shared(smemA.index(1), a_base, a_offsets, mask=(k != (iterMax - 2)))
         cdna4_async_copy.buffer_load_to_shared(smemB0.index(1), b_base, b0_offsets, mask=(k != (iterMax - 2)))
         cdna4_async_copy.commit_group()
+        b1 = cdna4_async_copy.load_shared_relaxed(smemB1.index(1), dotOpLayoutB)
 
-        sched_barrier(0)
+
+        # sched_barrier(0)
 
         a_base += BLOCK_K * stride_ak
         b_base += BLOCK_K * stride_bk
@@ -1704,11 +1705,11 @@ def v10(a_ptr, b_ptr, c_ptr, M, N, K: gl.constexpr, stride_am, stride_ak,  #
         acc1 = gl.amd.cdna3.mfma(a, b1, acc1)
 
         cdna4_async_copy.wait_group(2)
+        cdna4_async_copy.buffer_load_to_shared(smemB1.index(1), b_base, b1_offsets, mask=(k != (iterMax - 2)))
+        cdna4_async_copy.commit_group()
         a = cdna4_async_copy.load_shared_relaxed(smemA.index(0), dotOpLayoutA)
         b0 = cdna4_async_copy.load_shared_relaxed(smemB0.index(0), dotOpLayoutB)
 
-        cdna4_async_copy.buffer_load_to_shared(smemB1.index(1), b_base, b1_offsets, mask=(k != (iterMax - 2)))
-        cdna4_async_copy.commit_group()
 
         sched_barrier(0)
 
