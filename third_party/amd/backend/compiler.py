@@ -12,6 +12,7 @@ import functools
 import warnings
 from pathlib import Path
 from triton.tools.amdgcnas import amdgcn_as
+import subprocess
 
 
 def get_min_dot_size(target: GPUTarget):
@@ -400,6 +401,7 @@ class HIPBackend(BaseBackend):
         fns = [fn for fn in llvm_mod.get_functions() if not fn.is_declaration()]
         # The public kernel should be kernel 0.
         fns[0].set_calling_conv(amd.CALLING_CONV_AMDGPU_KERNEL)
+        fns[0].add_fn_attr("amdgpu-agpr-alloc", "256")
         # warp-specialization mutates num_warps
         total_warps_num = options.num_warps
         total_num_warps = src.get_int_attr("ttg.total-num-warps")
@@ -489,8 +491,19 @@ class HIPBackend(BaseBackend):
                                   dump_file_id)
         llvm.dump_sched_dag(src, amd.TARGET_TRIPLE, options.arch, features, flags, options.enable_fp_fusion,
                             dump_file_id)
-        amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags, options.enable_fp_fusion,
-                                       False)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = os.path.join(tmpdir, "input.llir")
+            with open(input_path, "w") as fin:
+                fin.write(src)
+            # use topdown only scheduler seems to be 1-2 pertentage better then bi-directional
+            # I didn't take time to look into why. I initially switch to topdown because it's easier to reason about.
+            llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "--amdgpu-mfma-vgpr-form=0", "--misched-prera-direction=topdown", "--misched-postra-direction=topdown", "-o", "output.amdgcn"]
+            subprocess.check_call(llc_cmd, stdout=subprocess.DEVNULL, cwd=tmpdir)
+            output_path = os.path.join(tmpdir, "output.amdgcn")
+            with open(output_path, "r") as fout:
+                amdgcn = fout.read()
+        #amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags, options.enable_fp_fusion,
+        #                               False)
 
         # amdgcn = amdgcn_as(amdgcn, False)
 
