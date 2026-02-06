@@ -458,7 +458,7 @@ class HIPBackend(BaseBackend):
         if knobs.amd.scalarize_packed_fops:
             amd.add_scalarize_packed_fops_llvm_pass(fns[0])
 
-        amd.add_pre_RA_llir_schedule_pass(fns[0])
+        # amd.add_pre_RA_llir_schedule_pass(fns[0])
 
         # Get some metadata
         metadata["num_warps"] = total_warps_num
@@ -492,7 +492,7 @@ class HIPBackend(BaseBackend):
         amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags, options.enable_fp_fusion,
                                        False)
 
-        amdgcn = amdgcn_as(amdgcn, False)
+        # amdgcn = amdgcn_as(amdgcn, False)
 
         if "AMD_INSERT_AMDGCN" in os.environ.keys():
             insert_module_path = str(os.environ["AMD_INSERT_AMDGCN"])
