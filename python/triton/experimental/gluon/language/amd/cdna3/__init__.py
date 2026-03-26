@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "buffer_atomic_add", "buffer_atomic_and", "buffer_atomic_min", "buffer_atomic_max", "buffer_atomic_or",
-    "buffer_atomic_xor", "buffer_atomic_xor", "buffer_load", "buffer_store", "mfma"
+    "buffer_atomic_xor", "buffer_atomic_xor", "buffer_load", "buffer_store", "extract_slice", "mfma"
 ]
 
 _atomic_op_str_to_op = {
@@ -241,3 +241,36 @@ def buffer_atomic_xchg(ptr, offsets, value, mask=None, sem=None, scope=None, _se
 
     return _buffer_atomic_rmw_impl('xchg', ptr, offsets, value, "cdna3", mask=mask, sem=sem, scope=scope,
                                    _semantic=_semantic)
+
+
+@builtin
+def extract_slice(source, sizes, offsets, _semantic=None):
+    """
+    Extract a slice from a distributed tensor.
+
+    This operation extracts a contiguous sub-tensor from a source tensor at
+    the given offsets with the given sizes. The slice must be a multiple of
+    CTA tiles and the source and destination must have matching linear layouts
+    at the CTA tile level.
+
+    Args:
+        source (tensor): The source distributed tensor.
+        sizes (list of int): Shape of the resulting slice.
+        offsets (list of int): Offsets into the source tensor.
+    """
+    sizes = [_unwrap_if_constexpr(s) for s in _unwrap_if_constexpr(sizes)]
+    offsets = [_unwrap_if_constexpr(o) for o in _unwrap_if_constexpr(offsets)]
+
+    assert isinstance(source.type, ttgl.distributed_type), "source must be a distributed tensor"
+    assert isinstance(sizes, (list, tuple)) and all(isinstance(s, int) for s in sizes), \
+        "sizes must be a list of ints"
+    assert isinstance(offsets, (list, tuple)) and all(isinstance(o, int) for o in offsets), \
+        "offsets must be a list of ints"
+    assert len(sizes) == len(source.shape), \
+        f"sizes rank ({len(sizes)}) must match source rank ({len(source.shape)})"
+    assert len(offsets) == len(source.shape), \
+        f"offsets rank ({len(offsets)}) must match source rank ({len(source.shape)})"
+
+    handle = _semantic.builder.create_extract_slice(source.handle, sizes, offsets)
+    ret_ty = ttgl.distributed_type(source.dtype, list(sizes), source.type.layout)
+    return ttgl.tensor(handle, ret_ty)

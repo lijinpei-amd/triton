@@ -1094,6 +1094,15 @@ void init_gluon_ir(py::module &&m) {
                border->setAttr("triton.warp_pipeline.priority",
                                IntegerAttr::get(i32Ty, priority));
              }
+           })
+      .def("create_extract_slice",
+           [](GluonOpBuilder &self, Value source, std::vector<int64_t> sizes,
+              std::vector<int64_t> offsets) -> Value {
+             auto srcType = mlir::cast<RankedTensorType>(source.getType());
+             auto resultType = RankedTensorType::get(
+                 sizes, srcType.getElementType(), srcType.getEncoding());
+             return self.create<ttag::ExtractSliceOp>(resultType, source,
+                                                      offsets);
            });
 
   m.def(
