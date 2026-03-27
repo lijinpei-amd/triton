@@ -57,7 +57,9 @@ class FileCacheManager(CacheManager):
                 raise RuntimeError("Could not create or locate cache dir")
 
     def _make_path(self, filename) -> str:
-        return os.path.join(self.cache_dir, filename)
+        res = os.path.join(self.cache_dir, filename)
+        print("_make_path", res)
+        return res
 
     def has_file(self, filename) -> bool:
         if not self.cache_dir:

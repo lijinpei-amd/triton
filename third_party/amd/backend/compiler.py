@@ -11,6 +11,7 @@ import re
 import functools
 import warnings
 from pathlib import Path
+import subprocess
 
 
 def get_min_dot_size(target: GPUTarget):
@@ -406,6 +407,7 @@ class HIPBackend(BaseBackend):
 
         # Set kernel attributes first given this may affect later optimizations.
         fns = [fn for fn in llvm_mod.get_functions() if not fn.is_declaration()]
+        fns[0].add_fn_attr("amdgpu-agpr-alloc", "256")
         # The public kernel should be kernel 0.
         fns[0].set_calling_conv(amd.CALLING_CONV_AMDGPU_KERNEL)
         cluster_dim = metadata["num_ctas"]
@@ -503,13 +505,26 @@ class HIPBackend(BaseBackend):
                             dump_file_id)
         if knobs.amd.swap_mir_enable_misched and not knobs.amd.swap_mir:
             raise ValueError("TRITON_SWAP_MIR_ENABLE_MISCHED requires TRITON_SWAP_MIR to be set")
-        if knobs.amd.swap_mir:
-            amdgcn = llvm.translate_mir_to_asm(os.path.join(knobs.amd.swap_mir, dump_file_id + '.txt'),
-                                               amd.TARGET_TRIPLE, options.arch, features, flags,
-                                               options.enable_fp_fusion, False, knobs.amd.swap_mir_enable_misched)
-        else:
-            amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags,
-                                           options.enable_fp_fusion, False)
+        #if knobs.amd.swap_mir:
+        #    amdgcn = llvm.translate_mir_to_asm(os.path.join(knobs.amd.swap_mir, dump_file_id + '.txt'),
+        #                                       amd.TARGET_TRIPLE, options.arch, features, flags,
+        #                                       options.enable_fp_fusion, False, knobs.amd.swap_mir_enable_misched)
+        #else:
+        #    amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags,
+        #                                   options.enable_fp_fusion, False)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = os.path.join(tmpdir, "input.llir")
+            with open(input_path, "w") as fin:
+                fin.write(src)
+            # use topdown only scheduler seems to be 1-2 pertentage better then bi-directional
+            # I didn't take time to look into why. I initially switch to topdown because it's easier to reason about.
+            # llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "-misched=gcn-pre-resource", "--amdgpu-post-sched-resource", "--amdgpu-disable-unclustered-high-rp-reschedule", "--amdgpu-mfma-vgpr-form=0", "--misched-prera-direction=topdown", "--misched-postra-direction=topdown", "--enable-post-misched=false", "-o", "output.amdgcn"]
+            llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "--amdgpu-mfma-vgpr-form=0", "-o", "output.amdgcn"]
+            subprocess.check_call(llc_cmd, stdout=subprocess.DEVNULL, cwd=tmpdir)
+            output_path = os.path.join(tmpdir, "output.amdgcn")
+            with open(output_path, "r") as fout:
+                amdgcn = fout.read()
+
         if knobs.amd.dump_amdgcn:
             print("// -----// AMDGCN Dump //----- //")
             print(amdgcn)
