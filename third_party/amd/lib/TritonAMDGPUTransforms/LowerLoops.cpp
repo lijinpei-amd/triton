@@ -954,7 +954,7 @@ void lowerLoop(scf::ForOp forOp,
   // i.e., we can still disable `waitAtTail` by explicitly disabling
   // pingpong, which is the only use case of this scheduling variant.
   bool waitAtTail = usePingpong && (numStages == 3) && useAsyncCopy;
-  waitAtTail = true;
+  // waitAtTail = true;
 
   llvm::MapVector<Operation *, std::pair<int, Operation *>> loadOpToIndLevel =
       getIndirectLevel(axisInfoAnalysis, forOp, numStages);

@@ -458,6 +458,7 @@ class HIPBackend(BaseBackend):
             if len(paths) > 0:
                 llvm.link_extern_libs(llvm_mod, paths)
 
+        # print("before optimize", llvm_mod)
         llvm.optimize_module(llvm_mod, llvm.OPTIMIZE_O3, options.arch, '', [], options.enable_fp_fusion)
 
         # Architectures with architected SGPRs store the workgroup id in ttmp9 (X) and ttmp7 (Y[15:0], Z[31:16]).
@@ -519,7 +520,9 @@ class HIPBackend(BaseBackend):
             # use topdown only scheduler seems to be 1-2 pertentage better then bi-directional
             # I didn't take time to look into why. I initially switch to topdown because it's easier to reason about.
             # llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "-misched=gcn-pre-resource", "--amdgpu-post-sched-resource", "--amdgpu-disable-unclustered-high-rp-reschedule", "--amdgpu-mfma-vgpr-form=0", "--misched-prera-direction=topdown", "--misched-postra-direction=topdown", "--enable-post-misched=false", "-o", "output.amdgcn"]
-            llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "--amdgpu-mfma-vgpr-form=0", "-o", "output.amdgcn"]
+            # llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "-misched=gcn-pre-resource", "--amdgpu-post-sched-resource", "--amdgpu-disable-unclustered-high-rp-reschedule", "--amdgpu-mfma-vgpr-form=0", "--misched-prera-direction=topdown", "--misched-postra-direction=topdown", "--enable-post-misched=false", "-amdgpu-l1-hazard=true", "-amdgpu-l1-bytes=64", "-amdgpu-l1-speed=128/1", "-amdgpu-l1-latency=128", "-o", "output.amdgcn"]
+            llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "-misched=gcn-pre-resource", "--amdgpu-post-sched-resource", "--amdgpu-disable-unclustered-high-rp-reschedule", "--amdgpu-mfma-vgpr-form=0", "--misched-prera-direction=topdown", "--misched-postra-direction=topdown", "--enable-post-misched=false", "-amdgpu-l1-hazard=true", "-amdgpu-l1-bytes=80", "-amdgpu-l1-speed=128/1", "-amdgpu-l1-latency=200", "-o", "output.amdgcn"]
+            # llc_cmd = ["llc", "-O3", "-mtriple="+amd.TARGET_TRIPLE, "-mcpu="+options.arch, "input.llir", "--amdgpu-mfma-vgpr-form=0", "-o", "output.amdgcn"]
             subprocess.check_call(llc_cmd, stdout=subprocess.DEVNULL, cwd=tmpdir)
             output_path = os.path.join(tmpdir, "output.amdgcn")
             with open(output_path, "r") as fout:
