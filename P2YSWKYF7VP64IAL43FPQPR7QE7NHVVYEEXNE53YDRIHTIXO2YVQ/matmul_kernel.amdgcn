@@ -1,0 +1,3268 @@
+	.amdgcn_target "amdgcn-amd-amdhsa--gfx950"
+	.amdhsa_code_object_version 5
+	.text
+	.globl	matmul_kernel                   ; -- Begin function matmul_kernel
+	.p2align	8
+	.type	matmul_kernel,@function
+matmul_kernel:                          ; @matmul_kernel
+.Lfunc_begin0:
+	.cfi_sections .debug_frame
+	.cfi_startproc
+; %bb.3:
+	.file	1 "/root/development/aiter-01/aiter/ops/triton/gluon/tutorials" "matmul_gluon_gfx950_256x256x64_2stage_scheduling.py"
+	.loc	1 16 0 prologue_end             ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:16:0
+	s_load_dwordx2 s[2:3], s[0:1], 0x0
+	s_load_dwordx8 s[4:11], s[0:1], 0x8
+	s_load_dwordx4 s[12:15], s[0:1], 0x28
+	s_waitcnt lgkmcnt(0)
+	s_branch .LBB0_0
+	.loc	1 0 0 is_stmt 0                 ; :0:0
+.Ltmp0:
+	.p2align	8
+; %bb.4:
+.LBB0_0:                                ; %.lr.ph.preheader
+	s_mov_b64 s[0:1], s[2:3]
+	s_mov_b64 s[36:37], s[6:7]
+.Ltmp1:
+	.file	2 "/root/development/triton/python/triton/language" "standard.py"
+	.loc	2 43 13 is_stmt 1               ; standard.py:43:13 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:33:17 ]
+	s_add_i32 s2, s9, 0xff
+	.loc	2 43 12 is_stmt 0               ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:33:17 ]
+	s_ashr_i32 s3, s2, 31
+	s_lshr_b32 s3, s3, 24
+	s_add_i32 s2, s2, s3
+	s_ashr_i32 s3, s2, 8
+.Ltmp2:
+	.file	3 "/root/development/aiter/aiter/ops/triton/utils/_triton" "pid_preprocessing.py"
+	.loc	3 72 28 is_stmt 1               ; pid_preprocessing.py:72:28 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_lshl_b32 s3, s3, 2
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_abs_i32 s6, s3
+	v_cvt_f32_u32_e32 v1, s6
+.Ltmp3:
+	.loc	3 40 17                         ; pid_preprocessing.py:40:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:31:11 ]
+	s_ashr_i32 s7, s16, 31
+	s_lshr_b32 s7, s7, 29
+	s_add_i32 s7, s16, s7
+.Ltmp4:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_rcp_iflag_f32_e32 v1, v1
+.Ltmp5:
+	.loc	3 40 17                         ; pid_preprocessing.py:40:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:31:11 ]
+	s_ashr_i32 s7, s7, 3
+.Ltmp6:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_sub_i32 s14, 0, s6
+.Ltmp7:
+	.loc	3 46 15                         ; pid_preprocessing.py:46:15 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:31:11 ]
+	s_lshl_b32 s15, s16, 5
+.Ltmp8:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_mul_f32_e32 v1, 0x4f7ffffe, v1
+	v_cvt_u32_f32_e32 v1, v1
+.Ltmp9:
+	.loc	3 46 15                         ; pid_preprocessing.py:46:15 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:31:11 ]
+	s_mulk_i32 s7, 0xff01
+	s_add_i32 s7, s7, s15
+.Ltmp10:
+	.loc	2 43 13                         ; standard.py:43:13 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:32:17 ]
+	s_add_i32 s15, s8, 0xff
+.Ltmp11:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_readfirstlane_b32 s16, v1
+	s_mul_i32 s14, s14, s16
+	s_mul_hi_u32 s14, s16, s14
+	s_abs_i32 s17, s7
+	s_add_i32 s16, s16, s14
+.Ltmp12:
+	.loc	2 43 12                         ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:32:17 ]
+	s_ashr_i32 s14, s15, 31
+.Ltmp13:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_mul_hi_u32 s16, s17, s16
+.Ltmp14:
+	.loc	2 43 12                         ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:32:17 ]
+	s_lshr_b32 s14, s14, 24
+.Ltmp15:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_mul_i32 s18, s16, s6
+.Ltmp16:
+	.loc	1 167 38                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:38
+	v_readfirstlane_b32 s20, v0
+.Ltmp17:
+	.loc	2 43 12                         ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:32:17 ]
+	s_add_i32 s15, s15, s14
+.Ltmp18:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_ashr_i32 s19, s7, 31
+	s_ashr_i32 s2, s2, 31
+	s_sub_i32 s21, s17, s18
+.Ltmp19:
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	s_lshr_b32 s14, s20, 6
+	s_bfe_u32 s18, s20, 0x20006
+.Ltmp20:
+	.loc	2 43 12                         ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:32:17 ]
+	s_ashr_i32 s15, s15, 8
+.Ltmp21:
+	.loc	3 73 20                         ; pid_preprocessing.py:73:20 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_xor_b32 s2, s19, s2
+	s_add_i32 s22, s16, 1
+	s_sub_i32 s23, s21, s6
+	s_cmp_ge_u32 s21, s6
+	s_cselect_b32 s16, s22, s16
+	s_cselect_b32 s21, s23, s21
+	s_add_i32 s22, s16, 1
+	s_cmp_ge_u32 s21, s6
+	s_cselect_b32 s6, s22, s16
+	s_xor_b32 s6, s6, s2
+	s_sub_i32 s2, s6, s2
+	.loc	3 74 23                         ; pid_preprocessing.py:74:23 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_lshl_b32 s6, s2, 2
+	.loc	3 75 28                         ; pid_preprocessing.py:75:28 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_sub_i32 s15, s15, s6
+	.loc	3 75 24 is_stmt 0               ; pid_preprocessing.py:75:24 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_min_u32 s15, s15, 4
+	.loc	3 77 32 is_stmt 1               ; pid_preprocessing.py:77:32 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_cvt_f32_ubyte0_e32 v1, s15
+	v_rcp_iflag_f32_e32 v1, v1
+	s_sub_i32 s16, 0, s15
+	.loc	3 78 18                         ; pid_preprocessing.py:78:18 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_mul_i32 s2, s2, s3
+.Ltmp22:
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_lshlrev_b32_e32 v2, 1, v0
+.Ltmp23:
+	.loc	3 77 32                         ; pid_preprocessing.py:77:32 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_mul_f32_e32 v1, 0x4f7ffffe, v1
+	v_cvt_u32_f32_e32 v1, v1
+.Ltmp24:
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_and_b32_e32 v2, 0x70, v2
+	v_or_b32_e32 v7, s18, v2
+	.loc	1 107 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:107:15
+	v_lshlrev_b32_e32 v2, 3, v0
+.Ltmp25:
+	.loc	3 77 32                         ; pid_preprocessing.py:77:32 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	v_readfirstlane_b32 s3, v1
+	s_mul_i32 s16, s16, s3
+	s_mul_hi_u32 s16, s3, s16
+	s_add_i32 s3, s3, s16
+	s_mul_hi_u32 s16, s17, s3
+	s_mul_i32 s16, s16, s15
+	s_sub_i32 s16, s17, s16
+	s_sub_i32 s17, s16, s15
+	s_cmp_ge_u32 s16, s15
+	s_cselect_b32 s16, s17, s16
+	s_sub_i32 s17, s16, s15
+	s_cmp_ge_u32 s16, s15
+	s_cselect_b32 s16, s17, s16
+	.loc	3 78 18                         ; pid_preprocessing.py:78:18 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_sub_i32 s2, s7, s2
+	.loc	3 78 17 is_stmt 0               ; pid_preprocessing.py:78:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_abs_i32 s7, s2
+	s_mul_hi_u32 s3, s7, s3
+	.loc	3 77 32 is_stmt 1               ; pid_preprocessing.py:77:32 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_xor_b32 s16, s16, s19
+	.loc	3 78 17                         ; pid_preprocessing.py:78:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_mul_i32 s17, s3, s15
+	.loc	3 77 32                         ; pid_preprocessing.py:77:32 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_sub_i32 s16, s16, s19
+	.loc	3 78 17                         ; pid_preprocessing.py:78:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_sub_i32 s7, s7, s17
+	.loc	3 77 17                         ; pid_preprocessing.py:77:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_add_i32 s16, s16, s6
+	.loc	3 78 17                         ; pid_preprocessing.py:78:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_ashr_i32 s21, s2, 31
+	s_add_i32 s2, s3, 1
+	s_sub_i32 s6, s7, s15
+	s_cmp_ge_u32 s7, s15
+	s_cselect_b32 s2, s2, s3
+	s_cselect_b32 s3, s6, s7
+	s_add_i32 s6, s2, 1
+	s_cmp_ge_u32 s3, s15
+	s_cselect_b32 s24, s6, s2
+.Ltmp26:
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	s_abs_i32 s6, s8
+	v_cvt_f32_u32_e32 v1, s6
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	s_lshl_b32 s15, s16, 8
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	s_sub_i32 s2, 0, s6
+	.loc	1 105 16                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v3, s15, v7
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_rcp_iflag_f32_e32 v1, v1
+	s_bfe_i32 s7, s16, 0x10017
+	v_add_u32_e32 v3, s7, v3
+	v_xor_b32_e32 v3, s7, v3
+	v_mul_f32_e32 v1, 0x4f7ffffe, v1
+	v_cvt_u32_f32_e32 v1, v1
+	.loc	1 107 15 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:107:15
+	v_and_b32_e32 v6, 56, v2
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_mul_i32 s16, s18, 0x420
+	s_add_i32 s19, s16, 0
+	s_mov_b32 m0, s19
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_mul_lo_u32 v2, s2, v1
+	v_mul_hi_u32 v2, v1, v2
+	v_add_u32_e32 v1, v1, v2
+	v_mul_hi_u32 v2, v3, v1
+	v_mul_lo_u32 v2, v2, s6
+	v_sub_u32_e32 v2, v3, v2
+	v_subrev_u32_e32 v3, s6, v2
+	v_cmp_le_u32_e32 vcc, s6, v2
+	s_nop 1
+	v_cndmask_b32_e32 v2, v2, v3, vcc
+	v_subrev_u32_e32 v3, s6, v2
+	v_cmp_le_u32_e32 vcc, s6, v2
+	s_nop 1
+	v_cndmask_b32_e32 v2, v2, v3, vcc
+	v_xor_b32_e32 v2, s7, v2
+	v_subrev_u32_e32 v2, s7, v2
+	.loc	1 109 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[2:3], s[2:3], v2, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_and_b32 s1, s1, 0xffff
+	s_mov_b32 s3, 0x27000
+	s_mov_b32 s2, 0x7ffffffe
+	v_lshlrev_b32_e32 v3, 1, v2
+	s_nop 0
+	buffer_load_dwordx4 v3, s[0:3], 0 offen lds
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_or_b32_e32 v16, 4, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v4, s15, v16
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v4, s7, v4
+	v_xor_b32_e32 v4, s7, v4
+	v_mul_hi_u32 v5, v4, v1
+	v_mul_lo_u32 v5, v5, s6
+	v_sub_u32_e32 v4, v4, v5
+	v_subrev_u32_e32 v5, s6, v4
+	v_cmp_le_u32_e32 vcc, s6, v4
+	s_nop 1
+	v_cndmask_b32_e32 v4, v4, v5, vcc
+	v_subrev_u32_e32 v5, s6, v4
+	v_cmp_le_u32_e32 vcc, s6, v4
+	s_nop 1
+	v_cndmask_b32_e32 v4, v4, v5, vcc
+	v_xor_b32_e32 v4, s7, v4
+	v_subrev_u32_e32 v4, s7, v4
+	.loc	1 109 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[4:5], s[22:23], v4, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x1080
+	v_lshlrev_b32_e32 v5, 1, v4
+	buffer_load_dwordx4 v5, s[0:3], 0 offen lds
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_or_b32_e32 v17, 8, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v8, s15, v17
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v8, s7, v8
+	v_xor_b32_e32 v8, s7, v8
+	v_mul_hi_u32 v9, v8, v1
+	v_mul_lo_u32 v9, v9, s6
+	v_sub_u32_e32 v8, v8, v9
+	v_subrev_u32_e32 v9, s6, v8
+	v_cmp_le_u32_e32 vcc, s6, v8
+	s_nop 1
+	v_cndmask_b32_e32 v8, v8, v9, vcc
+	v_subrev_u32_e32 v9, s6, v8
+	v_cmp_le_u32_e32 vcc, s6, v8
+	s_nop 1
+	v_cndmask_b32_e32 v8, v8, v9, vcc
+	v_xor_b32_e32 v8, s7, v8
+	v_subrev_u32_e32 v8, s7, v8
+	.loc	1 109 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[8:9], s[22:23], v8, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x2100
+	v_lshlrev_b32_e32 v9, 1, v8
+	buffer_load_dwordx4 v9, s[0:3], 0 offen lds
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_or_b32_e32 v18, 12, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v10, s15, v18
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v10, s7, v10
+	v_xor_b32_e32 v10, s7, v10
+	v_mul_hi_u32 v11, v10, v1
+	v_mul_lo_u32 v11, v11, s6
+	v_sub_u32_e32 v10, v10, v11
+	v_subrev_u32_e32 v11, s6, v10
+	v_cmp_le_u32_e32 vcc, s6, v10
+	s_nop 1
+	v_cndmask_b32_e32 v10, v10, v11, vcc
+	v_subrev_u32_e32 v11, s6, v10
+	v_cmp_le_u32_e32 vcc, s6, v10
+	s_nop 1
+	v_cndmask_b32_e32 v10, v10, v11, vcc
+	v_xor_b32_e32 v10, s7, v10
+	v_subrev_u32_e32 v10, s7, v10
+	.loc	1 109 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[10:11], s[22:23], v10, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x3180
+	v_lshlrev_b32_e32 v11, 1, v10
+	buffer_load_dwordx4 v11, s[0:3], 0 offen lds
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_or_b32_e32 v19, 0x80, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v12, s15, v19
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v12, s7, v12
+	v_xor_b32_e32 v12, s7, v12
+	v_mul_hi_u32 v13, v12, v1
+	v_mul_lo_u32 v13, v13, s6
+	v_sub_u32_e32 v12, v12, v13
+	v_subrev_u32_e32 v13, s6, v12
+	v_cmp_le_u32_e32 vcc, s6, v12
+	s_nop 1
+	v_cndmask_b32_e32 v12, v12, v13, vcc
+	v_subrev_u32_e32 v13, s6, v12
+	v_cmp_le_u32_e32 vcc, s6, v12
+	s_nop 1
+	v_cndmask_b32_e32 v12, v12, v13, vcc
+	v_xor_b32_e32 v12, s7, v12
+	v_subrev_u32_e32 v12, s7, v12
+	.loc	1 109 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[12:13], s[22:23], v12, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x4200
+	v_lshlrev_b32_e32 v13, 1, v12
+	buffer_load_dwordx4 v13, s[0:3], 0 offen lds
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_or_b32_e32 v20, 0x84, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v14, s15, v20
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v14, s7, v14
+	v_xor_b32_e32 v14, s7, v14
+	v_mul_hi_u32 v15, v14, v1
+	v_mul_lo_u32 v15, v15, s6
+	v_sub_u32_e32 v14, v14, v15
+	v_subrev_u32_e32 v15, s6, v14
+	v_cmp_le_u32_e32 vcc, s6, v14
+	s_nop 1
+	v_cndmask_b32_e32 v14, v14, v15, vcc
+	v_subrev_u32_e32 v15, s6, v14
+	v_cmp_le_u32_e32 vcc, s6, v14
+	s_nop 1
+	v_cndmask_b32_e32 v14, v14, v15, vcc
+	v_xor_b32_e32 v14, s7, v14
+	v_subrev_u32_e32 v14, s7, v14
+	.loc	1 109 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[14:15], s[22:23], v14, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x5280
+	v_lshlrev_b32_e32 v15, 1, v14
+	s_mov_b32 s17, 0
+.Ltmp27:
+	.loc	3 78 17                         ; pid_preprocessing.py:78:17 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:34:20 ]
+	s_xor_b32 s22, s24, s21
+	s_sub_i32 s21, s22, s21
+.Ltmp28:
+	.loc	1 105 39                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:39
+	v_and_b32_e32 v21, 63, v0
+	v_lshl_or_b32 v128, s18, 6, v21
+	v_or_b32_e32 v21, 0x88, v7
+	v_or_b32_e32 v22, 0x8c, v7
+	.loc	1 105 16 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:16
+	v_or_b32_e32 v23, s15, v21
+	v_or_b32_e32 v24, s15, v22
+	.loc	1 105 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:105:15
+	v_add_u32_e32 v23, s7, v23
+	v_xor_b32_e32 v23, s7, v23
+	v_mul_hi_u32 v25, v23, v1
+	v_mul_lo_u32 v25, v25, s6
+	v_sub_u32_e32 v23, v23, v25
+	v_subrev_u32_e32 v25, s6, v23
+	v_cmp_le_u32_e32 vcc, s6, v23
+	s_nop 1
+	v_cndmask_b32_e32 v23, v23, v25, vcc
+	v_subrev_u32_e32 v25, s6, v23
+	v_cmp_le_u32_e32 vcc, s6, v23
+	s_nop 1
+	v_cndmask_b32_e32 v23, v23, v25, vcc
+	v_xor_b32_e32 v23, s7, v23
+	v_subrev_u32_e32 v23, s7, v23
+	v_add_u32_e32 v24, s7, v24
+	v_xor_b32_e32 v24, s7, v24
+	v_mul_hi_u32 v1, v24, v1
+	v_mul_lo_u32 v1, v1, s6
+	v_sub_u32_e32 v1, v24, v1
+	v_subrev_u32_e32 v24, s6, v1
+	v_cmp_le_u32_e32 vcc, s6, v1
+	s_nop 1
+	v_cndmask_b32_e32 v1, v1, v24, vcc
+	v_subrev_u32_e32 v24, s6, v1
+	v_cmp_le_u32_e32 vcc, s6, v1
+	s_nop 1
+	v_cndmask_b32_e32 v1, v1, v24, vcc
+	v_xor_b32_e32 v1, s7, v1
+	v_subrev_u32_e32 v1, s7, v1
+	.loc	1 106 16 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:16
+	s_lshl_b32 s18, s21, 8
+	v_or_b32_e32 v7, s18, v7
+	v_or_b32_e32 v16, s18, v16
+	v_or_b32_e32 v17, s18, v17
+	v_or_b32_e32 v18, s18, v18
+	v_or_b32_e32 v19, s18, v19
+	v_or_b32_e32 v20, s18, v20
+	v_or_b32_e32 v24, s18, v21
+	v_or_b32_e32 v25, s18, v22
+	.loc	1 106 15 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	s_bfe_i32 s21, s21, 0x10017
+	v_add_u32_e32 v7, s21, v7
+	v_xor_b32_e32 v7, s21, v7
+	s_abs_i32 s24, s9
+	v_cvt_f32_u32_e32 v21, s24
+	s_sub_i32 s6, 0, s24
+	v_add_u32_e32 v16, s21, v16
+	v_xor_b32_e32 v16, s21, v16
+	v_rcp_iflag_f32_e32 v21, v21
+	v_add_u32_e32 v17, s21, v17
+	v_xor_b32_e32 v17, s21, v17
+	v_add_u32_e32 v18, s21, v18
+	v_mul_f32_e32 v21, 0x4f7ffffe, v21
+	v_cvt_u32_f32_e32 v21, v21
+	v_xor_b32_e32 v18, s21, v18
+	v_add_u32_e32 v19, s21, v19
+	v_xor_b32_e32 v19, s21, v19
+	v_mul_lo_u32 v22, s6, v21
+	v_mul_hi_u32 v22, v21, v22
+	v_add_u32_e32 v26, v21, v22
+	v_mul_hi_u32 v21, v7, v26
+	v_mul_lo_u32 v21, v21, s24
+	v_sub_u32_e32 v7, v7, v21
+	v_subrev_u32_e32 v21, s24, v7
+	v_cmp_le_u32_e32 vcc, s24, v7
+	s_nop 1
+	v_cndmask_b32_e32 v7, v7, v21, vcc
+	v_subrev_u32_e32 v21, s24, v7
+	v_cmp_le_u32_e32 vcc, s24, v7
+	s_nop 1
+	v_cndmask_b32_e32 v7, v7, v21, vcc
+	v_xor_b32_e32 v7, s21, v7
+	v_subrev_u32_e32 v7, s21, v7
+	v_mul_hi_u32 v21, v16, v26
+	v_mul_lo_u32 v21, v21, s24
+	v_sub_u32_e32 v16, v16, v21
+	v_subrev_u32_e32 v21, s24, v16
+	v_cmp_le_u32_e32 vcc, s24, v16
+	s_nop 1
+	v_cndmask_b32_e32 v16, v16, v21, vcc
+	v_subrev_u32_e32 v21, s24, v16
+	v_cmp_le_u32_e32 vcc, s24, v16
+	s_nop 1
+	v_cndmask_b32_e32 v16, v16, v21, vcc
+	v_xor_b32_e32 v16, s21, v16
+	v_subrev_u32_e32 v22, s21, v16
+	v_mul_hi_u32 v16, v17, v26
+	v_mul_lo_u32 v16, v16, s24
+	v_sub_u32_e32 v16, v17, v16
+	v_subrev_u32_e32 v17, s24, v16
+	v_cmp_le_u32_e32 vcc, s24, v16
+	s_nop 1
+	v_cndmask_b32_e32 v16, v16, v17, vcc
+	v_subrev_u32_e32 v17, s24, v16
+	v_cmp_le_u32_e32 vcc, s24, v16
+	s_nop 1
+	v_cndmask_b32_e32 v16, v16, v17, vcc
+	v_xor_b32_e32 v16, s21, v16
+	v_subrev_u32_e32 v27, s21, v16
+	v_mul_hi_u32 v16, v18, v26
+	v_mul_lo_u32 v16, v16, s24
+	v_sub_u32_e32 v18, v18, v16
+	v_subrev_u32_e32 v21, s24, v18
+	.loc	1 119 5 is_stmt 1               ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	buffer_load_dwordx4 v15, s[0:3], 0 offen lds
+	.loc	1 109 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[16:17], s[6:7], v23, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x6300
+	v_lshlrev_b32_e32 v17, 1, v16
+	.loc	1 106 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	v_cmp_le_u32_e32 vcc, s24, v18
+	s_nop 1
+	v_cndmask_b32_e32 v18, v18, v21, vcc
+	v_subrev_u32_e32 v21, s24, v18
+	v_cmp_le_u32_e32 vcc, s24, v18
+	s_nop 1
+	v_cndmask_b32_e32 v18, v18, v21, vcc
+	v_xor_b32_e32 v18, s21, v18
+	v_subrev_u32_e32 v28, s21, v18
+	v_mul_hi_u32 v18, v19, v26
+	v_mul_lo_u32 v18, v18, s24
+	v_sub_u32_e32 v18, v19, v18
+	v_subrev_u32_e32 v19, s24, v18
+	v_cmp_le_u32_e32 vcc, s24, v18
+	s_nop 1
+	v_cndmask_b32_e32 v21, v18, v19, vcc
+	v_subrev_u32_e32 v23, s24, v21
+	v_cmp_le_u32_e32 vcc, s24, v21
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	buffer_load_dwordx4 v17, s[0:3], 0 offen lds
+	.loc	1 109 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:109:14
+	v_mad_u64_u32 v[18:19], s[6:7], v1, s11, v[6:7]
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	s_add_i32 m0, s19, 0x7380
+	v_lshlrev_b32_e32 v1, 1, v18
+	.loc	1 106 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	v_cndmask_b32_e32 v19, v21, v23, vcc
+	v_xor_b32_e32 v19, s21, v19
+	v_subrev_u32_e32 v19, s21, v19
+	v_add_u32_e32 v20, s21, v20
+	v_xor_b32_e32 v20, s21, v20
+	v_mul_hi_u32 v21, v20, v26
+	v_mul_lo_u32 v21, v21, s24
+	v_sub_u32_e32 v20, v20, v21
+	v_subrev_u32_e32 v21, s24, v20
+	v_cmp_le_u32_e32 vcc, s24, v20
+	s_nop 1
+	v_cndmask_b32_e32 v20, v20, v21, vcc
+	v_subrev_u32_e32 v21, s24, v20
+	v_cmp_le_u32_e32 vcc, s24, v20
+	s_nop 1
+	v_cndmask_b32_e32 v20, v20, v21, vcc
+	v_xor_b32_e32 v23, s21, v20
+	.loc	1 119 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:119:5
+	buffer_load_dwordx4 v1, s[0:3], 0 offen lds
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	s_add_i32 s25, 0, 0x107e0
+	.loc	1 110 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:110:14
+	v_mad_u64_u32 v[20:21], s[6:7], v7, s12, v[6:7]
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	s_add_i32 s11, s25, s16
+	s_mov_b32 m0, s11
+	s_and_b32 s5, s5, 0xffff
+	s_mov_b32 s6, s2
+	s_mov_b32 s7, s3
+	v_lshlrev_b32_e32 v21, 1, v20
+	.loc	1 106 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	v_subrev_u32_e32 v7, s21, v23
+	v_add_u32_e32 v23, s21, v24
+	v_xor_b32_e32 v23, s21, v23
+	v_mul_hi_u32 v24, v23, v26
+	v_mul_lo_u32 v24, v24, s24
+	v_sub_u32_e32 v23, v23, v24
+	v_subrev_u32_e32 v24, s24, v23
+	v_cmp_le_u32_e32 vcc, s24, v23
+	s_nop 1
+	v_cndmask_b32_e32 v24, v23, v24, vcc
+	v_subrev_u32_e32 v29, s24, v24
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	buffer_load_dwordx4 v21, s[4:7], 0 offen lds
+	.loc	1 110 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:110:14
+	v_mad_u64_u32 v[22:23], s[22:23], v22, s12, v[6:7]
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	s_add_i32 m0, s11, 0x1080
+	v_lshlrev_b32_e32 v23, 1, v22
+	.loc	1 106 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	v_cmp_le_u32_e32 vcc, s24, v24
+	s_nop 1
+	v_cndmask_b32_e32 v24, v24, v29, vcc
+	v_xor_b32_e32 v24, s21, v24
+	v_subrev_u32_e32 v32, s21, v24
+	v_add_u32_e32 v24, s21, v25
+	v_xor_b32_e32 v24, s21, v24
+	v_mul_hi_u32 v25, v24, v26
+	v_mul_lo_u32 v25, v25, s24
+	v_sub_u32_e32 v24, v24, v25
+	v_subrev_u32_e32 v25, s24, v24
+	v_cmp_le_u32_e32 vcc, s24, v24
+	s_nop 1
+	v_cndmask_b32_e32 v24, v24, v25, vcc
+	v_subrev_u32_e32 v25, s24, v24
+	v_cmp_le_u32_e32 vcc, s24, v24
+	s_nop 1
+	v_cndmask_b32_e32 v26, v24, v25, vcc
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	buffer_load_dwordx4 v23, s[4:7], 0 offen lds
+	.loc	1 110 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:110:14
+	v_mad_u64_u32 v[24:25], s[22:23], v27, s12, v[6:7]
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	s_add_i32 m0, s11, 0x2100
+	v_lshlrev_b32_e32 v25, 1, v24
+	.loc	1 106 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:106:15
+	v_xor_b32_e32 v26, s21, v26
+	v_subrev_u32_e32 v34, s21, v26
+	.loc	1 110 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:110:14
+	v_mad_u64_u32 v[26:27], s[22:23], v28, s12, v[6:7]
+	v_mad_u64_u32 v[28:29], s[22:23], v19, s12, v[6:7]
+	v_mad_u64_u32 v[30:31], s[22:23], v7, s12, v[6:7]
+	v_mad_u64_u32 v[32:33], s[22:23], v32, s12, v[6:7]
+	v_mad_u64_u32 v[6:7], s[22:23], v34, s12, v[6:7]
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	v_lshlrev_b32_e32 v7, 1, v26
+	v_lshlrev_b32_e32 v19, 1, v28
+	v_lshlrev_b32_e32 v27, 1, v30
+	v_lshlrev_b32_e32 v29, 1, v32
+	v_lshlrev_b32_e32 v31, 1, v6
+	.loc	1 124 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:124:5
+	v_add_u32_e32 v3, 0x80, v3
+	v_add_u32_e32 v5, 0x80, v5
+	v_add_u32_e32 v9, 0x80, v9
+	v_add_u32_e32 v11, 0x80, v11
+	v_add_u32_e32 v13, 0x80, v13
+	v_add_u32_e32 v15, 0x80, v15
+	v_add_u32_e32 v17, 0x80, v17
+	v_add_u32_e32 v1, 0x80, v1
+	.loc	1 125 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:125:5
+	v_add_u32_e32 v21, 0x80, v21
+	v_add_u32_e32 v23, 0x80, v23
+	v_add_u32_e32 v33, 0x80, v25
+	v_add_u32_e32 v34, 0x80, v7
+	v_add_u32_e32 v35, 0x80, v19
+	v_add_u32_e32 v36, 0x80, v27
+	v_add_u32_e32 v37, 0x80, v29
+	v_add_u32_e32 v38, 0x80, v31
+	.loc	1 132 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:132:13
+	v_and_b32_e32 v129, 15, v0
+	v_lshlrev_b32_e32 v39, 10, v129
+	s_movk_i32 s12, 0xb0
+	v_and_or_b32 v40, v128, s12, v39
+	v_lshlrev_b32_e32 v41, 5, v129
+	v_add_u32_e32 v130, v40, v41
+	v_add_u32_e32 v40, 0, v130
+	.loc	1 133 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:133:13
+	v_and_b32_e32 v0, 48, v0
+	s_lshl_b32 s12, s20, 1
+	s_and_b32 s12, s12, 0x80
+	v_or3_b32 v0, v0, s12, v39
+	v_add_u32_e32 v131, v0, v41
+	v_add_u32_e32 v39, s25, v131
+.Ltmp29:
+	.loc	2 43 13                         ; standard.py:43:13 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:114:18 ]
+	s_add_i32 s10, s10, 63
+	.loc	2 43 12 is_stmt 0               ; standard.py:43:12 @[ matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:114:18 ]
+	s_lshr_b32 s10, s10, 6
+.Ltmp30:
+	.loc	1 128 5 is_stmt 1               ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:128:5
+	v_add_u32_e32 v132, 0x80, v6
+	v_add_u32_e32 v133, 0x80, v32
+	v_add_u32_e32 v134, 0x80, v30
+	v_add_u32_e32 v135, 0x80, v28
+	v_add_u32_e32 v136, 0x80, v26
+	v_add_u32_e32 v137, 0x80, v24
+	v_add_u32_e32 v138, 0x80, v22
+	v_add_u32_e32 v139, 0x80, v20
+	.loc	1 127 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:127:5
+	v_add_u32_e32 v140, 0x80, v18
+	v_add_u32_e32 v141, 0x80, v16
+	v_add_u32_e32 v142, 0x80, v14
+	v_add_u32_e32 v143, 0x80, v12
+	v_add_u32_e32 v144, 0x80, v10
+	v_add_u32_e32 v145, 0x80, v8
+	v_add_u32_e32 v146, 0x80, v4
+	v_add_u32_e32 v147, 0x80, v2
+	v_sub_u32_e64 v148, s10, 3 clamp
+	v_mov_b32_e32 v0, 0
+	s_mov_b32 s10, 0
+	v_accvgpr_write_b32 a252, v0
+	v_accvgpr_write_b32 a253, v0
+	v_accvgpr_write_b32 a254, v0
+	v_accvgpr_write_b32 a255, v0
+	v_accvgpr_write_b32 a248, v0
+	v_accvgpr_write_b32 a249, v0
+	v_accvgpr_write_b32 a250, v0
+	v_accvgpr_write_b32 a251, v0
+	v_accvgpr_write_b32 a244, v0
+	v_accvgpr_write_b32 a245, v0
+	v_accvgpr_write_b32 a246, v0
+	v_accvgpr_write_b32 a247, v0
+	v_accvgpr_write_b32 a232, v0
+	v_accvgpr_write_b32 a233, v0
+	v_accvgpr_write_b32 a234, v0
+	v_accvgpr_write_b32 a235, v0
+	v_accvgpr_write_b32 a228, v0
+	v_accvgpr_write_b32 a229, v0
+	v_accvgpr_write_b32 a230, v0
+	v_accvgpr_write_b32 a231, v0
+	v_accvgpr_write_b32 a224, v0
+	v_accvgpr_write_b32 a225, v0
+	v_accvgpr_write_b32 a226, v0
+	v_accvgpr_write_b32 a227, v0
+	v_accvgpr_write_b32 a212, v0
+	v_accvgpr_write_b32 a213, v0
+	v_accvgpr_write_b32 a214, v0
+	v_accvgpr_write_b32 a215, v0
+	v_accvgpr_write_b32 a204, v0
+	v_accvgpr_write_b32 a205, v0
+	v_accvgpr_write_b32 a206, v0
+	v_accvgpr_write_b32 a207, v0
+	v_accvgpr_write_b32 a220, v0
+	v_accvgpr_write_b32 a221, v0
+	v_accvgpr_write_b32 a222, v0
+	v_accvgpr_write_b32 a223, v0
+	v_accvgpr_write_b32 a196, v0
+	v_accvgpr_write_b32 a197, v0
+	v_accvgpr_write_b32 a198, v0
+	v_accvgpr_write_b32 a199, v0
+	v_accvgpr_write_b32 a208, v0
+	v_accvgpr_write_b32 a209, v0
+	v_accvgpr_write_b32 a210, v0
+	v_accvgpr_write_b32 a211, v0
+	v_accvgpr_write_b32 a200, v0
+	v_accvgpr_write_b32 a201, v0
+	v_accvgpr_write_b32 a202, v0
+	v_accvgpr_write_b32 a203, v0
+	v_accvgpr_write_b32 a188, v0
+	.loc	1 120 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:120:5
+	buffer_load_dwordx4 v25, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x3180
+	v_accvgpr_write_b32 a189, v0
+	v_accvgpr_write_b32 a190, v0
+	v_accvgpr_write_b32 a191, v0
+	v_accvgpr_write_b32 a240, v0
+	v_accvgpr_write_b32 a241, v0
+	v_accvgpr_write_b32 a242, v0
+	v_accvgpr_write_b32 a243, v0
+	v_accvgpr_write_b32 a176, v0
+	v_accvgpr_write_b32 a177, v0
+	v_accvgpr_write_b32 a178, v0
+	v_accvgpr_write_b32 a179, v0
+	v_accvgpr_write_b32 a172, v0
+	v_accvgpr_write_b32 a173, v0
+	v_accvgpr_write_b32 a174, v0
+	v_accvgpr_write_b32 a175, v0
+	v_accvgpr_write_b32 a236, v0
+	v_accvgpr_write_b32 a237, v0
+	v_accvgpr_write_b32 a238, v0
+	buffer_load_dwordx4 v7, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x4200
+	v_accvgpr_write_b32 a239, v0
+	v_accvgpr_write_b32 a164, v0
+	v_accvgpr_write_b32 a165, v0
+	v_accvgpr_write_b32 a166, v0
+	v_accvgpr_write_b32 a167, v0
+	v_accvgpr_write_b32 a216, v0
+	v_accvgpr_write_b32 a217, v0
+	v_accvgpr_write_b32 a218, v0
+	v_accvgpr_write_b32 a219, v0
+	v_accvgpr_write_b32 a192, v0
+	v_accvgpr_write_b32 a193, v0
+	v_accvgpr_write_b32 a194, v0
+	v_accvgpr_write_b32 a195, v0
+	v_accvgpr_write_b32 a184, v0
+	v_accvgpr_write_b32 a185, v0
+	v_accvgpr_write_b32 a186, v0
+	v_accvgpr_write_b32 a187, v0
+	v_accvgpr_write_b32 a180, v0
+	buffer_load_dwordx4 v19, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x5280
+	v_accvgpr_write_b32 a181, v0
+	v_accvgpr_write_b32 a182, v0
+	v_accvgpr_write_b32 a183, v0
+	v_accvgpr_write_b32 a168, v0
+	v_accvgpr_write_b32 a169, v0
+	v_accvgpr_write_b32 a170, v0
+	v_accvgpr_write_b32 a171, v0
+	v_accvgpr_write_b32 a156, v0
+	v_accvgpr_write_b32 a157, v0
+	v_accvgpr_write_b32 a158, v0
+	v_accvgpr_write_b32 a159, v0
+	v_accvgpr_write_b32 a160, v0
+	v_accvgpr_write_b32 a161, v0
+	v_accvgpr_write_b32 a162, v0
+	v_accvgpr_write_b32 a163, v0
+	v_accvgpr_write_b32 a152, v0
+	v_accvgpr_write_b32 a153, v0
+	v_accvgpr_write_b32 a154, v0
+	buffer_load_dwordx4 v27, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x6300
+	v_accvgpr_write_b32 a155, v0
+	v_accvgpr_write_b32 a148, v0
+	v_accvgpr_write_b32 a149, v0
+	v_accvgpr_write_b32 a150, v0
+	v_accvgpr_write_b32 a151, v0
+	v_accvgpr_write_b32 a144, v0
+	v_accvgpr_write_b32 a145, v0
+	v_accvgpr_write_b32 a146, v0
+	v_accvgpr_write_b32 a147, v0
+	v_accvgpr_write_b32 a140, v0
+	v_accvgpr_write_b32 a141, v0
+	v_accvgpr_write_b32 a142, v0
+	v_accvgpr_write_b32 a143, v0
+	v_accvgpr_write_b32 a136, v0
+	v_accvgpr_write_b32 a137, v0
+	v_accvgpr_write_b32 a138, v0
+	v_accvgpr_write_b32 a139, v0
+	v_accvgpr_write_b32 a132, v0
+	buffer_load_dwordx4 v29, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x7380
+	v_accvgpr_write_b32 a133, v0
+	v_accvgpr_write_b32 a134, v0
+	v_accvgpr_write_b32 a135, v0
+	v_accvgpr_write_b32 a128, v0
+	v_accvgpr_write_b32 a129, v0
+	v_accvgpr_write_b32 a130, v0
+	v_accvgpr_write_b32 a131, v0
+	v_accvgpr_write_b32 a124, v0
+	v_accvgpr_write_b32 a125, v0
+	v_accvgpr_write_b32 a126, v0
+	v_accvgpr_write_b32 a127, v0
+	v_accvgpr_write_b32 a120, v0
+	v_accvgpr_write_b32 a121, v0
+	v_accvgpr_write_b32 a122, v0
+	v_accvgpr_write_b32 a123, v0
+	v_accvgpr_write_b32 a116, v0
+	v_accvgpr_write_b32 a117, v0
+	v_accvgpr_write_b32 a118, v0
+	v_accvgpr_write_b32 a119, v0
+	v_accvgpr_write_b32 a112, v0
+	v_accvgpr_write_b32 a113, v0
+	v_accvgpr_write_b32 a114, v0
+	v_accvgpr_write_b32 a115, v0
+	v_accvgpr_write_b32 a108, v0
+	v_accvgpr_write_b32 a109, v0
+	v_accvgpr_write_b32 a110, v0
+	v_accvgpr_write_b32 a111, v0
+	v_accvgpr_write_b32 a104, v0
+	v_accvgpr_write_b32 a105, v0
+	v_accvgpr_write_b32 a106, v0
+	v_accvgpr_write_b32 a107, v0
+	v_accvgpr_write_b32 a100, v0
+	v_accvgpr_write_b32 a101, v0
+	v_accvgpr_write_b32 a102, v0
+	v_accvgpr_write_b32 a103, v0
+	v_accvgpr_write_b32 a96, v0
+	v_accvgpr_write_b32 a97, v0
+	v_accvgpr_write_b32 a98, v0
+	v_accvgpr_write_b32 a99, v0
+	v_accvgpr_write_b32 a92, v0
+	v_accvgpr_write_b32 a93, v0
+	v_accvgpr_write_b32 a94, v0
+	v_accvgpr_write_b32 a95, v0
+	v_accvgpr_write_b32 a88, v0
+	v_accvgpr_write_b32 a89, v0
+	v_accvgpr_write_b32 a90, v0
+	v_accvgpr_write_b32 a91, v0
+	v_accvgpr_write_b32 a84, v0
+	v_accvgpr_write_b32 a85, v0
+	v_accvgpr_write_b32 a86, v0
+	v_accvgpr_write_b32 a87, v0
+	v_accvgpr_write_b32 a80, v0
+	v_accvgpr_write_b32 a81, v0
+	v_accvgpr_write_b32 a82, v0
+	v_accvgpr_write_b32 a83, v0
+	v_accvgpr_write_b32 a76, v0
+	v_accvgpr_write_b32 a77, v0
+	v_accvgpr_write_b32 a78, v0
+	v_accvgpr_write_b32 a79, v0
+	v_accvgpr_write_b32 a72, v0
+	v_accvgpr_write_b32 a73, v0
+	v_accvgpr_write_b32 a74, v0
+	v_accvgpr_write_b32 a75, v0
+	v_accvgpr_write_b32 a68, v0
+	v_accvgpr_write_b32 a69, v0
+	v_accvgpr_write_b32 a70, v0
+	v_accvgpr_write_b32 a71, v0
+	v_accvgpr_write_b32 a64, v0
+	v_accvgpr_write_b32 a65, v0
+	v_accvgpr_write_b32 a66, v0
+	v_accvgpr_write_b32 a67, v0
+	v_accvgpr_write_b32 a60, v0
+	v_accvgpr_write_b32 a61, v0
+	v_accvgpr_write_b32 a62, v0
+	v_accvgpr_write_b32 a63, v0
+	v_accvgpr_write_b32 a56, v0
+	v_accvgpr_write_b32 a57, v0
+	v_accvgpr_write_b32 a58, v0
+	v_accvgpr_write_b32 a59, v0
+	v_accvgpr_write_b32 a52, v0
+	v_accvgpr_write_b32 a53, v0
+	v_accvgpr_write_b32 a54, v0
+	v_accvgpr_write_b32 a55, v0
+	v_accvgpr_write_b32 a48, v0
+	v_accvgpr_write_b32 a49, v0
+	v_accvgpr_write_b32 a50, v0
+	v_accvgpr_write_b32 a51, v0
+	v_accvgpr_write_b32 a44, v0
+	v_accvgpr_write_b32 a45, v0
+	v_accvgpr_write_b32 a46, v0
+	v_accvgpr_write_b32 a47, v0
+	v_accvgpr_write_b32 a40, v0
+	v_accvgpr_write_b32 a41, v0
+	v_accvgpr_write_b32 a42, v0
+	v_accvgpr_write_b32 a43, v0
+	v_accvgpr_write_b32 a36, v0
+	v_accvgpr_write_b32 a37, v0
+	v_accvgpr_write_b32 a38, v0
+	v_accvgpr_write_b32 a39, v0
+	v_accvgpr_write_b32 a32, v0
+	v_accvgpr_write_b32 a33, v0
+	v_accvgpr_write_b32 a34, v0
+	v_accvgpr_write_b32 a35, v0
+	v_accvgpr_write_b32 a28, v0
+	v_accvgpr_write_b32 a29, v0
+	v_accvgpr_write_b32 a30, v0
+	v_accvgpr_write_b32 a31, v0
+	v_accvgpr_write_b32 a20, v0
+	v_accvgpr_write_b32 a21, v0
+	v_accvgpr_write_b32 a22, v0
+	v_accvgpr_write_b32 a23, v0
+	v_accvgpr_write_b32 a12, v0
+	v_accvgpr_write_b32 a13, v0
+	v_accvgpr_write_b32 a14, v0
+	v_accvgpr_write_b32 a15, v0
+	v_accvgpr_write_b32 a4, v0
+	v_accvgpr_write_b32 a5, v0
+	v_accvgpr_write_b32 a6, v0
+	v_accvgpr_write_b32 a7, v0
+	buffer_load_dwordx4 v31, s[4:7], 0 offen lds
+	.loc	1 124 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:124:5
+	s_add_i32 m0, s11, 0xffff7c20
+	s_waitcnt lgkmcnt(0)
+	s_barrier
+	v_accvgpr_write_b32 a24, v0
+	v_accvgpr_write_b32 a25, v0
+	v_accvgpr_write_b32 a26, v0
+	v_accvgpr_write_b32 a27, v0
+	v_accvgpr_write_b32 a16, v0
+	v_accvgpr_write_b32 a17, v0
+	v_accvgpr_write_b32 a18, v0
+	v_accvgpr_write_b32 a19, v0
+	v_accvgpr_write_b32 a8, v0
+	v_accvgpr_write_b32 a9, v0
+	v_accvgpr_write_b32 a10, v0
+	v_accvgpr_write_b32 a11, v0
+	v_accvgpr_write_b32 a0, v0
+	v_accvgpr_write_b32 a1, v0
+	v_accvgpr_write_b32 a2, v0
+	v_accvgpr_write_b32 a3, v0
+	buffer_load_dwordx4 v3, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffff8ca0
+	s_nop 0
+	buffer_load_dwordx4 v5, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffff9d20
+	s_nop 0
+	buffer_load_dwordx4 v9, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffffada0
+	s_nop 0
+	buffer_load_dwordx4 v11, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffffbe20
+	s_nop 0
+	buffer_load_dwordx4 v13, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffffcea0
+	s_nop 0
+	buffer_load_dwordx4 v15, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffffdf20
+	s_nop 0
+	buffer_load_dwordx4 v17, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0xffffefa0
+	s_nop 0
+	buffer_load_dwordx4 v1, s[0:3], 0 offen lds
+	.loc	1 125 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:125:5
+	s_add_i32 m0, s19, 0x18be0
+	s_nop 0
+	buffer_load_dwordx4 v21, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x19c60
+	s_nop 0
+	buffer_load_dwordx4 v23, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1ace0
+	s_nop 0
+	buffer_load_dwordx4 v33, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1bd60
+	s_nop 0
+	buffer_load_dwordx4 v34, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1cde0
+	s_nop 0
+	buffer_load_dwordx4 v35, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1de60
+	s_nop 0
+	buffer_load_dwordx4 v36, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1eee0
+	s_nop 0
+	buffer_load_dwordx4 v37, s[4:7], 0 offen lds
+	s_add_i32 m0, s19, 0x1ff60
+	s_nop 0
+	buffer_load_dwordx4 v38, s[4:7], 0 offen lds
+	.loc	1 129 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:129:5
+	s_waitcnt vmcnt(16) lgkmcnt(0)
+	s_barrier
+	.loc	1 132 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:132:13
+	ds_read_b128 v[124:127], v40
+	ds_read_b128 v[120:123], v40 offset:64
+	ds_read_b128 v[116:119], v40 offset:256
+	ds_read_b128 v[112:115], v40 offset:320
+	ds_read_b128 v[108:111], v40 offset:512
+	ds_read_b128 v[104:107], v40 offset:576
+	ds_read_b128 v[100:103], v40 offset:768
+	ds_read_b128 v[96:99], v40 offset:832
+	ds_read_b128 v[72:75], v40 offset:16896
+	ds_read_b128 v[68:71], v40 offset:16960
+	ds_read_b128 v[48:51], v40 offset:17152
+	ds_read_b128 v[44:47], v40 offset:17216
+	ds_read_b128 v[28:31], v40 offset:17408
+	ds_read_b128 v[20:23], v40 offset:17472
+	ds_read_b128 v[4:7], v40 offset:17664
+	ds_read_b128 v[0:3], v40 offset:17728
+	.loc	1 133 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:133:13
+	ds_read_b128 v[64:67], v39
+	ds_read_b128 v[60:63], v39 offset:64
+	ds_read_b128 v[32:35], v39 offset:256
+	ds_read_b128 v[24:27], v39 offset:320
+	ds_read_b128 v[56:59], v39 offset:512
+	ds_read_b128 v[52:55], v39 offset:576
+	ds_read_b128 v[88:91], v39 offset:768
+	ds_read_b128 v[84:87], v39 offset:832
+	ds_read_b128 v[80:83], v39 offset:16896
+	ds_read_b128 v[76:79], v39 offset:16960
+	ds_read_b128 v[92:95], v39 offset:17152
+	ds_read_b128 v[16:19], v39 offset:17216
+	ds_read_b128 v[12:15], v39 offset:17408
+	ds_read_b128 v[8:11], v39 offset:17472
+	ds_read_b128 v[40:43], v39 offset:17664
+	ds_read_b128 v[36:39], v39 offset:17728
+	.loc	1 136 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:136:5
+	s_waitcnt vmcnt(0) lgkmcnt(0)
+	s_barrier
+	.loc	1 0 5 is_stmt 0                 ; :0:5
+.Ltmp31:
+	.p2align	5, , 4
+.LBB0_1:                                ; %.lr.ph
+                                        ; =>This Inner Loop Header: Depth=1
+	.loc	1 139 55 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:139:55
+	s_mul_i32 s6, s10, 0x8400
+	s_add_i32 s11, s6, 0
+	.loc	1 139 9 is_stmt 0               ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:139:9
+	s_add_i32 s11, s11, s16
+	s_mov_b32 m0, s11
+	v_lshlrev_b32_e32 v149, 1, v147
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x1080
+	v_lshlrev_b32_e32 v149, 1, v146
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x2100
+	v_lshlrev_b32_e32 v149, 1, v145
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x3180
+	v_lshlrev_b32_e32 v149, 1, v144
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x4200
+	v_lshlrev_b32_e32 v149, 1, v143
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x5280
+	v_lshlrev_b32_e32 v149, 1, v142
+	v_lshlrev_b32_e32 v150, 1, v141
+	v_lshlrev_b32_e32 v151, 1, v140
+	.loc	1 140 9 is_stmt 1               ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	v_lshlrev_b32_e32 v152, 1, v139
+	s_mov_b32 s6, s2
+	s_mov_b32 s7, s3
+	v_lshlrev_b32_e32 v153, 1, v138
+	v_lshlrev_b32_e32 v154, 1, v137
+	v_lshlrev_b32_e32 v155, 1, v136
+	v_lshlrev_b32_e32 v156, 1, v135
+	v_lshlrev_b32_e32 v157, 1, v134
+	v_lshlrev_b32_e32 v158, 1, v133
+	v_lshlrev_b32_e32 v159, 1, v132
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[64:67], v[124:127], a[252:255]
+	.loc	1 142 24                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:142:24
+	s_xor_b32 s10, s10, 1
+	.loc	1 143 55                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:55
+	s_mul_i32 s12, s10, 0x8400
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[60:63], v[120:123], a[252:255]
+	.loc	1 143 55                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:55
+	s_add_i32 s12, s12, 0
+	.loc	1 143 18 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	v_add_u32_e32 v160, s12, v130
+	.loc	1 141 23 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[32:35], v[124:127], a[248:251]
+	.loc	1 144 55                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:55
+	v_add_u32_e32 v161, s12, v131
+	.loc	1 144 18 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	v_add_u32_e32 v161, 0x107e0, v161
+	.loc	1 141 23 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[24:27], v[120:123], a[248:251]
+	.loc	1 149 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:149:9
+	v_add_u32_e32 v147, 64, v147
+	v_add_u32_e32 v146, 64, v146
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[56:59], v[124:127], a[244:247]
+	.loc	1 149 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:149:9
+	v_add_u32_e32 v145, 64, v145
+	v_add_u32_e32 v144, 64, v144
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[52:55], v[120:123], a[244:247]
+	.loc	1 149 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:149:9
+	v_add_u32_e32 v143, 64, v143
+	v_add_u32_e32 v142, 64, v142
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[88:91], v[124:127], a[232:235]
+	.loc	1 149 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:149:9
+	v_add_u32_e32 v141, 64, v141
+	v_add_u32_e32 v140, 64, v140
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[84:87], v[120:123], a[232:235]
+	.loc	1 150 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:150:9
+	v_add_u32_e32 v139, 64, v139
+	v_add_u32_e32 v138, 64, v138
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[80:83], v[124:127], a[228:231]
+	.loc	1 150 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:150:9
+	v_add_u32_e32 v137, 64, v137
+	v_add_u32_e32 v136, 64, v136
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[76:79], v[120:123], a[228:231]
+	.loc	1 150 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:150:9
+	v_add_u32_e32 v135, 64, v135
+	v_add_u32_e32 v134, 64, v134
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[92:95], v[124:127], a[224:227]
+	.loc	1 150 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:150:9
+	v_add_u32_e32 v133, 64, v133
+	v_add_u32_e32 v132, 64, v132
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[16:19], v[120:123], a[224:227]
+	.loc	1 137 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:137:5
+	s_add_i32 s12, s17, 1
+	v_cmp_ne_u32_e32 vcc, s17, v148
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[12:15], v[124:127], a[212:215]
+	.loc	1 137 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:137:5
+	s_and_b64 vcc, exec, vcc
+	s_mov_b32 s17, s12
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[8:11], v[120:123], a[212:215]
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[40:43], v[124:127], a[204:207]
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[36:39], v[120:123], a[204:207]
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[64:67], v[116:119], a[220:223]
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[60:63], v[112:115], a[220:223]
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[32:35], v[116:119], a[196:199]
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[24:27], v[112:115], a[196:199]
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[56:59], v[116:119], a[208:211]
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[52:55], v[112:115], a[208:211]
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[88:91], v[116:119], a[200:203]
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[84:87], v[112:115], a[200:203]
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[80:83], v[116:119], a[188:191]
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[76:79], v[112:115], a[188:191]
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[92:95], v[116:119], a[240:243]
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[16:19], v[112:115], a[240:243]
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[12:15], v[116:119], a[176:179]
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[8:11], v[112:115], a[176:179]
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[40:43], v[116:119], a[172:175]
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[36:39], v[112:115], a[172:175]
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[64:67], v[108:111], a[236:239]
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[60:63], v[104:107], a[236:239]
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[32:35], v[108:111], a[164:167]
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[24:27], v[104:107], a[164:167]
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[56:59], v[108:111], a[216:219]
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[52:55], v[104:107], a[216:219]
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[88:91], v[108:111], a[192:195]
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[84:87], v[104:107], a[192:195]
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[80:83], v[108:111], a[184:187]
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[76:79], v[104:107], a[184:187]
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[92:95], v[108:111], a[180:183]
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[16:19], v[104:107], a[180:183]
+	.loc	1 139 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:139:9
+	buffer_load_dwordx4 v149, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x6300
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[12:15], v[108:111], a[168:171]
+	.loc	1 139 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:139:9
+	buffer_load_dwordx4 v150, s[0:3], 0 offen lds
+	s_add_i32 m0, s11, 0x7380
+	s_nop 0
+	buffer_load_dwordx4 v151, s[0:3], 0 offen lds
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	s_add_i32 m0, s11, 0x107e0
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[8:11], v[104:107], a[168:171]
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	buffer_load_dwordx4 v152, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x11860
+	s_nop 0
+	buffer_load_dwordx4 v153, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x128e0
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[40:43], v[108:111], a[156:159]
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[36:39], v[104:107], a[156:159]
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[64:67], v[100:103], a[160:163]
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[60:63], v[96:99], a[160:163]
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[32:35], v[100:103], a[152:155]
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[24:27], v[96:99], a[152:155]
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[56:59], v[100:103], a[148:151]
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[52:55], v[96:99], a[148:151]
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[88:91], v[100:103], a[144:147]
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[84:87], v[96:99], a[144:147]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[124:127], v160
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[80:83], v[100:103], a[140:143]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[120:123], v160 offset:64
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[76:79], v[96:99], a[140:143]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[116:119], v160 offset:256
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[92:95], v[100:103], a[136:139]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[112:115], v160 offset:320
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[16:19], v[96:99], a[136:139]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[108:111], v160 offset:512
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[12:15], v[100:103], a[132:135]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[104:107], v160 offset:576
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[8:11], v[96:99], a[132:135]
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[40:43], v[100:103], a[128:131]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[100:103], v160 offset:768
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[36:39], v[96:99], a[128:131]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[96:99], v160 offset:832
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[64:67], v[72:75], a[124:127]
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[60:63], v[68:71], a[124:127]
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[32:35], v[72:75], a[120:123]
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[24:27], v[68:71], a[120:123]
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[56:59], v[72:75], a[116:119]
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[52:55], v[68:71], a[116:119]
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[88:91], v[72:75], a[112:115]
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[84:87], v[68:71], a[112:115]
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[80:83], v[72:75], a[108:111]
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[76:79], v[68:71], a[108:111]
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[92:95], v[72:75], a[104:107]
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[16:19], v[68:71], a[104:107]
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[12:15], v[72:75], a[100:103]
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[8:11], v[68:71], a[100:103]
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[40:43], v[72:75], a[96:99]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[72:75], v160 offset:16896
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[36:39], v[68:71], a[96:99]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[68:71], v160 offset:16960
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[64:67], v[48:51], a[92:95]
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[60:63], v[44:47], a[92:95]
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[32:35], v[48:51], a[88:91]
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[24:27], v[44:47], a[88:91]
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[56:59], v[48:51], a[84:87]
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[52:55], v[44:47], a[84:87]
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[88:91], v[48:51], a[80:83]
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[84:87], v[44:47], a[80:83]
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[80:83], v[48:51], a[76:79]
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[76:79], v[44:47], a[76:79]
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[92:95], v[48:51], a[72:75]
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[16:19], v[44:47], a[72:75]
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[12:15], v[48:51], a[68:71]
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	buffer_load_dwordx4 v154, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x13960
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[8:11], v[44:47], a[68:71]
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	buffer_load_dwordx4 v155, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x149e0
+	s_nop 0
+	buffer_load_dwordx4 v156, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x15a60
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[40:43], v[48:51], a[64:67]
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	buffer_load_dwordx4 v157, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x16ae0
+	s_nop 0
+	buffer_load_dwordx4 v158, s[4:7], 0 offen lds
+	s_add_i32 m0, s11, 0x17b60
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[36:39], v[44:47], a[64:67]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[48:51], v160 offset:17152
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[64:67], v[28:31], a[60:63]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[44:47], v160 offset:17216
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[60:63], v[20:23], a[60:63]
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[32:35], v[28:31], a[56:59]
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[24:27], v[20:23], a[56:59]
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[56:59], v[28:31], a[52:55]
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[52:55], v[20:23], a[52:55]
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[88:91], v[28:31], a[48:51]
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[84:87], v[20:23], a[48:51]
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[80:83], v[28:31], a[44:47]
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[76:79], v[20:23], a[44:47]
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[92:95], v[28:31], a[40:43]
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[16:19], v[20:23], a[40:43]
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[12:15], v[28:31], a[36:39]
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[8:11], v[20:23], a[36:39]
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[40:43], v[28:31], a[32:35]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[28:31], v160 offset:17408
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[36:39], v[20:23], a[32:35]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[20:23], v160 offset:17472
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[64:67], v[4:7], a[28:31]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[64:67], v161
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[60:63], v[0:3], a[28:31]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[60:63], v161 offset:64
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[32:35], v[4:7], a[20:23]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[32:35], v161 offset:256
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[24:27], v[0:3], a[20:23]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[24:27], v161 offset:320
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[56:59], v[4:7], a[12:15]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[56:59], v161 offset:512
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[52:55], v[0:3], a[12:15]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[52:55], v161 offset:576
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[88:91], v[4:7], a[4:7]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[88:91], v161 offset:768
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[84:87], v[0:3], a[4:7]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[84:87], v161 offset:832
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[80:83], v[4:7], a[24:27]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[80:83], v161 offset:16896
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[76:79], v[0:3], a[24:27]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[76:79], v161 offset:16960
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[92:95], v[4:7], a[16:19]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[92:95], v161 offset:17152
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[16:19], v[0:3], a[16:19]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[16:19], v161 offset:17216
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[12:15], v[4:7], a[8:11]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[12:15], v161 offset:17408
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[8:11], v[0:3], a[8:11]
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[8:11], v161 offset:17472
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[40:43], v[4:7], a[0:3]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[4:7], v160 offset:17664
+	.loc	1 141 23                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:141:23
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[36:39], v[0:3], a[0:3]
+	.loc	1 143 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:143:18
+	ds_read_b128 v[0:3], v160 offset:17728
+	.loc	1 144 18                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:144:18
+	ds_read_b128 v[40:43], v161 offset:17664
+	ds_read_b128 v[36:39], v161 offset:17728
+	.loc	1 140 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:140:9
+	buffer_load_dwordx4 v159, s[4:7], 0 offen lds
+	.loc	1 146 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:146:9
+	s_waitcnt vmcnt(0) lgkmcnt(0)
+	s_barrier
+	.loc	1 137 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:137:5
+	s_cbranch_vccnz .LBB0_1
+; %bb.2:                                ; %._crit_edge
+	.loc	1 160 50                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:50
+	s_lshl_b32 s0, s10, 14
+	s_xor_b32 s0, s0, 0x4000
+	s_lshr_b32 s1, s0, 5
+	s_or_b32 s1, s1, s0
+	s_lshl1_add_u32 s0, s1, 0
+	.loc	1 161 50                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:50
+	v_add_u32_e32 v131, s0, v131
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	v_add_u32_e32 v168, s0, v130
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	v_add_u32_e32 v233, 0x107e0, v131
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[64:67], v[124:127], a[252:255]
+	.loc	1 166 38                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:38
+	s_lshl_b32 s0, s14, 3
+	v_and_or_b32 v129, s0, 16, v129
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[60:63], v[120:123], a[252:255]
+	.loc	1 166 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:15
+	v_or_b32_e32 v129, s15, v129
+	.loc	1 167 38                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:38
+	v_lshrrev_b32_e32 v128, 2, v128
+	.loc	1 167 15 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:15
+	v_and_or_b32 v201, v128, 28, s18
+	.loc	1 168 14 is_stmt 1              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:168:14
+	v_mul_lo_u32 v128, v129, s13
+	.loc	1 169 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:15
+	v_cmp_gt_i32_e64 s[26:27], s8, v129
+	.loc	1 169 40 is_stmt 0              ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:40
+	v_cmp_gt_i32_e32 vcc, s9, v201
+	.loc	1 170 5 is_stmt 1               ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v130, v128, v201, 1
+	v_bfrev_b32_e32 v200, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[0:1], s[26:27], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v130, v200, v130, s[0:1]
+	s_and_b32 s37, s37, 0xffff
+	s_mov_b32 s39, 0x27000
+	s_mov_b32 s38, 0x7ffffffe
+	.loc	1 156 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:156:5
+	s_waitcnt vmcnt(0) lgkmcnt(0)
+	s_barrier
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[32:35], v[124:127], a[248:251]
+	.loc	1 166 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:15
+	v_or_b32_e32 v131, 32, v129
+	v_or_b32_e32 v132, 64, v129
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[24:27], v[120:123], a[248:251]
+	.loc	1 166 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:15
+	v_or_b32_e32 v133, 0x60, v129
+	v_or_b32_e32 v134, 0x80, v129
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[56:59], v[124:127], a[244:247]
+	.loc	1 166 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:15
+	v_or_b32_e32 v135, 0xa0, v129
+	v_or_b32_e32 v136, 0xc0, v129
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[52:55], v[120:123], a[244:247]
+	.loc	1 166 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:166:15
+	v_or_b32_e32 v129, 0xe0, v129
+	.loc	1 167 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:15
+	v_or_b32_e32 v207, 32, v201
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[88:91], v[124:127], a[232:235]
+	.loc	1 167 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:15
+	v_or_b32_e32 v208, 64, v201
+	v_or_b32_e32 v205, 0x60, v201
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[84:87], v[120:123], a[232:235]
+	.loc	1 167 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:15
+	v_or_b32_e32 v206, 0x80, v201
+	v_or_b32_e32 v203, 0xa0, v201
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[80:83], v[124:127], a[228:231]
+	.loc	1 167 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:167:15
+	v_or_b32_e32 v204, 0xc0, v201
+	v_or_b32_e32 v202, 0xe0, v201
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[76:79], v[120:123], a[228:231]
+	.loc	1 168 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:168:14
+	v_mul_lo_u32 v137, v131, s13
+	v_mul_lo_u32 v138, v132, s13
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[92:95], v[124:127], a[224:227]
+	.loc	1 168 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:168:14
+	v_mul_lo_u32 v139, v133, s13
+	v_mul_lo_u32 v212, v134, s13
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[16:19], v[120:123], a[224:227]
+	.loc	1 168 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:168:14
+	v_mul_lo_u32 v211, v135, s13
+	v_mul_lo_u32 v210, v136, s13
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[12:15], v[124:127], a[212:215]
+	.loc	1 168 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:168:14
+	v_mul_lo_u32 v209, v129, s13
+	.loc	1 169 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:15
+	v_cmp_gt_i32_e64 s[28:29], s8, v131
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[8:11], v[120:123], a[212:215]
+	.loc	1 169 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:15
+	v_cmp_gt_i32_e64 s[24:25], s8, v132
+	v_cmp_gt_i32_e64 s[22:23], s8, v133
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[40:43], v[124:127], a[204:207]
+	.loc	1 169 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:15
+	v_cmp_gt_i32_e64 s[20:21], s8, v134
+	v_cmp_gt_i32_e64 s[18:19], s8, v135
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[36:39], v[120:123], a[204:207]
+	.loc	1 169 15                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:15
+	v_cmp_gt_i32_e64 s[16:17], s8, v136
+	v_cmp_gt_i32_e64 s[0:1], s8, v129
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[64:67], v[116:119], a[220:223]
+	.loc	1 169 40                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:40
+	v_cmp_gt_i32_e64 s[14:15], s9, v207
+	v_cmp_gt_i32_e64 s[12:13], s9, v208
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[60:63], v[112:115], a[220:223]
+	.loc	1 169 40                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:40
+	v_cmp_gt_i32_e64 s[10:11], s9, v205
+	v_cmp_gt_i32_e64 s[6:7], s9, v206
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[32:35], v[116:119], a[196:199]
+	.loc	1 169 40                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:40
+	v_cmp_gt_i32_e64 s[30:31], s9, v203
+	v_cmp_gt_i32_e64 s[2:3], s9, v204
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[24:27], v[112:115], a[196:199]
+	.loc	1 169 40                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:40
+	v_cmp_gt_i32_e64 s[4:5], s9, v202
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v120, v207, v128, 1
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[56:59], v[116:119], a[208:211]
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v120, v200, v120, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[52:55], v[112:115], a[208:211]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v208, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v176, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[88:91], v[116:119], a[200:203]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v205, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v242, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[84:87], v[112:115], a[200:203]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v206, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v243, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[80:83], v[116:119], a[188:191]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v203, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v244, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[76:79], v[112:115], a[188:191]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v204, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v245, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[92:95], v[116:119], a[240:243]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v202, v128, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[26:27], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v246, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[16:19], v[112:115], a[240:243]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v137, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v247, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[12:15], v[116:119], a[176:179]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v207, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v248, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[8:11], v[112:115], a[176:179]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v121, v208, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v249, v200, v121, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[40:43], v[116:119], a[172:175]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v116, v205, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v250, v200, v116, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[36:39], v[112:115], a[172:175]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v206, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v251, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[64:67], v[108:111], a[236:239]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v203, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v232, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[60:63], v[104:107], a[236:239]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v204, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v231, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[32:35], v[108:111], a[164:167]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v202, v137, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[28:29], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v230, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[24:27], v[104:107], a[164:167]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v138, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v229, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[56:59], v[108:111], a[216:219]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v207, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v227, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[52:55], v[104:107], a[216:219]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v208, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v228, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[88:91], v[108:111], a[192:195]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v205, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v224, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[84:87], v[104:107], a[192:195]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v206, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v225, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[80:83], v[108:111], a[184:187]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v203, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v226, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[76:79], v[104:107], a[184:187]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v204, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v223, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[92:95], v[108:111], a[180:183]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v202, v138, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[24:25], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v221, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[16:19], v[104:107], a[180:183]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v139, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v220, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[12:15], v[108:111], a[168:171]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v207, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v219, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[8:11], v[104:107], a[168:171]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v112, v208, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v218, v200, v112, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[40:43], v[108:111], a[156:159]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v108, v205, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v216, v200, v108, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[36:39], v[104:107], a[156:159]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v104, v206, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v217, v200, v104, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[64:67], v[100:103], a[160:163]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v104, v203, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v213, v200, v104, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[60:63], v[96:99], a[160:163]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v104, v204, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v214, v200, v104, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[32:35], v[100:103], a[152:155]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v104, v202, v139, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[22:23], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v215, v200, v104, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[24:27], v[96:99], a[152:155]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[234:237], v168
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[140:143], v233
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[238:241], v168 offset:64
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[136:139], v233 offset:64
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[56:59], v[100:103], a[148:151]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[196:199], v168 offset:256
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[52:55], v[96:99], a[148:151]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[192:195], v168 offset:320
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[88:91], v[100:103], a[144:147]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[188:191], v168 offset:512
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(5)
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[140:143], v[234:237], a[252:255]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[184:187], v168 offset:576
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[252:255], v[136:139], v[238:241], a[252:255]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[160:163], v168 offset:768
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	s_nop 6
+	v_accvgpr_read_b32 v104, a252
+	v_accvgpr_read_b32 v105, a253
+	v_accvgpr_read_b32 v106, a254
+	v_accvgpr_read_b32 v107, a255
+	v_cvt_pk_bf16_f32 v104, v104, v105
+	v_cvt_pk_bf16_f32 v105, v106, v107
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[104:105], v130, s[36:39], 0 offen
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[116:119], v233 offset:256
+	ds_read_b128 v[112:115], v233 offset:320
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[84:87], v[96:99], a[144:147]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[164:167], v168 offset:832
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[80:83], v[100:103], a[140:143]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[156:159], v168 offset:16896
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[76:79], v[96:99], a[140:143]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[152:155], v168 offset:16960
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[116:119], v[234:237], a[248:251]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[132:135], v168 offset:17152
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[248:251], v[112:115], v[238:241], a[248:251]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[128:131], v168 offset:17216
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	s_nop 6
+	v_accvgpr_read_b32 v104, a248
+	v_accvgpr_read_b32 v105, a249
+	v_accvgpr_read_b32 v106, a250
+	v_accvgpr_read_b32 v107, a251
+	v_cvt_pk_bf16_f32 v104, v104, v105
+	v_cvt_pk_bf16_f32 v105, v106, v107
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[104:105], v120, s[36:39], 0 offen
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[148:151], v233 offset:512
+	ds_read_b128 v[144:147], v233 offset:576
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[92:95], v[100:103], a[136:139]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[124:127], v168 offset:17408
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[16:19], v[96:99], a[136:139]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[120:123], v168 offset:17472
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[12:15], v[100:103], a[132:135]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[108:111], v168 offset:17664
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[148:151], v[234:237], a[244:247]
+	.loc	1 160 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:160:13
+	ds_read_b128 v[104:107], v168 offset:17728
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[244:247], v[144:147], v[238:241], a[244:247]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[168:171], v233 offset:768
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	s_nop 6
+	v_accvgpr_read_b32 v172, a244
+	v_accvgpr_read_b32 v173, a245
+	v_accvgpr_read_b32 v174, a246
+	v_accvgpr_read_b32 v175, a247
+	v_cvt_pk_bf16_f32 v172, v172, v173
+	v_cvt_pk_bf16_f32 v173, v174, v175
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[172:173], v176, s[36:39], 0 offen
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[180:183], v233 offset:832
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[8:11], v[96:99], a[132:135]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[176:179], v233 offset:16896
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[40:43], v[100:103], a[128:131]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[172:175], v233 offset:16960
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(3)
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[168:171], v[234:237], a[232:235]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[100:103], v233 offset:17152
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[36:39], v[96:99], a[128:131]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[96:99], v233 offset:17216
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(4)
+	v_mfma_f32_16x16x32_bf16 a[232:235], v[180:183], v[238:241], a[232:235]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v222, v212, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v222, v200, v222, s[8:9]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[64:67], v[72:75], a[124:127]
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[60:63], v[68:71], a[124:127]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[140:143], v[156:159], a[124:127]
+	v_mfma_f32_16x16x32_bf16 a[124:127], v[136:139], v[152:155], a[124:127]
+	s_waitcnt lgkmcnt(1)
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[100:103], v[188:191], a[180:183]
+	s_waitcnt lgkmcnt(0)
+	v_mfma_f32_16x16x32_bf16 a[180:183], v[96:99], v[184:187], a[180:183]
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[100:103], v[160:163], a[136:139]
+	v_mfma_f32_16x16x32_bf16 a[136:139], v[96:99], v[164:167], a[136:139]
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[148:151], v[160:163], a[148:151]
+	v_mfma_f32_16x16x32_bf16 a[148:151], v[144:147], v[164:167], a[148:151]
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[148:151], v[188:191], a[216:219]
+	v_mfma_f32_16x16x32_bf16 a[216:219], v[144:147], v[184:187], a[216:219]
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[176:179], v[160:163], a[140:143]
+	v_mfma_f32_16x16x32_bf16 a[140:143], v[172:175], v[164:167], a[140:143]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[64:67], v[28:31], a[60:63]
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[60:63], v[20:23], a[60:63]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[140:143], v[124:127], a[60:63]
+	v_mfma_f32_16x16x32_bf16 a[60:63], v[136:139], v[120:123], a[60:63]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[80:83], v[4:7], a[24:27]
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[76:79], v[0:3], a[24:27]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[176:179], v[108:111], a[24:27]
+	v_mfma_f32_16x16x32_bf16 a[24:27], v[172:175], v[104:107], a[24:27]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[88:91], v[28:31], a[48:51]
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[84:87], v[20:23], a[48:51]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[168:171], v[124:127], a[48:51]
+	v_mfma_f32_16x16x32_bf16 a[48:51], v[180:183], v[120:123], a[48:51]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[64:67], v[4:7], a[28:31]
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[60:63], v[0:3], a[28:31]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[140:143], v[108:111], a[28:31]
+	v_mfma_f32_16x16x32_bf16 a[28:31], v[136:139], v[104:107], a[28:31]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[56:59], v[28:31], a[52:55]
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[52:55], v[20:23], a[52:55]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[148:151], v[124:127], a[52:55]
+	v_mfma_f32_16x16x32_bf16 a[52:55], v[144:147], v[120:123], a[52:55]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[80:83], v[48:51], a[76:79]
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[76:79], v[44:47], a[76:79]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[176:179], v[132:135], a[76:79]
+	v_mfma_f32_16x16x32_bf16 a[76:79], v[172:175], v[128:131], a[76:79]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[12:15], v[72:75], a[100:103]
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[8:11], v[68:71], a[100:103]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[100:103], v[196:199], a[240:243]
+	v_mfma_f32_16x16x32_bf16 a[240:243], v[96:99], v[192:195], a[240:243]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[56:59], v[72:75], a[116:119]
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[52:55], v[68:71], a[116:119]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[148:151], v[156:159], a[116:119]
+	v_mfma_f32_16x16x32_bf16 a[116:119], v[144:147], v[152:155], a[116:119]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[40:43], v[72:75], a[96:99]
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[36:39], v[68:71], a[96:99]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[176:179], v[188:191], a[184:187]
+	v_mfma_f32_16x16x32_bf16 a[184:187], v[172:175], v[184:187], a[184:187]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[92:95], v[48:51], a[72:75]
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[16:19], v[44:47], a[72:75]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[100:103], v[132:135], a[72:75]
+	v_mfma_f32_16x16x32_bf16 a[72:75], v[96:99], v[128:131], a[72:75]
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[168:171], v[196:199], a[200:203]
+	v_mfma_f32_16x16x32_bf16 a[200:203], v[180:183], v[192:195], a[200:203]
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[140:143], v[196:199], a[220:223]
+	v_mfma_f32_16x16x32_bf16 a[220:223], v[136:139], v[192:195], a[220:223]
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[140:143], v[160:163], a[160:163]
+	v_mfma_f32_16x16x32_bf16 a[160:163], v[136:139], v[164:167], a[160:163]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[40:43], v[4:7], a[0:3]
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[36:39], v[0:3], a[0:3]
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[92:95], v[28:31], a[40:43]
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[16:19], v[20:23], a[40:43]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[100:103], v[124:127], a[40:43]
+	v_mfma_f32_16x16x32_bf16 a[40:43], v[96:99], v[120:123], a[40:43]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[56:59], v[4:7], a[12:15]
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[52:55], v[0:3], a[12:15]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[148:151], v[108:111], a[12:15]
+	v_mfma_f32_16x16x32_bf16 a[12:15], v[144:147], v[104:107], a[12:15]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[80:83], v[28:31], a[44:47]
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[76:79], v[20:23], a[44:47]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[176:179], v[124:127], a[44:47]
+	v_mfma_f32_16x16x32_bf16 a[44:47], v[172:175], v[120:123], a[44:47]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[92:95], v[72:75], a[104:107]
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[16:19], v[68:71], a[104:107]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[100:103], v[156:159], a[104:107]
+	v_mfma_f32_16x16x32_bf16 a[104:107], v[96:99], v[152:155], a[104:107]
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[148:151], v[196:199], a[208:211]
+	v_mfma_f32_16x16x32_bf16 a[208:211], v[144:147], v[192:195], a[208:211]
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[116:119], v[160:163], a[152:155]
+	v_mfma_f32_16x16x32_bf16 a[152:155], v[112:115], v[164:167], a[152:155]
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[168:171], v[188:191], a[192:195]
+	v_mfma_f32_16x16x32_bf16 a[192:195], v[180:183], v[184:187], a[192:195]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[88:91], v[4:7], a[4:7]
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[84:87], v[0:3], a[4:7]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[168:171], v[108:111], a[4:7]
+	v_mfma_f32_16x16x32_bf16 a[4:7], v[180:183], v[104:107], a[4:7]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[92:95], v[4:7], a[16:19]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v92, a232
+	v_accvgpr_read_b32 v93, a233
+	v_cvt_pk_bf16_f32 v92, v92, v93
+	v_accvgpr_read_b32 v94, a234
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[32:35], v[72:75], a[120:123]
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[24:27], v[68:71], a[120:123]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[116:119], v[156:159], a[120:123]
+	v_mfma_f32_16x16x32_bf16 a[120:123], v[112:115], v[152:155], a[120:123]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[32:35], v[48:51], a[88:91]
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[24:27], v[44:47], a[88:91]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[116:119], v[132:135], a[88:91]
+	v_mfma_f32_16x16x32_bf16 a[88:91], v[112:115], v[128:131], a[88:91]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[12:15], v[48:51], a[68:71]
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[8:11], v[44:47], a[68:71]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[100:103], v[234:237], a[224:227]
+	v_mfma_f32_16x16x32_bf16 a[224:227], v[96:99], v[238:241], a[224:227]
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[176:179], v[234:237], a[228:231]
+	v_mfma_f32_16x16x32_bf16 a[228:231], v[172:175], v[238:241], a[228:231]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[88:91], v[48:51], a[80:83]
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[84:87], v[44:47], a[80:83]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[168:171], v[132:135], a[80:83]
+	v_mfma_f32_16x16x32_bf16 a[80:83], v[180:183], v[128:131], a[80:83]
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[140:143], v[188:191], a[236:239]
+	v_mfma_f32_16x16x32_bf16 a[236:239], v[136:139], v[184:187], a[236:239]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[32:35], v[28:31], a[56:59]
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[24:27], v[20:23], a[56:59]
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[116:119], v[124:127], a[56:59]
+	v_mfma_f32_16x16x32_bf16 a[56:59], v[112:115], v[120:123], a[56:59]
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[88:91], v[72:75], a[112:115]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v89, a235
+	v_cvt_pk_bf16_f32 v93, v94, v89
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[92:93], v242, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v88, a228
+	v_accvgpr_read_b32 v89, a229
+	v_accvgpr_read_b32 v90, a230
+	v_accvgpr_read_b32 v91, a231
+	v_cvt_pk_bf16_f32 v88, v88, v89
+	v_cvt_pk_bf16_f32 v89, v90, v91
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[88:89], v243, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v88, a224
+	v_accvgpr_read_b32 v89, a225
+	v_accvgpr_read_b32 v90, a226
+	v_accvgpr_read_b32 v91, a227
+	v_cvt_pk_bf16_f32 v88, v88, v89
+	v_cvt_pk_bf16_f32 v89, v90, v91
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[88:89], v244, s[36:39], 0 offen
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[92:95], v233 offset:17408
+	ds_read_b128 v[88:91], v233 offset:17472
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[84:87], v[68:71], a[112:115]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[84:87], v233 offset:17664
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[80:83], v[72:75], a[108:111]
+	.loc	1 161 13                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:161:13
+	ds_read_b128 v[72:75], v233 offset:17728
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[76:79], v[68:71], a[108:111]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v68, a220
+	v_accvgpr_read_b32 v69, a221
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(3)
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[92:95], v[234:237], a[212:215]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v68, v68, v69
+	v_accvgpr_read_b32 v70, a222
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(2)
+	v_mfma_f32_16x16x32_bf16 a[212:215], v[88:91], v[238:241], a[212:215]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v69, a223
+	v_cvt_pk_bf16_f32 v69, v70, v69
+	s_nop 5
+	v_accvgpr_read_b32 v70, a212
+	v_accvgpr_read_b32 v71, a213
+	v_accvgpr_read_b32 v76, a214
+	v_accvgpr_read_b32 v77, a215
+	v_cvt_pk_bf16_f32 v70, v70, v71
+	v_cvt_pk_bf16_f32 v71, v76, v77
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[70:71], v245, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(1)
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[84:87], v[234:237], a[204:207]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v70, a208
+	v_accvgpr_read_b32 v71, a209
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	s_waitcnt lgkmcnt(0)
+	v_mfma_f32_16x16x32_bf16 a[204:207], v[72:75], v[238:241], a[204:207]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v70, v70, v71
+	v_accvgpr_read_b32 v76, a210
+	s_nop 5
+	v_accvgpr_read_b32 v78, a204
+	v_accvgpr_read_b32 v71, a205
+	v_accvgpr_read_b32 v80, a206
+	v_accvgpr_read_b32 v77, a207
+	v_cvt_pk_bf16_f32 v78, v78, v71
+	v_cvt_pk_bf16_f32 v79, v80, v77
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[78:79], v246, s[36:39], 0 offen
+	buffer_store_dwordx2 v[68:69], v247, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[116:119], v[196:199], a[196:199]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v69, a211
+	v_cvt_pk_bf16_f32 v71, v76, v69
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[196:199], v[112:115], v[192:195], a[196:199]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v68, a200
+	v_accvgpr_read_b32 v69, a201
+	s_nop 5
+	v_accvgpr_read_b32 v76, a196
+	v_accvgpr_read_b32 v77, a197
+	v_accvgpr_read_b32 v78, a198
+	v_accvgpr_read_b32 v79, a199
+	v_cvt_pk_bf16_f32 v76, v76, v77
+	v_cvt_pk_bf16_f32 v77, v78, v79
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[76:77], v248, s[36:39], 0 offen
+	buffer_store_dwordx2 v[70:71], v249, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v70, a202
+	v_accvgpr_read_b32 v71, a203
+	v_cvt_pk_bf16_f32 v68, v68, v69
+	v_cvt_pk_bf16_f32 v69, v70, v71
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[68:69], v250, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[176:179], v[196:199], a[188:191]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v68, a240
+	v_accvgpr_read_b32 v69, a241
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[188:191], v[172:175], v[192:195], a[188:191]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v68, v68, v69
+	v_accvgpr_read_b32 v70, a242
+	s_nop 5
+	v_accvgpr_read_b32 v76, a188
+	v_accvgpr_read_b32 v69, a189
+	v_accvgpr_read_b32 v78, a190
+	v_accvgpr_read_b32 v71, a191
+	v_cvt_pk_bf16_f32 v76, v76, v69
+	v_cvt_pk_bf16_f32 v77, v78, v71
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[76:77], v251, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v69, a243
+	v_cvt_pk_bf16_f32 v69, v70, v69
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[64:67], v[48:51], a[92:95]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v64, a236
+	v_accvgpr_read_b32 v65, a237
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[60:63], v[44:47], a[92:95]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v60, v64, v65
+	v_accvgpr_read_b32 v62, a238
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[56:59], v[48:51], a[84:87]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v57, a239
+	v_cvt_pk_bf16_f32 v61, v62, v57
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[52:55], v[44:47], a[84:87]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v52, a216
+	v_accvgpr_read_b32 v53, a217
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[40:43], v[48:51], a[64:67]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v48, v52, v53
+	v_accvgpr_read_b32 v50, a218
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[36:39], v[44:47], a[64:67]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v45, a219
+	v_cvt_pk_bf16_f32 v49, v50, v45
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[12:15], v[28:31], a[36:39]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v44, a192
+	v_accvgpr_read_b32 v45, a193
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[8:11], v[20:23], a[36:39]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v44, v44, v45
+	v_accvgpr_read_b32 v46, a194
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[40:43], v[28:31], a[32:35]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v29, a195
+	v_cvt_pk_bf16_f32 v45, v46, v29
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[36:39], v[20:23], a[32:35]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v20, a184
+	v_accvgpr_read_b32 v21, a185
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[32:35], v[4:7], a[20:23]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v20, v20, v21
+	v_accvgpr_read_b32 v22, a186
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[24:27], v[0:3], a[20:23]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v21, a187
+	v_cvt_pk_bf16_f32 v21, v22, v21
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[16:19], v[0:3], a[16:19]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v16, a180
+	v_accvgpr_read_b32 v17, a181
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[12:15], v[4:7], a[8:11]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v4, v16, v17
+	v_accvgpr_read_b32 v6, a182
+	.loc	1 155 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:155:19
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[8:11], v[0:3], a[8:11]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a183
+	v_cvt_pk_bf16_f32 v5, v6, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[92:95], v[196:199], a[176:179]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v0, a160
+	v_accvgpr_read_b32 v1, a161
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[176:179], v[88:91], v[192:195], a[176:179]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v0, v0, v1
+	v_accvgpr_read_b32 v2, a162
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[84:87], v[196:199], a[172:175]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	s_nop 4
+	v_accvgpr_read_b32 v6, a176
+	v_accvgpr_read_b32 v1, a177
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[172:175], v[72:75], v[192:195], a[172:175]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v6, v6, v1
+	v_accvgpr_read_b32 v8, a178
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[116:119], v[188:191], a[164:167]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a179
+	v_cvt_pk_bf16_f32 v7, v8, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[164:167], v[112:115], v[184:187], a[164:167]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	s_nop 1
+	v_accvgpr_read_b32 v8, a172
+	v_accvgpr_read_b32 v1, a173
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[92:95], v[188:191], a[168:171]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v8, v8, v1
+	v_accvgpr_read_b32 v10, a174
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[168:171], v[88:91], v[184:187], a[168:171]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a175
+	v_cvt_pk_bf16_f32 v9, v10, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[84:87], v[188:191], a[156:159]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v10, a164
+	v_accvgpr_read_b32 v1, a165
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[156:159], v[72:75], v[184:187], a[156:159]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v10, v10, v1
+	v_accvgpr_read_b32 v12, a166
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[168:171], v[160:163], a[144:147]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[68:69], v232, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a167
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[144:147], v[180:183], v[164:167], a[144:147]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v11, v12, v1
+	v_accvgpr_read_b32 v12, a168
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[6:7], v231, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[92:95], v[160:163], a[132:135]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a169
+	v_cvt_pk_bf16_f32 v6, v12, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[132:135], v[88:91], v[164:167], a[132:135]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[8:9], v230, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v8, a170
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[84:87], v[160:163], a[128:131]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a171
+	v_cvt_pk_bf16_f32 v7, v8, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[128:131], v[72:75], v[164:167], a[128:131]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v8, a156
+	v_accvgpr_read_b32 v1, a157
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[168:171], v[156:159], a[112:115]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v16, v8, v1
+	v_accvgpr_read_b32 v8, a158
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[112:115], v[180:183], v[152:155], a[112:115]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a159
+	v_cvt_pk_bf16_f32 v17, v8, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[176:179], v[156:159], a[108:111]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v1, a163
+	v_cvt_pk_bf16_f32 v1, v2, v1
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[108:111], v[172:175], v[152:155], a[108:111]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a152
+	v_accvgpr_read_b32 v3, a153
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[92:95], v[156:159], a[100:103]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v18, v2, v3
+	v_accvgpr_read_b32 v2, a154
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[100:103], v[88:91], v[152:155], a[100:103]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[60:61], v229, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a155
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[84:87], v[156:159], a[96:99]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v19, v2, v3
+	v_accvgpr_read_b32 v2, a148
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[96:99], v[72:75], v[152:155], a[96:99]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a149
+	v_cvt_pk_bf16_f32 v28, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[140:143], v[132:135], a[92:95]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a150
+	v_accvgpr_read_b32 v3, a151
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[10:11], v227, s[36:39], 0 offen
+	buffer_store_dwordx2 v[48:49], v228, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[92:95], v[136:139], v[128:131], a[92:95]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v29, v2, v3
+	v_accvgpr_read_b32 v2, a144
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[148:151], v[132:135], a[84:87]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a145
+	v_cvt_pk_bf16_f32 v32, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[84:87], v[144:147], v[128:131], a[84:87]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a146
+	v_accvgpr_read_b32 v3, a147
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[92:95], v[132:135], a[68:71]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[44:45], v224, s[36:39], 0 offen
+	buffer_store_dwordx2 v[20:21], v225, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[68:71], v[88:91], v[128:131], a[68:71]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v33, v2, v3
+	v_accvgpr_read_b32 v2, a140
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[4:5], v226, s[36:39], 0 offen
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[84:87], v[132:135], a[64:67]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a141
+	v_cvt_pk_bf16_f32 v34, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[64:67], v[72:75], v[128:131], a[64:67]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a142
+	v_accvgpr_read_b32 v3, a143
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[92:95], v[124:127], a[36:39]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v35, v2, v3
+	v_accvgpr_read_b32 v2, a136
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[36:39], v[88:91], v[120:123], a[36:39]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[6:7], v223, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a137
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[84:87], v[124:127], a[32:35]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v38, v2, v3
+	v_accvgpr_read_b32 v2, a138
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[32:35], v[72:75], v[120:123], a[32:35]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a139
+	v_cvt_pk_bf16_f32 v39, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[116:119], v[108:111], a[20:23]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a132
+	v_accvgpr_read_b32 v3, a133
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[20:23], v[112:115], v[104:107], a[20:23]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v40, v2, v3
+	v_accvgpr_read_b32 v2, a134
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[100:103], v[108:111], a[16:19]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a135
+	v_cvt_pk_bf16_f32 v41, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[16:19], v[96:99], v[104:107], a[16:19]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a128
+	v_accvgpr_read_b32 v3, a129
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[92:95], v[108:111], a[8:11]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v42, v2, v3
+	v_accvgpr_read_b32 v2, a130
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[8:11], v[88:91], v[104:107], a[8:11]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v3, a131
+	v_cvt_pk_bf16_f32 v43, v2, v3
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[84:87], v[108:111], a[0:3]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v2, a124
+	v_accvgpr_read_b32 v3, a125
+	.loc	1 162 19                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:162:19
+	v_mfma_f32_16x16x32_bf16 a[0:3], v[72:75], v[104:107], a[0:3]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v44, v2, v3
+	v_accvgpr_read_b32 v2, a126
+	v_accvgpr_read_b32 v3, a127
+	v_cvt_pk_bf16_f32 v45, v2, v3
+	v_accvgpr_read_b32 v2, a120
+	v_accvgpr_read_b32 v3, a121
+	v_cvt_pk_bf16_f32 v58, v2, v3
+	v_accvgpr_read_b32 v2, a122
+	v_accvgpr_read_b32 v3, a123
+	v_cvt_pk_bf16_f32 v59, v2, v3
+	v_accvgpr_read_b32 v2, a116
+	v_accvgpr_read_b32 v3, a117
+	v_cvt_pk_bf16_f32 v60, v2, v3
+	v_accvgpr_read_b32 v2, a118
+	v_accvgpr_read_b32 v3, a119
+	v_cvt_pk_bf16_f32 v61, v2, v3
+	v_accvgpr_read_b32 v2, a112
+	v_accvgpr_read_b32 v3, a113
+	v_cvt_pk_bf16_f32 v56, v2, v3
+	v_accvgpr_read_b32 v2, a114
+	v_accvgpr_read_b32 v3, a115
+	v_cvt_pk_bf16_f32 v57, v2, v3
+	v_accvgpr_read_b32 v2, a108
+	v_accvgpr_read_b32 v3, a109
+	v_cvt_pk_bf16_f32 v2, v2, v3
+	v_accvgpr_read_b32 v4, a110
+	v_accvgpr_read_b32 v3, a111
+	v_cvt_pk_bf16_f32 v3, v4, v3
+	v_accvgpr_read_b32 v4, a104
+	v_accvgpr_read_b32 v5, a105
+	v_cvt_pk_bf16_f32 v4, v4, v5
+	v_accvgpr_read_b32 v6, a106
+	v_accvgpr_read_b32 v5, a107
+	v_cvt_pk_bf16_f32 v5, v6, v5
+	v_accvgpr_read_b32 v6, a100
+	v_accvgpr_read_b32 v7, a101
+	v_cvt_pk_bf16_f32 v6, v6, v7
+	v_accvgpr_read_b32 v8, a102
+	v_accvgpr_read_b32 v7, a103
+	v_cvt_pk_bf16_f32 v7, v8, v7
+	v_accvgpr_read_b32 v8, a96
+	v_accvgpr_read_b32 v9, a97
+	v_cvt_pk_bf16_f32 v8, v8, v9
+	v_accvgpr_read_b32 v10, a98
+	v_accvgpr_read_b32 v9, a99
+	v_cvt_pk_bf16_f32 v9, v10, v9
+	v_accvgpr_read_b32 v10, a92
+	v_accvgpr_read_b32 v11, a93
+	v_cvt_pk_bf16_f32 v10, v10, v11
+	v_accvgpr_read_b32 v12, a94
+	v_accvgpr_read_b32 v11, a95
+	v_cvt_pk_bf16_f32 v11, v12, v11
+	v_accvgpr_read_b32 v12, a88
+	v_accvgpr_read_b32 v13, a89
+	v_cvt_pk_bf16_f32 v12, v12, v13
+	v_accvgpr_read_b32 v14, a90
+	v_accvgpr_read_b32 v13, a91
+	v_cvt_pk_bf16_f32 v13, v14, v13
+	v_accvgpr_read_b32 v14, a84
+	v_accvgpr_read_b32 v15, a85
+	v_cvt_pk_bf16_f32 v14, v14, v15
+	v_accvgpr_read_b32 v20, a86
+	v_accvgpr_read_b32 v15, a87
+	v_cvt_pk_bf16_f32 v15, v20, v15
+	v_accvgpr_read_b32 v20, a80
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[16:17], v221, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v17, a81
+	v_cvt_pk_bf16_f32 v16, v20, v17
+	v_accvgpr_read_b32 v20, a82
+	v_accvgpr_read_b32 v17, a83
+	v_cvt_pk_bf16_f32 v17, v20, v17
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[0:1], v220, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v0, a76
+	v_accvgpr_read_b32 v1, a77
+	v_cvt_pk_bf16_f32 v0, v0, v1
+	v_accvgpr_read_b32 v20, a78
+	v_accvgpr_read_b32 v1, a79
+	v_cvt_pk_bf16_f32 v1, v20, v1
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[18:19], v219, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v18, a72
+	v_accvgpr_read_b32 v19, a73
+	v_cvt_pk_bf16_f32 v18, v18, v19
+	v_accvgpr_read_b32 v20, a74
+	v_accvgpr_read_b32 v19, a75
+	v_cvt_pk_bf16_f32 v19, v20, v19
+	v_accvgpr_read_b32 v20, a68
+	v_accvgpr_read_b32 v21, a69
+	v_cvt_pk_bf16_f32 v20, v20, v21
+	v_accvgpr_read_b32 v22, a70
+	v_accvgpr_read_b32 v21, a71
+	v_cvt_pk_bf16_f32 v21, v22, v21
+	v_accvgpr_read_b32 v22, a64
+	v_accvgpr_read_b32 v23, a65
+	v_cvt_pk_bf16_f32 v22, v22, v23
+	v_accvgpr_read_b32 v24, a66
+	v_accvgpr_read_b32 v23, a67
+	v_cvt_pk_bf16_f32 v23, v24, v23
+	v_accvgpr_read_b32 v24, a60
+	v_accvgpr_read_b32 v25, a61
+	v_cvt_pk_bf16_f32 v24, v24, v25
+	v_accvgpr_read_b32 v26, a62
+	v_accvgpr_read_b32 v25, a63
+	v_cvt_pk_bf16_f32 v25, v26, v25
+	v_accvgpr_read_b32 v26, a56
+	v_accvgpr_read_b32 v27, a57
+	v_cvt_pk_bf16_f32 v26, v26, v27
+	v_accvgpr_read_b32 v30, a58
+	v_accvgpr_read_b32 v27, a59
+	v_cvt_pk_bf16_f32 v27, v30, v27
+	v_accvgpr_read_b32 v30, a52
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[28:29], v218, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v29, a53
+	v_cvt_pk_bf16_f32 v28, v30, v29
+	v_accvgpr_read_b32 v30, a54
+	v_accvgpr_read_b32 v29, a55
+	v_cvt_pk_bf16_f32 v29, v30, v29
+	v_accvgpr_read_b32 v30, a48
+	v_accvgpr_read_b32 v31, a49
+	v_cvt_pk_bf16_f32 v30, v30, v31
+	v_accvgpr_read_b32 v36, a50
+	v_accvgpr_read_b32 v31, a51
+	v_cvt_pk_bf16_f32 v31, v36, v31
+	v_accvgpr_read_b32 v36, a44
+	v_accvgpr_read_b32 v37, a45
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[32:33], v216, s[36:39], 0 offen
+	buffer_store_dwordx2 v[34:35], v217, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v32, v36, v37
+	v_accvgpr_read_b32 v34, a46
+	v_accvgpr_read_b32 v33, a47
+	v_cvt_pk_bf16_f32 v33, v34, v33
+	v_accvgpr_read_b32 v34, a40
+	v_accvgpr_read_b32 v35, a41
+	v_cvt_pk_bf16_f32 v34, v34, v35
+	v_accvgpr_read_b32 v36, a42
+	v_accvgpr_read_b32 v35, a43
+	v_cvt_pk_bf16_f32 v35, v36, v35
+	v_accvgpr_read_b32 v36, a36
+	v_accvgpr_read_b32 v37, a37
+	v_cvt_pk_bf16_f32 v36, v36, v37
+	v_accvgpr_read_b32 v46, a38
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[38:39], v213, s[36:39], 0 offen
+	buffer_store_dwordx2 v[40:41], v214, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v37, a39
+	v_cvt_pk_bf16_f32 v37, v46, v37
+	v_accvgpr_read_b32 v38, a32
+	v_accvgpr_read_b32 v39, a33
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[42:43], v215, s[36:39], 0 offen
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_cvt_pk_bf16_f32 v38, v38, v39
+	v_accvgpr_read_b32 v40, a34
+	v_accvgpr_read_b32 v39, a35
+	v_cvt_pk_bf16_f32 v39, v40, v39
+	v_accvgpr_read_b32 v40, a28
+	v_accvgpr_read_b32 v41, a29
+	v_cvt_pk_bf16_f32 v40, v40, v41
+	v_accvgpr_read_b32 v42, a30
+	v_accvgpr_read_b32 v41, a31
+	v_cvt_pk_bf16_f32 v41, v42, v41
+	v_accvgpr_read_b32 v42, a20
+	v_accvgpr_read_b32 v43, a21
+	v_cvt_pk_bf16_f32 v42, v42, v43
+	v_accvgpr_read_b32 v46, a22
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[44:45], v222, s[36:39], 0 offen
+	v_add_lshl_u32 v43, v207, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v63, v200, v43, s[8:9]
+	.loc	1 165 9                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:165:9
+	v_accvgpr_read_b32 v43, a23
+	v_cvt_pk_bf16_f32 v43, v46, v43
+	v_accvgpr_read_b32 v44, a12
+	v_accvgpr_read_b32 v45, a13
+	v_cvt_pk_bf16_f32 v44, v44, v45
+	v_accvgpr_read_b32 v46, a14
+	v_accvgpr_read_b32 v45, a15
+	v_cvt_pk_bf16_f32 v45, v46, v45
+	v_accvgpr_read_b32 v46, a4
+	v_accvgpr_read_b32 v47, a5
+	v_cvt_pk_bf16_f32 v46, v46, v47
+	v_accvgpr_read_b32 v48, a6
+	v_accvgpr_read_b32 v47, a7
+	v_cvt_pk_bf16_f32 v47, v48, v47
+	v_accvgpr_read_b32 v48, a24
+	v_accvgpr_read_b32 v49, a25
+	v_cvt_pk_bf16_f32 v48, v48, v49
+	v_accvgpr_read_b32 v50, a26
+	v_accvgpr_read_b32 v49, a27
+	v_cvt_pk_bf16_f32 v49, v50, v49
+	v_accvgpr_read_b32 v50, a16
+	v_accvgpr_read_b32 v51, a17
+	v_cvt_pk_bf16_f32 v50, v50, v51
+	v_accvgpr_read_b32 v52, a18
+	v_accvgpr_read_b32 v51, a19
+	v_cvt_pk_bf16_f32 v51, v52, v51
+	v_accvgpr_read_b32 v52, a8
+	v_accvgpr_read_b32 v53, a9
+	v_cvt_pk_bf16_f32 v52, v52, v53
+	v_accvgpr_read_b32 v54, a10
+	v_accvgpr_read_b32 v53, a11
+	v_cvt_pk_bf16_f32 v53, v54, v53
+	v_accvgpr_read_b32 v54, a0
+	v_accvgpr_read_b32 v55, a1
+	v_cvt_pk_bf16_f32 v54, v54, v55
+	v_accvgpr_read_b32 v62, a2
+	v_accvgpr_read_b32 v55, a3
+	v_cvt_pk_bf16_f32 v55, v62, v55
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_add_lshl_u32 v62, v208, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v62, v200, v62, s[8:9]
+	v_add_lshl_u32 v64, v205, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v64, v200, v64, s[8:9]
+	v_add_lshl_u32 v65, v206, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v65, v200, v65, s[8:9]
+	v_add_lshl_u32 v66, v203, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v66, v200, v66, s[8:9]
+	v_add_lshl_u32 v67, v204, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v67, v200, v67, s[8:9]
+	v_add_lshl_u32 v68, v202, v212, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[20:21], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v68, v200, v68, s[8:9]
+	v_add_lshl_u32 v69, v211, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v69, v200, v69, s[8:9]
+	v_add_lshl_u32 v70, v207, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v70, v200, v70, s[8:9]
+	v_add_lshl_u32 v71, v208, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v71, v200, v71, s[8:9]
+	v_add_lshl_u32 v72, v205, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v72, v200, v72, s[8:9]
+	v_add_lshl_u32 v73, v206, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v73, v200, v73, s[8:9]
+	v_add_lshl_u32 v74, v203, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v74, v200, v74, s[8:9]
+	v_add_lshl_u32 v75, v204, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v75, v200, v75, s[8:9]
+	v_add_lshl_u32 v76, v202, v211, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[18:19], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v76, v200, v76, s[8:9]
+	v_add_lshl_u32 v77, v210, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v77, v200, v77, s[8:9]
+	v_add_lshl_u32 v78, v207, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v78, v200, v78, s[8:9]
+	v_add_lshl_u32 v79, v208, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v79, v200, v79, s[8:9]
+	v_add_lshl_u32 v80, v205, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v80, v200, v80, s[8:9]
+	v_add_lshl_u32 v81, v206, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v81, v200, v81, s[8:9]
+	v_add_lshl_u32 v82, v203, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v82, v200, v82, s[8:9]
+	v_add_lshl_u32 v83, v204, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v83, v200, v83, s[8:9]
+	buffer_store_dwordx2 v[58:59], v63, s[36:39], 0 offen
+	v_add_lshl_u32 v58, v202, v210, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 s[8:9], s[16:17], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e64 v58, v200, v58, s[8:9]
+	v_add_lshl_u32 v59, v209, v201, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], vcc
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[60:61], v62, s[36:39], 0 offen
+	v_cndmask_b32_e32 v59, v200, v59, vcc
+	v_add_lshl_u32 v60, v207, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[14:15]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v60, v200, v60, vcc
+	v_add_lshl_u32 v61, v208, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[12:13]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	buffer_store_dwordx2 v[56:57], v64, s[36:39], 0 offen
+	v_cndmask_b32_e32 v56, v200, v61, vcc
+	v_add_lshl_u32 v57, v205, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[10:11]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v57, v200, v57, vcc
+	v_add_lshl_u32 v61, v206, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[6:7]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v61, v200, v61, vcc
+	v_add_lshl_u32 v62, v203, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[30:31]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v62, v200, v62, vcc
+	v_add_lshl_u32 v63, v204, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[2:3]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v63, v200, v63, vcc
+	v_add_lshl_u32 v64, v202, v209, 1
+	.loc	1 169 14                        ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:169:14
+	s_and_b64 vcc, s[0:1], s[4:5]
+	.loc	1 170 5                         ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:170:5
+	v_cndmask_b32_e32 v64, v200, v64, vcc
+	buffer_store_dwordx2 v[2:3], v65, s[36:39], 0 offen
+	buffer_store_dwordx2 v[4:5], v66, s[36:39], 0 offen
+	buffer_store_dwordx2 v[6:7], v67, s[36:39], 0 offen
+	buffer_store_dwordx2 v[8:9], v68, s[36:39], 0 offen
+	buffer_store_dwordx2 v[10:11], v69, s[36:39], 0 offen
+	buffer_store_dwordx2 v[12:13], v70, s[36:39], 0 offen
+	buffer_store_dwordx2 v[14:15], v71, s[36:39], 0 offen
+	buffer_store_dwordx2 v[16:17], v72, s[36:39], 0 offen
+	buffer_store_dwordx2 v[0:1], v73, s[36:39], 0 offen
+	buffer_store_dwordx2 v[18:19], v74, s[36:39], 0 offen
+	buffer_store_dwordx2 v[20:21], v75, s[36:39], 0 offen
+	buffer_store_dwordx2 v[22:23], v76, s[36:39], 0 offen
+	buffer_store_dwordx2 v[24:25], v77, s[36:39], 0 offen
+	buffer_store_dwordx2 v[26:27], v78, s[36:39], 0 offen
+	buffer_store_dwordx2 v[28:29], v79, s[36:39], 0 offen
+	buffer_store_dwordx2 v[30:31], v80, s[36:39], 0 offen
+	buffer_store_dwordx2 v[32:33], v81, s[36:39], 0 offen
+	buffer_store_dwordx2 v[34:35], v82, s[36:39], 0 offen
+	buffer_store_dwordx2 v[36:37], v83, s[36:39], 0 offen
+	buffer_store_dwordx2 v[38:39], v58, s[36:39], 0 offen
+	buffer_store_dwordx2 v[40:41], v59, s[36:39], 0 offen
+	buffer_store_dwordx2 v[42:43], v60, s[36:39], 0 offen
+	buffer_store_dwordx2 v[44:45], v56, s[36:39], 0 offen
+	buffer_store_dwordx2 v[46:47], v57, s[36:39], 0 offen
+	buffer_store_dwordx2 v[48:49], v61, s[36:39], 0 offen
+	buffer_store_dwordx2 v[50:51], v62, s[36:39], 0 offen
+	buffer_store_dwordx2 v[52:53], v63, s[36:39], 0 offen
+	buffer_store_dwordx2 v[54:55], v64, s[36:39], 0 offen
+	.loc	1 16 1                          ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py:16:1
+	s_endpgm
+.Ltmp32:
+	.section	.rodata,"a",@progbits
+	.p2align	6, 0x0
+	.amdhsa_kernel matmul_kernel
+		.amdhsa_group_segment_fixed_size 0
+		.amdhsa_private_segment_fixed_size 0
+		.amdhsa_kernarg_size 64
+		.amdhsa_user_sgpr_count 16
+		.amdhsa_user_sgpr_dispatch_ptr 0
+		.amdhsa_user_sgpr_queue_ptr 0
+		.amdhsa_user_sgpr_kernarg_segment_ptr 1
+		.amdhsa_user_sgpr_dispatch_id 0
+		.amdhsa_user_sgpr_kernarg_preload_length 14
+		.amdhsa_user_sgpr_kernarg_preload_offset 0
+		.amdhsa_user_sgpr_private_segment_size 0
+		.amdhsa_uses_dynamic_stack 0
+		.amdhsa_enable_private_segment 0
+		.amdhsa_system_sgpr_workgroup_id_x 1
+		.amdhsa_system_sgpr_workgroup_id_y 0
+		.amdhsa_system_sgpr_workgroup_id_z 0
+		.amdhsa_system_sgpr_workgroup_info 0
+		.amdhsa_system_vgpr_workitem_id 0
+		.amdhsa_next_free_vgpr 508
+		.amdhsa_next_free_sgpr 96
+		.amdhsa_accum_offset 252
+		.amdhsa_reserve_vcc 1
+		.amdhsa_reserve_xnack_mask 1
+		.amdhsa_float_round_mode_32 0
+		.amdhsa_float_round_mode_16_64 0
+		.amdhsa_float_denorm_mode_32 3
+		.amdhsa_float_denorm_mode_16_64 3
+		.amdhsa_dx10_clamp 1
+		.amdhsa_ieee_mode 1
+		.amdhsa_fp16_overflow 0
+		.amdhsa_tg_split 0
+		.amdhsa_exception_fp_ieee_invalid_op 0
+		.amdhsa_exception_fp_denorm_src 0
+		.amdhsa_exception_fp_ieee_div_zero 0
+		.amdhsa_exception_fp_ieee_overflow 0
+		.amdhsa_exception_fp_ieee_underflow 0
+		.amdhsa_exception_fp_ieee_inexact 0
+		.amdhsa_exception_int_div_zero 0
+	.end_amdhsa_kernel
+	.text
+.Lfunc_end0:
+	.size	matmul_kernel, .Lfunc_end0-matmul_kernel
+	.cfi_endproc
+                                        ; -- End function
+	.set matmul_kernel.num_vgpr, 252
+	.set matmul_kernel.num_agpr, 256
+	.set matmul_kernel.numbered_sgpr, 40
+	.set matmul_kernel.num_named_barrier, 0
+	.set matmul_kernel.private_seg_size, 0
+	.set matmul_kernel.uses_vcc, 1
+	.set matmul_kernel.uses_flat_scratch, 0
+	.set matmul_kernel.has_dyn_sized_stack, 0
+	.set matmul_kernel.has_recursion, 0
+	.set matmul_kernel.has_indirect_call, 0
+	.section	.AMDGPU.csdata,"",@progbits
+; Kernel info:
+; codeLenInByte = 14884
+; TotalNumSgprs: 46
+; NumVgprs: 252
+; NumAgprs: 256
+; TotalNumVgprs: 508
+; ScratchSize: 0
+; MemoryBound: 0
+; FloatMode: 240
+; IeeeMode: 1
+; LDSByteSize: 0 bytes/workgroup (compile time only)
+; SGPRBlocks: 12
+; VGPRBlocks: 63
+; NumSGPRsForWavesPerEU: 102
+; NumVGPRsForWavesPerEU: 508
+; AccumOffset: 252
+; Occupancy: 1
+; WaveLimiterHint : 0
+; COMPUTE_PGM_RSRC2:SCRATCH_EN: 0
+; COMPUTE_PGM_RSRC2:USER_SGPR: 16
+; COMPUTE_PGM_RSRC2:TRAP_HANDLER: 0
+; COMPUTE_PGM_RSRC2:TGID_X_EN: 1
+; COMPUTE_PGM_RSRC2:TGID_Y_EN: 0
+; COMPUTE_PGM_RSRC2:TGID_Z_EN: 0
+; COMPUTE_PGM_RSRC2:TIDIG_COMP_CNT: 0
+; COMPUTE_PGM_RSRC3_GFX90A:ACCUM_OFFSET: 62
+; COMPUTE_PGM_RSRC3_GFX90A:TG_SPLIT: 0
+	.text
+	.p2alignl 6, 3212836864
+	.fill 256, 4, 3212836864
+	.section	.AMDGPU.gpr_maximums,"",@progbits
+	.set amdgpu.max_num_vgpr, 0
+	.set amdgpu.max_num_agpr, 0
+	.set amdgpu.max_num_sgpr, 0
+	.set amdgpu.max_num_named_barrier, 0
+	.text
+	.section	.debug_abbrev,"",@progbits
+	.byte	1                               ; Abbreviation Code
+	.byte	17                              ; DW_TAG_compile_unit
+	.byte	1                               ; DW_CHILDREN_yes
+	.byte	37                              ; DW_AT_producer
+	.byte	14                              ; DW_FORM_strp
+	.byte	19                              ; DW_AT_language
+	.byte	5                               ; DW_FORM_data2
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	16                              ; DW_AT_stmt_list
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	27                              ; DW_AT_comp_dir
+	.byte	14                              ; DW_FORM_strp
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	2                               ; Abbreviation Code
+	.byte	46                              ; DW_TAG_subprogram
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	32                              ; DW_AT_inline
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	3                               ; Abbreviation Code
+	.byte	46                              ; DW_TAG_subprogram
+	.byte	1                               ; DW_CHILDREN_yes
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	4                               ; Abbreviation Code
+	.byte	29                              ; DW_TAG_inlined_subroutine
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	88                              ; DW_AT_call_file
+	.byte	11                              ; DW_FORM_data1
+	.byte	89                              ; DW_AT_call_line
+	.byte	11                              ; DW_FORM_data1
+	.byte	87                              ; DW_AT_call_column
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	5                               ; Abbreviation Code
+	.byte	29                              ; DW_TAG_inlined_subroutine
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	49                              ; DW_AT_abstract_origin
+	.byte	19                              ; DW_FORM_ref4
+	.byte	85                              ; DW_AT_ranges
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	88                              ; DW_AT_call_file
+	.byte	11                              ; DW_FORM_data1
+	.byte	89                              ; DW_AT_call_line
+	.byte	11                              ; DW_FORM_data1
+	.byte	87                              ; DW_AT_call_column
+	.byte	11                              ; DW_FORM_data1
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	0                               ; EOM(3)
+	.section	.debug_info,"",@progbits
+.Lcu_begin0:
+	.long	.Ldebug_info_end0-.Ldebug_info_start0 ; Length of Unit
+.Ldebug_info_start0:
+	.short	4                               ; DWARF version number
+	.long	.debug_abbrev                   ; Offset Into Abbrev. Section
+	.byte	8                               ; Address Size (in bytes)
+	.byte	1                               ; Abbrev [1] 0xb:0x84 DW_TAG_compile_unit
+	.long	.Linfo_string0                  ; DW_AT_producer
+	.short	2                               ; DW_AT_language
+	.long	.Linfo_string1                  ; DW_AT_name
+	.long	.Lline_table_start0             ; DW_AT_stmt_list
+	.long	.Linfo_string2                  ; DW_AT_comp_dir
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+	.byte	2                               ; Abbrev [2] 0x2a:0x6 DW_TAG_subprogram
+	.long	.Linfo_string3                  ; DW_AT_name
+	.byte	1                               ; DW_AT_inline
+	.byte	3                               ; Abbrev [3] 0x30:0x5e DW_TAG_subprogram
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+	.long	42                              ; DW_AT_abstract_origin
+	.byte	4                               ; Abbrev [4] 0x41:0x14 DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.quad	.Ltmp1                          ; DW_AT_low_pc
+	.long	.Ltmp2-.Ltmp1                   ; DW_AT_high_pc
+	.byte	1                               ; DW_AT_call_file
+	.byte	33                              ; DW_AT_call_line
+	.byte	17                              ; DW_AT_call_column
+	.byte	5                               ; Abbrev [5] 0x55:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges0                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	34                              ; DW_AT_call_line
+	.byte	20                              ; DW_AT_call_column
+	.byte	5                               ; Abbrev [5] 0x61:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges1                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	31                              ; DW_AT_call_line
+	.byte	11                              ; DW_AT_call_column
+	.byte	5                               ; Abbrev [5] 0x6d:0xc DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.long	.Ldebug_ranges2                 ; DW_AT_ranges
+	.byte	1                               ; DW_AT_call_file
+	.byte	32                              ; DW_AT_call_line
+	.byte	17                              ; DW_AT_call_column
+	.byte	4                               ; Abbrev [4] 0x79:0x14 DW_TAG_inlined_subroutine
+	.long	42                              ; DW_AT_abstract_origin
+	.quad	.Ltmp29                         ; DW_AT_low_pc
+	.long	.Ltmp30-.Ltmp29                 ; DW_AT_high_pc
+	.byte	1                               ; DW_AT_call_file
+	.byte	114                             ; DW_AT_call_line
+	.byte	18                              ; DW_AT_call_column
+	.byte	0                               ; End Of Children Mark
+	.byte	0                               ; End Of Children Mark
+.Ldebug_info_end0:
+	.section	.debug_ranges,"",@progbits
+.Ldebug_ranges0:
+	.quad	.Ltmp2-.Lfunc_begin0
+	.quad	.Ltmp3-.Lfunc_begin0
+	.quad	.Ltmp4-.Lfunc_begin0
+	.quad	.Ltmp5-.Lfunc_begin0
+	.quad	.Ltmp6-.Lfunc_begin0
+	.quad	.Ltmp7-.Lfunc_begin0
+	.quad	.Ltmp8-.Lfunc_begin0
+	.quad	.Ltmp9-.Lfunc_begin0
+	.quad	.Ltmp11-.Lfunc_begin0
+	.quad	.Ltmp12-.Lfunc_begin0
+	.quad	.Ltmp13-.Lfunc_begin0
+	.quad	.Ltmp14-.Lfunc_begin0
+	.quad	.Ltmp15-.Lfunc_begin0
+	.quad	.Ltmp16-.Lfunc_begin0
+	.quad	.Ltmp18-.Lfunc_begin0
+	.quad	.Ltmp19-.Lfunc_begin0
+	.quad	.Ltmp21-.Lfunc_begin0
+	.quad	.Ltmp22-.Lfunc_begin0
+	.quad	.Ltmp23-.Lfunc_begin0
+	.quad	.Ltmp24-.Lfunc_begin0
+	.quad	.Ltmp25-.Lfunc_begin0
+	.quad	.Ltmp26-.Lfunc_begin0
+	.quad	.Ltmp27-.Lfunc_begin0
+	.quad	.Ltmp28-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges1:
+	.quad	.Ltmp3-.Lfunc_begin0
+	.quad	.Ltmp4-.Lfunc_begin0
+	.quad	.Ltmp5-.Lfunc_begin0
+	.quad	.Ltmp6-.Lfunc_begin0
+	.quad	.Ltmp7-.Lfunc_begin0
+	.quad	.Ltmp8-.Lfunc_begin0
+	.quad	.Ltmp9-.Lfunc_begin0
+	.quad	.Ltmp10-.Lfunc_begin0
+	.quad	0
+	.quad	0
+.Ldebug_ranges2:
+	.quad	.Ltmp10-.Lfunc_begin0
+	.quad	.Ltmp11-.Lfunc_begin0
+	.quad	.Ltmp12-.Lfunc_begin0
+	.quad	.Ltmp13-.Lfunc_begin0
+	.quad	.Ltmp14-.Lfunc_begin0
+	.quad	.Ltmp15-.Lfunc_begin0
+	.quad	.Ltmp17-.Lfunc_begin0
+	.quad	.Ltmp18-.Lfunc_begin0
+	.quad	.Ltmp20-.Lfunc_begin0
+	.quad	.Ltmp21-.Lfunc_begin0
+	.quad	0
+	.quad	0
+	.section	.debug_str,"MS",@progbits,1
+.Linfo_string0:
+	.asciz	"triton"                        ; string offset=0 ; triton
+.Linfo_string1:
+	.asciz	"matmul_gluon_gfx950_256x256x64_2stage_scheduling.py" ; string offset=7 ; matmul_gluon_gfx950_256x256x64_2stage_scheduling.py
+.Linfo_string2:
+	.asciz	"/root/development/aiter-01/aiter/ops/triton/gluon/tutorials" ; string offset=59 ; /root/development/aiter-01/aiter/ops/triton/gluon/tutorials
+.Linfo_string3:
+	.asciz	"matmul_kernel"                 ; string offset=119 ; matmul_kernel
+	.section	".note.GNU-stack","",@progbits
+	.amdgpu_metadata
+---
+amdhsa.kernels:
+  - .agpr_count:     256
+    .args:
+      - .address_space:  global
+        .offset:         0
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         8
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         16
+        .size:           8
+        .value_kind:     global_buffer
+      - .offset:         24
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         28
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         32
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         36
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         40
+        .size:           4
+        .value_kind:     by_value
+      - .offset:         44
+        .size:           4
+        .value_kind:     by_value
+      - .address_space:  global
+        .offset:         48
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         56
+        .size:           8
+        .value_kind:     global_buffer
+    .group_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .kernarg_segment_size: 64
+    .max_flat_workgroup_size: 256
+    .name:           matmul_kernel
+    .private_segment_fixed_size: 0
+    .sgpr_count:     46
+    .sgpr_spill_count: 0
+    .symbol:         matmul_kernel.kd
+    .uniform_work_group_size: 1
+    .uses_dynamic_stack: false
+    .vgpr_count:     508
+    .vgpr_spill_count: 0
+    .wavefront_size: 64
+amdhsa.target:   amdgcn-amd-amdhsa--gfx950
+amdhsa.version:
+  - 1
+  - 2
+...
+
+	.end_amdgpu_metadata
+	.section	.debug_line,"",@progbits
+.Lline_table_start0:
