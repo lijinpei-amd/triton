@@ -38,6 +38,9 @@
 // - On GFX1250 the number of (multicast) async_load and async_stores. On
 //   GFX1250 those are out of order with register loads so we will not get
 //   conservative waits.
+// - On CDNA3/CDNA4 (asyncmark targets) the count is in commit-group units
+//   and ttg.async_wait is updated in place rather than replaced; the lowering
+//   passes its `num` straight to wait.asyncmark(N).
 // For amdg.tdm_async_wait we only count TDM ops. Each tdm_load/store will
 // produce exactly one instruction so it directly correlates with OP at TGGIR
 // level.
@@ -323,13 +326,12 @@ int computeMinCountBackward(triton::amdgpu::AsyncTDMWait waitOp,
 }
 
 // Follows the tokens of waitOp or walks the IR backwards from waitOp and
-// modifies the waitCnt in place based on the accumulated result of
-// computeCountForOp on interleaved instructions. See the file header for more
-// details.
-template <typename WaitType>
+// applies replaceFn with the accumulated count of computeCountForOp on
+// interleaved instructions. See the file header for more details.
+template <typename WaitType, typename ReplaceFn>
 void updateWaitCount(WaitType waitOp,
                      llvm::function_ref<int(Operation *)> computeCountForOp,
-                     RewriterBase &rewriter) {
+                     ReplaceFn replaceFn, RewriterBase &rewriter) {
   int waitCnt = std::numeric_limits<int>::max();
 
   if (waitOp.getNumOperands() > 0) {
@@ -354,33 +356,21 @@ void updateWaitCount(WaitType waitOp,
     waitCnt = 0;
   }
 
-  if (std::is_same_v<WaitType, ttg::AsyncWaitOp>) {
-    // Replace ttg.async_wait which counts outstanding commit groups with
-    // amdg.async_wait which counts the number of outstanding intrinsics
-    auto tokens = waitOp.getAsyncToken();
-    auto origNum = waitOp.getNum();
-    rewriter.setInsertionPointAfter(waitOp);
-    auto newOp = rewriter.replaceOpWithNewOp<amdgpu::AsyncWaitOp>(
-        waitOp, tokens, waitCnt);
-    // Preserve the original commit-group count so downstream passes
-    // (e.g. ConcurrencySanitizer) that reason about commit groups can
-    // still access it after this lowering.
-    newOp->setAttr("ttg.num_commit_groups",
-                   rewriter.getI32IntegerAttr(origNum));
-  } else if (std::is_same_v<WaitType, triton::amdgpu::AsyncTDMWait>) {
-    // Replace amdg.async_tdm_wait (counts TDM operations) with
-    // amdg.async_tdm_intrinsic_wait (counts TDM intrinsics)
-    auto tokens = waitOp.getAsyncToken();
-    auto origNum = waitOp.getNum();
-    rewriter.setInsertionPointAfter(waitOp);
-    auto newOp = rewriter.replaceOpWithNewOp<amdgpu::AsyncTDMIntrinsicWait>(
-        waitOp, tokens, waitCnt);
-    // Preserve the original TDM operation count so downstream passes
-    // (e.g. ConcurrencySanitizer) can still access it after this lowering.
-    newOp->setAttr("ttg.num_tdm_ops", rewriter.getI32IntegerAttr(origNum));
-  } else {
-    assert(false && "Unsupported wait type");
-  }
+  replaceFn(waitOp, waitCnt, rewriter);
+}
+
+// Replace `waitOp` with `NewOp{tokens, waitCnt}`. The original commit-group
+// (or TDM-op) count is preserved under `preserveAttrName` so downstream passes
+// (e.g. ConcurrencySanitizer) that reason in those units can still read it.
+template <typename NewOp, typename WaitType>
+void replaceWithIntrinsicWait(WaitType waitOp, int waitCnt,
+                              RewriterBase &rewriter,
+                              StringRef preserveAttrName) {
+  auto tokens = waitOp.getAsyncToken();
+  auto origNum = waitOp.getNum();
+  rewriter.setInsertionPointAfter(waitOp);
+  auto newOp = rewriter.replaceOpWithNewOp<NewOp>(waitOp, tokens, waitCnt);
+  newOp->setAttr(preserveAttrName, rewriter.getI32IntegerAttr(origNum));
 }
 
 } // anonymous namespace
@@ -399,33 +389,54 @@ struct TritonAMDGPUUpdateAsyncWaitCountPass
 
     ModuleOp m = getOperation();
 
-    // With asyncmark/wait_asyncmark, LLVM handles vmcnt computation —
-    // Triton no longer needs to walk the IR and count outstanding async
-    // intrinsics. Keep the ttg.async_wait ops unchanged (they track
-    // commit groups) and lower them directly to wait_asyncmark later.
-    if (!targetInfo.useAsyncMarks()) {
-      // GFX1250 (and future arches without asyncmark) use instruction counting.
-      SmallVector<ttg::AsyncWaitOp> waitOps;
-      getOperation()->walk(
-          [&](ttg::AsyncWaitOp waitOp) { waitOps.push_back(waitOp); });
+    SmallVector<ttg::AsyncWaitOp> waitOps;
+    m.walk([&](ttg::AsyncWaitOp waitOp) {
+      // On CDNA3/CDNA4 (asyncmark targets) skip tokenless waits entirely:
+      // their `num` was authored by the producer (e.g. pipeliner end-of-loop
+      // sync, Gluon wait_group(N)) and isn't derivable from a def chain;
+      // we leave the op alone so the lowering passes the producer-set num
+      // straight to wait.asyncmark(N).
+      // On other targets (GFX1250, ...) tokenless waits are still processed
+      // by computeMinCountBackward + replaceWithAmdgpuAsyncWait below - this
+      // matches the pre-PR-9883 behavior exactly.
+      if (targetInfo.useAsyncMarks() && waitOp.getNumOperands() == 0)
+        return;
+      waitOps.push_back(waitOp);
+    });
 
+    // Asyncmark targets keep ttg.async_wait and want the count in commit-group
+    // units; other targets replace it with amdg.async_wait in intrinsic units.
+    if (targetInfo.useAsyncMarks()) {
+      auto countCommitGroup = [](Operation *op) -> int {
+        return isa<ttg::AsyncCommitGroupOp>(op) ? 1 : 0;
+      };
+      auto setNumOnAsyncWait = [](ttg::AsyncWaitOp waitOp, int waitCnt,
+                                  RewriterBase &) { waitOp.setNum(waitCnt); };
+      for (auto waitOp : waitOps) {
+        IRRewriter builder(waitOp->getContext());
+        updateWaitCount(waitOp, countCommitGroup, setNumOnAsyncWait, builder);
+      }
+    } else {
       ModuleAxisInfoAnalysis axisInfo(m);
       DenseMap<Operation *, int> intrinsicCountCache;
       auto countAsyncLoadInstructions = [&](Operation *op) {
         auto found = intrinsicCountCache.find(op);
-        if (found != intrinsicCountCache.end()) {
+        if (found != intrinsicCountCache.end())
           return found->second;
-        }
         auto v = getOpNumberOfAsyncCopyInstructions(
-            op, targetInfo, axisInfo,
-            /*emitRemarkOnNonAsyncOp=*/false);
+            op, targetInfo, axisInfo, /*emitRemarkOnNonAsyncOp=*/false);
         intrinsicCountCache[op] = v;
         return v;
       };
-
+      auto replaceWithAmdgpuAsyncWait = [](ttg::AsyncWaitOp waitOp, int waitCnt,
+                                           RewriterBase &rewriter) {
+        replaceWithIntrinsicWait<amdgpu::AsyncWaitOp>(waitOp, waitCnt, rewriter,
+                                                      "ttg.num_commit_groups");
+      };
       for (auto waitOp : waitOps) {
         IRRewriter builder(waitOp->getContext());
-        updateWaitCount(waitOp, countAsyncLoadInstructions, builder);
+        updateWaitCount(waitOp, countAsyncLoadInstructions,
+                        replaceWithAmdgpuAsyncWait, builder);
       }
     }
 
@@ -476,9 +487,17 @@ struct TritonAMDGPUUpdateAsyncWaitCountPass
       return v;
     };
 
+    auto replaceWithAmdgpuAsyncTDMIntrinsicWait =
+        [](triton::amdgpu::AsyncTDMWait waitOp, int waitCnt,
+           RewriterBase &rewriter) {
+          replaceWithIntrinsicWait<amdgpu::AsyncTDMIntrinsicWait>(
+              waitOp, waitCnt, rewriter, "ttg.num_tdm_ops");
+        };
+
     for (auto waitOp : waitTDMOps) {
       IRRewriter builder(waitOp->getContext());
-      updateWaitCount(waitOp, countTDMInstructions, builder);
+      updateWaitCount(waitOp, countTDMInstructions,
+                      replaceWithAmdgpuAsyncTDMIntrinsicWait, builder);
     }
   }
 };
