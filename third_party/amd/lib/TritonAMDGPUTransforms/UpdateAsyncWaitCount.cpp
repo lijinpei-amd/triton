@@ -7,6 +7,7 @@
 #include "triton/Analysis/AxisInfo.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
+#include "triton/Dialect/TritonGPU/Transforms/Schedule.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include <limits>
 
@@ -399,11 +400,13 @@ struct TritonAMDGPUUpdateAsyncWaitCountPass
 
     ModuleOp m = getOperation();
 
-    // With asyncmark/wait_asyncmark, LLVM handles vmcnt computation —
-    // Triton no longer needs to walk the IR and count outstanding async
-    // intrinsics. Keep the ttg.async_wait ops unchanged (they track
-    // commit groups) and lower them directly to wait_asyncmark later.
-    if (!targetInfo.useAsyncMarks()) {
+    // On asyncmark targets (CDNA3/CDNA4) lowering passes ttg.async_wait's
+    // `num` straight into wait.asyncmark(N). Delegate the per-token
+    // commit-group analysis to upstream `mlir::triton::updateWaits`, which
+    // already skips tokenless waits and preserves their producer-set num.
+    if (targetInfo.useAsyncMarks()) {
+      mlir::triton::updateWaits(m);
+    } else {
       // GFX1250 (and future arches without asyncmark) use instruction counting.
       SmallVector<ttg::AsyncWaitOp> waitOps;
       getOperation()->walk(

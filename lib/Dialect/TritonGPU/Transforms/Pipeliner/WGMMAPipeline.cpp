@@ -111,27 +111,30 @@ static int minNumInterleavedCommitOps(Operation *waitOp) {
     return 0;
   };
 
-  if (waitOp->getNumOperands() != 1)
-    return 0;
-  Value val = waitOp->getOperand(0);
-  // If the value resides in a region other than the region of the wait op, then
-  // the wait op must be in some nested region. Measure the number of commits
-  // between the definition value and the parent op.
-  // TODO: We could measure commits in nested regions along the path if
-  // necessary.
-  while (waitOp->getParentRegion() != val.getParentRegion())
-    waitOp = waitOp->getParentOp();
-  int minCommits = minOverHistories(val, waitOp, 0);
-  return minCommits;
+  // Peel parent regions when the value lives outside the wait's region; then
+  // walk each operand's def chain. minOverHistories folds into the captured
+  // `minCommitNumber`.
+  // TODO: count commits in nested regions along the path.
+  for (Value val : waitOp->getOperands()) {
+    Operation *cursor = waitOp;
+    while (cursor->getParentRegion() != val.getParentRegion())
+      cursor = cursor->getParentOp();
+    minOverHistories(val, cursor, 0);
+  }
+  return minCommitNumber == INT_MAX ? 0 : minCommitNumber;
 }
 
 /// Update wait op number by analyzing the number of async_commit_group ops
-/// along all paths.
+/// along all paths. Tokenless waits are left untouched - their `num` was
+/// authored by the producer (e.g. the pipeliner's end-of-loop sync, or a
+/// user-written wait_group(N)) and isn't derivable from a def chain.
 void mlir::triton::updateWaits(ModuleOp module) {
   llvm::SmallSetVector<ttg::AsyncWaitOp, 8> waitOps;
   module.walk([&](ttg::AsyncWaitOp waitOp) {
-    int minNumCommits = minNumInterleavedCommitOps(waitOp);
-    waitOp.setNum(minNumCommits);
+    if (waitOp.getNumOperands() > 0) {
+      int minNumCommits = minNumInterleavedCommitOps(waitOp);
+      waitOp.setNum(minNumCommits);
+    }
     waitOps.insert(waitOp);
   });
   tt::combineRedundantWaitOps(waitOps);
