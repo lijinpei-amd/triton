@@ -1,6 +1,12 @@
-#include "TritonAMDGPUTransforms/Passes.h"
+#include "TritonAMDGPUToLLVM/TargetUtils.h"
+// Passes.h is consumed via macro expansion: it provides mlir::Pass, the
+// AsyncTDMWait op, and the TritonAMDGPUPipelineBase template that the
+// GEN_PASS_DEF_TRITONAMDGPUPIPELINE block below derives from. clangd's
+// include-cleaner cannot see through the tablegen indirection.
+#include "TritonAMDGPUTransforms/Passes.h" // IWYU pragma: keep
 #include "amd/lib/TritonAMDGPUTransforms/PipelineUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
+#include "triton/Dialect/TritonGPU/Transforms/Utility.h"
 
 #define DEBUG_TYPE "tritonamdgpu-pipeline-expand-loops"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
@@ -123,9 +129,23 @@ struct PipelinePass : impl::TritonAMDGPUPipelineBase<PipelinePass> {
     expandLoops(moduleOp);
 
     if (useAsyncCopy) {
-      llvm::SmallSetVector<ttg::AsyncWaitOp, 8> waitOps;
-      moduleOp.walk([&](ttg::AsyncWaitOp waitOp) { waitOps.insert(waitOp); });
-      tt::combineRedundantWaitOps(waitOps);
+      auto arch = getAMDArch(moduleOp);
+      auto family =
+          arch ? tt::AMD::deduceISAFamily(*arch) : tt::AMD::ISAFamily::Unknown;
+      // Only asyncmark targets (CDNA3/CDNA4) need updateWaits here: their
+      // lowering reads ttg.async_wait's `num` directly into wait.asyncmark(N),
+      // and PR #9883 made UpdateAsyncWaitCount a no-op on those archs, so
+      // without this call the pipeliner-authored num=0 would serialize the
+      // SWP. Every other family keeps the prior combineRedundantWaitOps-only
+      // path: their num is re-derived downstream by UpdateAsyncWaitCount.
+      if (family == tt::AMD::ISAFamily::CDNA3 ||
+          family == tt::AMD::ISAFamily::CDNA4) {
+        mlir::triton::updateWaits(moduleOp);
+      } else {
+        llvm::SmallSetVector<ttg::AsyncWaitOp, 8> waitOps;
+        moduleOp.walk([&](ttg::AsyncWaitOp waitOp) { waitOps.insert(waitOp); });
+        tt::combineRedundantWaitOps(waitOps);
+      }
     }
 
     tt::removePipeliningAttributes(moduleOp);
