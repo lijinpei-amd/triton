@@ -499,7 +499,7 @@ void remapClusters(tt::CoarseSchedule &schedule, ClusterMap clusterMap,
         tt::CoarseSchedule::hashCluster(stageAndCluster.second);
     int oldClusterId = clusterMap[clusterHash];
     if (oldClusterId == 0) {
-      stageAndCluster.second = clusters[SCHED_GLOBAL_LOAD];
+      stageAndCluster.second = clusters[SCHED_GLOBAL_LOAD_ASYNC];
     } else {
       assert(oldClusterId == 1);
       stageAndCluster.second = clusters[SCHED_COMPUTE];
@@ -519,18 +519,20 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
                            tt::CoarseSchedule &schedule) {
   LDBG("Init SingleDotSchedule");
   int lastStage = numStages - 1;
-  stages[SCHED_GLOBAL_LOAD] = 0;
+  stages[SCHED_GLOBAL_LOAD_ASYNC] = 0;
   stages[SCHED_LOCAL_STORE] = maxDist;
   stages[SCHED_LOCAL_LOAD] = lastStage;
   stages[SCHED_COMPUTE] = lastStage;
   stages[SCHED_ASYNC_WAIT] = stages[SCHED_LOCAL_LOAD];
+  stages[SCHED_GLOBAL_LOAD_SYNC] = lastStage;
 
   if (waitAtTail) {
     stages[SCHED_ASYNC_WAIT] = std::max(0, stages[SCHED_LOCAL_LOAD] - 1);
   }
 
   LDBG(
-      "Stage schedule:" << "  GLOBAL_LOAD stage = " << stages[SCHED_GLOBAL_LOAD]
+      "Stage schedule:" << "  GLOBAL_LOAD_ASYNC stage = " << stages[SCHED_GLOBAL_LOAD_ASYNC]
+                        << ", GLOBAL_LOAD_SYNC stage = " << stages[SCHED_GLOBAL_LOAD_SYNC]
                         << ", LOCAL_STORE stage = " << stages[SCHED_LOCAL_STORE]
                         << ", LOCAL_LOAD stage = " << stages[SCHED_LOCAL_LOAD]
                         << ", COMPUTE stage = " << stages[SCHED_COMPUTE]
@@ -561,6 +563,10 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
   // the end of the previous iteration, so it can guarantee the correct
   // dependency when warp0 and warp1 are pipelined.
   int asyncWaitCluster = waitAtTail ? 4 : 0;
+  // When waitAtTail is true, async wait uses a different stage/cluster (than
+  // waitAtTail = false). But for sync wait, stage/cluster stays the same
+  // (last stage / first cluster).
+  int syncWaitCluster = 0;
   // Spread tt.load and ttg.local_store apart to allow overlap with compute.
   int globalLoadCluster = 1;
   int localStoreCluster = 3;
@@ -585,6 +591,8 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
   if (stages[SCHED_LOCAL_LOAD] == stages[SCHED_COMPUTE]) {
     computeCluster = localLoadCluster;
   }
+  computeCluster = 3;
+  localLoadCluster = syncWaitCluster;
 
   // Create a hash map to associate cluster hash in old schedule with its
   // clusterID
@@ -596,15 +604,17 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
   std::generate(clusterVec.begin(), clusterVec.end(),
                 [&]() { return schedule.clusters.newAtBack(); });
 
-  clusters[SCHED_GLOBAL_LOAD] = clusterVec[globalLoadCluster];
+  clusters[SCHED_GLOBAL_LOAD_ASYNC] = clusterVec[globalLoadCluster];
   clusters[SCHED_LOCAL_STORE] = clusterVec[localStoreCluster];
   clusters[SCHED_LOCAL_LOAD] = clusterVec[localLoadCluster];
   clusters[SCHED_COMPUTE] = clusterVec[computeCluster];
   clusters[SCHED_ASYNC_WAIT] = clusterVec[asyncWaitCluster];
+  clusters[SCHED_GLOBAL_LOAD_SYNC] = schedule.clusters.newBefore(clusterVec[syncWaitCluster]);
 
   remapClusters(schedule, clusterMap, clusters);
 
-  LDBG("Cluster schedule:" << "  GLOBAL_LOAD cluster = " << globalLoadCluster
+  LDBG("Cluster schedule:" << "  GLOBAL_LOAD_ASYNC cluster = " << globalLoadCluster
+                           << ", GLOBAL_LOAD_SYNC cluster = " << syncWaitCluster
                            << ", LOCAL_STORE cluster = " << localStoreCluster
                            << ", LOCAL_LOAD cluster = " << localLoadCluster
                            << ", COMPUTE cluster = " << computeCluster
@@ -655,7 +665,8 @@ void scheduleAsyncCopy(const AsyncCopyChainOps &asyncOps, tt::LoadOp loadOp,
     schedule.insert(waitOp, stages[SCHED_ASYNC_WAIT],
                     clusters[SCHED_ASYNC_WAIT]);
 
-  if (maybeLocalLoadOp && stages[SCHED_LOCAL_LOAD] != stages[SCHED_COMPUTE]) {
+  if (maybeLocalLoadOp) {
+   // && stages[SCHED_LOCAL_LOAD] != stages[SCHED_COMPUTE]) {
     scheduleLocalLoad(maybeLocalLoadOp, schedule, stages[SCHED_LOCAL_LOAD],
                       clusters[SCHED_LOCAL_LOAD]);
   }
@@ -695,6 +706,16 @@ void scheduleStreamOps(const LoadToStreamOpMap &loadToStreamOp,
   }
 }
 
+void scheduleSyncLoads(scf::ForOp forOp, tt::CoarseSchedule &schedule,
+                       const Stages &stages, const Clusters &clusters) {
+  for (Operation &op : forOp.getBody()->without_terminator()) {
+    if (isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) && !schedule.count(&op)) {
+      schedule.insert(&op, stages[SCHED_GLOBAL_LOAD_SYNC],
+                      clusters[SCHED_GLOBAL_LOAD_SYNC]);
+    }
+  }
+}
+
 void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
                     tt::CoarseSchedule &schedule,
                     triton::AMD::ModuleAxisInfoAnalysis &axisInfoAnalysis,
@@ -727,6 +748,9 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
       l->erase();
     }
   }
+
+  scheduleSyncLoads(forOp, schedule, stages, clusters);
+  dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule synchronous loads:");
 
   scheduleDependencies(forOp, schedule);
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule with dependencies:");

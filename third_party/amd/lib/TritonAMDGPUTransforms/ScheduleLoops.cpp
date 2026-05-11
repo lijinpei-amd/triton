@@ -336,7 +336,8 @@ LogicalResult scheduleLoads(const LoadToInfoMap &loadToInfo, int maxDist,
   // Assign stages to the loads.
   for (auto [loadOp, info] : loadToInfo) {
     int stage = (maxDist - info.distToUse) * stagesBetweenLoads;
-    schedule.insert(loadOp, stages[stage], clusters[SCHED_GLOBAL_LOAD]);
+    // FIXME: I think the stage should just be 'stage', not 'stages[stage]'
+    schedule.insert(loadOp, stages[stage], clusters[SCHED_GLOBAL_LOAD_ASYNC]);
   }
 
   return success();
@@ -345,11 +346,12 @@ LogicalResult scheduleLoads(const LoadToInfoMap &loadToInfo, int maxDist,
 void initSymbolicSchedule(int maxDist, Stages &stages, Clusters &clusters,
                           tt::CoarseSchedule &schedule) {
   const int lastStage = schedule.getNumStages() - 1;
-  stages[SCHED_GLOBAL_LOAD] = 0;
+  stages[SCHED_GLOBAL_LOAD_ASYNC] = 0;
   stages[SCHED_LOCAL_STORE] = maxDist;
   stages[SCHED_LOCAL_LOAD] = lastStage;
   stages[SCHED_COMPUTE] = lastStage;
   stages[SCHED_ASYNC_WAIT] = stages[SCHED_LOCAL_LOAD];
+  stages[SCHED_GLOBAL_LOAD_SYNC] = lastStage;
 
   Clusters clusterVec;
   std::generate(clusterVec.begin(), clusterVec.end(),
@@ -360,7 +362,7 @@ void initSymbolicSchedule(int maxDist, Stages &stages, Clusters &clusters,
   constexpr int globalLoadCluster = 0;
   constexpr int computeCluster = 1;
 
-  clusters[SCHED_GLOBAL_LOAD] = clusterVec[globalLoadCluster];
+  clusters[SCHED_GLOBAL_LOAD_ASYNC] = clusterVec[globalLoadCluster];
   clusters[SCHED_COMPUTE] = clusterVec[computeCluster];
 }
 

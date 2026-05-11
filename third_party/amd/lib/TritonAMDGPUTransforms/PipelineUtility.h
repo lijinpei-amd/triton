@@ -58,18 +58,20 @@ getIndirectLevel(triton::AMD::ModuleAxisInfoAnalysis &axisInfoAnalysis,
 namespace SingleDotSchedule {
 // Define categories of scheduling details per Operation types.
 // The SingleDotSchedule schedules 5 types of operations:
-// 1. GLOBAL_LOAD: tt.load / ttg.async_copy_global_to_local
+// 1. GLOBAL_LOAD_ASYNC: pipelined tt.load / ttg.async_copy_global_to_local
 // 2. LOCAL_STORE: ttg.local_store
 // 3. LOCAL_LOAD:  ttg.local_load
 // 4. COMPUTE:     ops that use the loaded data
 // 5. ASYNC_WAIT:  ttg.async_wait
+// 6. GLOBAL_LOAD_SYNC: non-pipelined tt.load
 // Note that ttg ops mentioned in the above list are created during scheduling.
 enum SchedType {
-  SCHED_GLOBAL_LOAD,
+  SCHED_GLOBAL_LOAD_ASYNC,
   SCHED_LOCAL_STORE,
   SCHED_LOCAL_LOAD,
   SCHED_COMPUTE,
   SCHED_ASYNC_WAIT,
+  SCHED_GLOBAL_LOAD_SYNC,
   SCHED_SIZE
 };
 
