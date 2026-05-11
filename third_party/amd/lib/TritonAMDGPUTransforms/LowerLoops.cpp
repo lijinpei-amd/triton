@@ -520,13 +520,11 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
   LDBG("Init SingleDotSchedule");
   int lastStage = numStages - 1;
   stages[SCHED_GLOBAL_LOAD] = 0;
-  stages[SCHED_LOCAL_STORE] = 0;
+  stages[SCHED_LOCAL_STORE] = maxDist;
   stages[SCHED_LOCAL_LOAD] = lastStage;
   stages[SCHED_COMPUTE] = lastStage;
   stages[SCHED_ASYNC_WAIT] = stages[SCHED_LOCAL_LOAD];
 
-  bool pairedGlobalLoadLocalStore = stages[SCHED_LOCAL_STORE] == 0;
-  stages[SCHED_LOCAL_STORE] += maxDist;
   if (waitAtTail) {
     stages[SCHED_ASYNC_WAIT] = std::max(0, stages[SCHED_LOCAL_LOAD] - 1);
   }
@@ -563,16 +561,9 @@ LogicalResult initSchedule(int maxDist, Stages &stages, int numStages,
   // the end of the previous iteration, so it can guarantee the correct
   // dependency when warp0 and warp1 are pipelined.
   int asyncWaitCluster = waitAtTail ? 4 : 0;
-  // If tt.load and ttg.local_store are in the same stage
-  //   spread them apart to allow overlap with compute
-  // else
-  //   Initiate ttg.local_store before tt.load
+  // Spread tt.load and ttg.local_store apart to allow overlap with compute.
   int globalLoadCluster = 1;
   int localStoreCluster = 3;
-  if (!pairedGlobalLoadLocalStore) {
-    globalLoadCluster = 3;
-    localStoreCluster = 2;
-  }
 
   // If ttg.local_load and ttg.local_store are in the same stage
   //   spread them apart to allow overlap with compute
