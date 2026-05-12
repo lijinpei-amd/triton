@@ -536,6 +536,10 @@ class amd_knobs(base_knobs):
     # Enable machine instruction scheduler in MIR swap mode
     swap_mir_enable_misched: env_bool = env_bool("TRITON_SWAP_MIR_ENABLE_MISCHED", False)
 
+    # When set, invoke this `llc` binary instead of the bundled in-process
+    # translator (see translateLLVMIRToASM in python/src/llvm.cc).
+    external_llc_path: env_opt_str = env_opt_str("TRITON_HIP_LLC_PATH")
+
 
 class proton_knobs(base_knobs):
     disable: env_bool = env_bool("TRITON_PROTON_DISABLE", False)

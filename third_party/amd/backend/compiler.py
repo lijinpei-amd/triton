@@ -1,11 +1,13 @@
 from triton.backends.compiler import BaseBackend, GPUTarget, Language
-from triton._C.libtriton import ir, passes, llvm, amd
+from triton._C.libtriton import getenv_bool, ir, passes, llvm, amd
 from triton import knobs
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 from types import ModuleType
 import os
 import hashlib
+import shlex
+import subprocess
 import tempfile
 import re
 import functools
@@ -59,6 +61,48 @@ def _parse_llvm_fn_attrs(attrs):
         if name:
             parsed.append((name, value.strip() if sep else ""))
     return tuple(parsed)
+
+
+def _translate_to_asm_external_llc(llc_path, src, triple, arch, features, flags, enable_fp_fusion):
+    # Mirror translateLLVMIRToASM + createTargetMachine in python/src/llvm.cc;
+    # use the same env-var parsing helper so truthy semantics match exactly.
+    disable_opt_env = os.environ.get("DISABLE_LLVM_OPT", "")
+    disable_opt_bool = getenv_bool("DISABLE_LLVM_OPT", False)
+
+    cmd = [
+        llc_path,
+        f"-mtriple={triple}",
+        f"-mcpu={arch}",
+        "-relocation-model=pic",
+        "-O0" if disable_opt_bool else "-O3",
+        "--trap-unreachable",
+        f"--fp-contract={'fast' if enable_fp_fusion else 'on'}",
+        "-filetype=asm",
+    ]
+    if features:
+        cmd.append(f"-mattr={features}")
+    if getenv_bool("LLVM_IR_ENABLE_DUMP", False):
+        cmd.append("--print-after-all")
+    if disable_opt_env and not disable_opt_bool:
+        for flag in disable_opt_env.split(","):
+            flag = flag.strip()
+            if flag:
+                cmd.append(f"--{flag}")
+    for flag in flags:
+        cmd.append(f"--{flag}")
+    cmd += ["-o", "-", "-"]
+
+    if knobs.amd.dump_amdgcn:
+        print("// -----// External llc command //----- //")
+        print(shlex.join(cmd))
+
+    result = subprocess.run(cmd, input=src, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"External llc ({llc_path}) failed with exit code {result.returncode}:\n"
+            f"command: {shlex.join(cmd)}\n"
+            f"stderr:\n{result.stderr}")
+    return result.stdout
 
 
 @dataclass(frozen=True)
@@ -551,6 +595,9 @@ class HIPBackend(BaseBackend):
             amdgcn = llvm.translate_mir_to_asm(os.path.join(knobs.amd.swap_mir, dump_file_id + '.txt'),
                                                amd.TARGET_TRIPLE, options.arch, features, flags,
                                                options.enable_fp_fusion, False, knobs.amd.swap_mir_enable_misched)
+        elif knobs.amd.external_llc_path:
+            amdgcn = _translate_to_asm_external_llc(knobs.amd.external_llc_path, src, amd.TARGET_TRIPLE,
+                                                    options.arch, features, flags, options.enable_fp_fusion)
         else:
             amdgcn = llvm.translate_to_asm(src, amd.TARGET_TRIPLE, options.arch, features, flags,
                                            options.enable_fp_fusion, False, False)
