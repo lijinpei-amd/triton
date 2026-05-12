@@ -331,9 +331,12 @@ def compile(src, target=None, options=None, _env_vars=None):
             # without TRITON_KERNEL_OVERRIDE
             if (ir_override := metadata.get("ir_override", None)) and ir_override.endswith(f".{ext}"):
                 next_module = parse(ir_override, ext, context)
-        elif full_name := fn_override_manager.get_file(ir_filename):
-            print(f"\nOverriding kernel with file {full_name}")
-            next_module = parse(full_name, ext, context)
+        else:
+            make_path = getattr(fn_override_manager, "_make_path", lambda f: f)
+            print(f"\nAttempting kernel override from {make_path(ir_filename)}")
+            if full_name := fn_override_manager.get_file(ir_filename):
+                print(f"Successfully overrode kernel with file {full_name}")
+                next_module = parse(full_name, ext, context)
         # If TRITON_STORE_BINARY_ONLY is 1, only store cubin/hsaco/json
         if (not store_only_binary) or (ext in ("cubin", "hsaco", "json")):
             metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
