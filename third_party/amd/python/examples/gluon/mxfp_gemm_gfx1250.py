@@ -1647,13 +1647,12 @@ def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, 
 
     dtype_converter = {'float8_e5m2': "e5m2", "float8_e4m3": "e4m3", "float4": "e2m1"}
 
-    fn = lambda: mxgemm_tdm_pipelined_kernel[
-        grid](a_d, b_d, c_d, a_scale_d, b_scale_d, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm,
-              stride_cn, stride_scale, dtype_converter[DTYPE_A], dtype_converter[
-                  DTYPE_B], SCALE_BLOCK, BLOCK_M, BLOCK_N, BLOCK_K, GROUP_SIZE_M, TRANSPOSE_B, NUM_BUFFERS,
-              SCALE_PRESHUFFLE, ASYNC_COPY_SCALE, WITH_A_SCALE, SCHEDULE, numWarps, PINGPONG, L2_PREFETCH_DISTANCE=
-              L2_PREFETCH_DISTANCE, RESOLVE_PARTITION_CONFLICTS=RESOLVE_PARTITION_CONFLICTS, num_warps=numWarps,
-              num_ctas=numCtas, waves_per_eu=(numWarps // 4))
+    fn = lambda: mxgemm_tdm_pipelined_kernel[grid](
+        a_d, b_d, c_d, a_scale_d, b_scale_d, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm, stride_cn,
+        stride_scale, dtype_converter[DTYPE_A], dtype_converter[DTYPE_B], SCALE_BLOCK, BLOCK_M, BLOCK_N, BLOCK_K,
+        GROUP_SIZE_M, TRANSPOSE_B, NUM_BUFFERS, SCALE_PRESHUFFLE, ASYNC_COPY_SCALE, WITH_A_SCALE, SCHEDULE, numWarps,
+        PINGPONG, L2_PREFETCH_DISTANCE=L2_PREFETCH_DISTANCE, RESOLVE_PARTITION_CONFLICTS=RESOLVE_PARTITION_CONFLICTS,
+        num_warps=numWarps, num_ctas=numCtas, waves_per_eu=(numWarps // 4))
 
     bench_repeats = 32
     if BENCHMARK == 'graph':
@@ -1702,8 +1701,7 @@ def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, 
 @pytest.mark.parametrize("BENCHMARK", [None])
 def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, TRANSPOSE_B, NUM_BUFFERS,
                                       SCALE_PRESHUFFLE, WITH_A_SCALE, SCHEDULE, ASYNC_COPY_SCALE, GROUP_SIZE_M,
-                                      L2_PREFETCH_DISTANCE, ACTIVATION, BENCHMARK,
-                                      RESOLVE_PARTITION_CONFLICTS=False):
+                                      L2_PREFETCH_DISTANCE, ACTIVATION, BENCHMARK, RESOLVE_PARTITION_CONFLICTS=False):
     """
     Pipelined mxfp GEMM with optional fused SwiGLU epilogue.
 
@@ -1824,11 +1822,11 @@ def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_
 
     fn = lambda: mxgemm_tdm_pipelined_kernel[
         grid](a_d, b_d, c_d, a_scale_d, b_scale_d, M, N, K, stride_am, stride_ak, stride_bk, stride_bn, stride_cm,
-              stride_cn, stride_scale, dtype_converter[DTYPE_A], dtype_converter[DTYPE_B], SCALE_BLOCK, BLOCK_M,
-              BLOCK_N, BLOCK_K, GROUP_SIZE_M, TRANSPOSE_B, NUM_BUFFERS, SCALE_PRESHUFFLE, ASYNC_COPY_SCALE,
-              WITH_A_SCALE, SCHEDULE, NUM_WARPS=numWarps, PINGPONG=False, L2_PREFETCH_DISTANCE=L2_PREFETCH_DISTANCE,
-              ACTIVATION=ACTIVATION, RESOLVE_PARTITION_CONFLICTS=RESOLVE_PARTITION_CONFLICTS, num_warps=numWarps,
-              num_ctas=numCtas, waves_per_eu=numWarps // 4)
+              stride_cn, stride_scale, dtype_converter[DTYPE_A], dtype_converter[
+                  DTYPE_B], SCALE_BLOCK, BLOCK_M, BLOCK_N, BLOCK_K, GROUP_SIZE_M, TRANSPOSE_B, NUM_BUFFERS,
+              SCALE_PRESHUFFLE, ASYNC_COPY_SCALE, WITH_A_SCALE, SCHEDULE, NUM_WARPS=numWarps, PINGPONG=False,
+              L2_PREFETCH_DISTANCE=L2_PREFETCH_DISTANCE, ACTIVATION=ACTIVATION, RESOLVE_PARTITION_CONFLICTS=
+              RESOLVE_PARTITION_CONFLICTS, num_warps=numWarps, num_ctas=numCtas, waves_per_eu=numWarps // 4)
 
     bench_repeats = 32
     if BENCHMARK == 'graph':
