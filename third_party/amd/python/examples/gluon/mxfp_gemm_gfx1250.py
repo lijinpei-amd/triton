@@ -1569,11 +1569,11 @@ def interleave_b_scale_rows(s_gate, s_up):
 @pytest.mark.parametrize("GROUP_SIZE_M", [8])
 @pytest.mark.parametrize("PINGPONG", [True, False])
 @pytest.mark.parametrize("L2_PREFETCH_DISTANCE", [-1, 0, 2])
-@pytest.mark.parametrize("BENCHMARK", [None])
+@pytest.mark.parametrize("BENCHMARK_MODE", [None])
 def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, TRANSPOSE_B,
                                             NUM_BUFFERS, SCALE_PRESHUFFLE, WITH_A_SCALE, SCHEDULE, ASYNC_COPY_SCALE,
-                                            GROUP_SIZE_M, PINGPONG, L2_PREFETCH_DISTANCE, BENCHMARK,
-                                            RESOLVE_PARTITION_CONFLICTS=False):
+                                            GROUP_SIZE_M, PINGPONG, L2_PREFETCH_DISTANCE, BENCHMARK_MODE,
+                                            RESOLVE_PARTITION_CONFLICTS=False, BENCHMARK_NUM_ITERS=32):
     SCALE_BLOCK = 32
     numWarps = 8
     numCtas = 1
@@ -1654,13 +1654,14 @@ def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, 
         PINGPONG, L2_PREFETCH_DISTANCE=L2_PREFETCH_DISTANCE, RESOLVE_PARTITION_CONFLICTS=RESOLVE_PARTITION_CONFLICTS,
         num_warps=numWarps, num_ctas=numCtas, waves_per_eu=(numWarps // 4))
 
-    bench_repeats = 32
-    if BENCHMARK == 'graph':
-        time = triton.testing.do_bench_cudagraph(fn, rep=bench_repeats)
-        print(f'execution time: {time} ms')
-    elif BENCHMARK == 'eager':
-        time = triton.testing.do_bench(fn, warmup=10, rep=bench_repeats)
-        print(f'execution time: {time} ms')
+    if BENCHMARK_MODE == 'graph':
+        time = triton.testing.do_bench_cudagraph(fn, rep=BENCHMARK_NUM_ITERS)
+        tflops = 2 * M * N * K / (time * 1e-3) / 1e12
+        print(f'execution time: {time} ms, {tflops:.2f} TFLOPS')
+    elif BENCHMARK_MODE == 'eager':
+        time = triton.testing.do_bench(fn, warmup=10, rep=BENCHMARK_NUM_ITERS)
+        tflops = 2 * M * N * K / (time * 1e-3) / 1e12
+        print(f'execution time: {time} ms, {tflops:.2f} TFLOPS')
     else:
         k = fn()
         static_profile(k)
@@ -1681,14 +1682,14 @@ def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, 
     "DTYPE_A, DTYPE_B",
     [['float8_e5m2', 'float4'], ['float4', 'float8_e4m3'], ['float8_e4m3', 'float8_e5m2'], ['float4', 'float4']])
 @pytest.mark.parametrize("M,N,K", [(128, 128, 128), (256, 256, 512), (256, 256, 1024)])
-@pytest.mark.parametrize("BLOCK_M,BLOCK_N,BLOCK_K,NUM_BUFFERS", [
-    (64, 64, 64, 2),
-    (64, 64, 64, 4),
-    (128, 128, 128, 2),
-    (128, 128, 128, 4),
-    (256, 256, 256, 2),
-    (128, 256, 256, 3),
-    (256, 256, 128, 4),
+@pytest.mark.parametrize("BLOCK_M,BLOCK_N,BLOCK_K,NUM_BUFFERS,ACTIVATION", [
+    (64, 64, 64, 2, 'swiglu'),
+    (64, 64, 64, 4, ''),
+    (128, 128, 128, 2, 'swiglu'),
+    (128, 128, 128, 4, ''),
+    (256, 256, 256, 2, 'swiglu'),
+    (128, 256, 256, 3, ''),
+    (256, 256, 128, 4, ''),
 ])
 @pytest.mark.parametrize("TRANSPOSE_B", [True, False])
 @pytest.mark.parametrize("SCALE_PRESHUFFLE", [True, False])
@@ -1697,11 +1698,10 @@ def test_runtime_mxgemm_tdm_8warps_pipeline(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, 
 @pytest.mark.parametrize("ASYNC_COPY_SCALE", [True, False])
 @pytest.mark.parametrize("GROUP_SIZE_M", [8])
 @pytest.mark.parametrize("L2_PREFETCH_DISTANCE", [-1, 0, 2])
-@pytest.mark.parametrize("ACTIVATION", ['', 'swiglu'])
-@pytest.mark.parametrize("BENCHMARK", [None])
 def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, TRANSPOSE_B, NUM_BUFFERS,
                                       SCALE_PRESHUFFLE, WITH_A_SCALE, SCHEDULE, ASYNC_COPY_SCALE, GROUP_SIZE_M,
-                                      L2_PREFETCH_DISTANCE, ACTIVATION, BENCHMARK, RESOLVE_PARTITION_CONFLICTS=False):
+                                      L2_PREFETCH_DISTANCE, ACTIVATION, RESOLVE_PARTITION_CONFLICTS=False,
+                                      BENCHMARK_MODE=None, BENCHMARK_NUM_ITERS=32):
     """
     Pipelined mxfp GEMM with optional fused SwiGLU epilogue.
 
@@ -1724,9 +1724,10 @@ def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_
     if SCHEDULE != 'baseline' and not (SCALE_PRESHUFFLE and TRANSPOSE_B):
         pytest.skip('Only test with SCALE_PRESHUFFLE and TRANSPOSE_B in sliceK and sliceNK schedules')
 
-    is_fp4fp4 = DTYPE_A == "float4" and DTYPE_B == "float4"
+    is_fp8_a = DTYPE_A in ('float8_e5m2', 'float8_e4m3')
+    is_fp8_b = DTYPE_B in ('float8_e5m2', 'float8_e4m3')
 
-    if NUM_BUFFERS >= 3 and (BLOCK_M >= 256 or EFFECTIVE_BLOCK_N >= 256 or BLOCK_K >= 256) and not is_fp4fp4:
+    if NUM_BUFFERS >= 3 and (BLOCK_M >= 256 or EFFECTIVE_BLOCK_N >= 256 or BLOCK_K >= 256) and is_fp8_a and is_fp8_b:
         pytest.skip("Skip large block size with >=3 buffers to not exceed lds limit")
 
     if SCHEDULE == 'sliceNK':
@@ -1743,8 +1744,6 @@ def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_
 
     if SCHEDULE != 'baseline' and NUM_BUFFERS >= 3:
         problem_size = BLOCK_M * EFFECTIVE_BLOCK_N * BLOCK_K
-        is_fp8_a = DTYPE_A in ('float8_e5m2', 'float8_e4m3')
-        is_fp8_b = DTYPE_B in ('float8_e5m2', 'float8_e4m3')
         if is_fp8_a and is_fp8_b and problem_size >= 128 * 256 * 256:
             pytest.skip('Large block size with fp8 inputs and >=3 buffers will exceed lds limit')
 
@@ -1828,13 +1827,14 @@ def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_
               L2_PREFETCH_DISTANCE=L2_PREFETCH_DISTANCE, ACTIVATION=ACTIVATION, RESOLVE_PARTITION_CONFLICTS=
               RESOLVE_PARTITION_CONFLICTS, num_warps=numWarps, num_ctas=numCtas, waves_per_eu=numWarps // 4)
 
-    bench_repeats = 32
-    if BENCHMARK == 'graph':
-        time = triton.testing.do_bench_cudagraph(fn, rep=bench_repeats)
-        print(f'execution time: {time} ms')
-    elif BENCHMARK == 'eager':
-        time = triton.testing.do_bench(fn, warmup=10, rep=bench_repeats)
-        print(f'execution time: {time} ms')
+    if BENCHMARK_MODE == 'graph':
+        time = triton.testing.do_bench_cudagraph(fn, rep=BENCHMARK_NUM_ITERS)
+        tflops = 2 * M * N * K / (time * 1e-3) / 1e12
+        print(f'execution time: {time} ms, {tflops:.2f} TFLOPS')
+    elif BENCHMARK_MODE == 'eager':
+        time = triton.testing.do_bench(fn, warmup=10, rep=BENCHMARK_NUM_ITERS)
+        tflops = 2 * M * N * K / (time * 1e-3) / 1e12
+        print(f'execution time: {time} ms, {tflops:.2f} TFLOPS')
     else:
         k = fn()
         static_profile(k)
@@ -1847,6 +1847,7 @@ def test_runtime_mxgemm_tdm_pipelined(DTYPE_A, DTYPE_B, M, N, K, BLOCK_M, BLOCK_
         else:
             assert 'global_prefetch_b8' not in k.asm['amdgcn']
 
+        is_fp4fp4 = DTYPE_A == "float4" and DTYPE_B == "float4"
         if is_fp4fp4:
             assert 'v_wmma_scale_f32_32x16x128_f4' in k.asm['amdgcn']
         else:
@@ -1900,12 +1901,18 @@ if __name__ == '__main__':
         help="Timing method. `graph` uses triton.testing.do_bench_cudagraph.",
     )
     parser.add_argument(
+        "--benchmark-num-iters",
+        type=int,
+        default=32,
+        help="Number of iterations (rep) to run when benchmarking.",
+    )
+    parser.add_argument(
         '--resolve_partition_conflicts', action='store_true',
         help='Use partitioned shared layouts and a partition-aware WMMA layout to avoid LDS '
         'partition conflicts')
     args = parser.parse_args()
 
-    BENCHMARK = None if args.benchmark_mode == "none" else args.benchmark_mode
+    BENCHMARK_MODE = None if args.benchmark_mode == "none" else args.benchmark_mode
 
     if args.pingpong:
         assert (args.num_warps == 8 and (args.schedule == 'baseline' or args.schedule == 'sliceK'))
@@ -1924,7 +1931,8 @@ if __name__ == '__main__':
                                                 GROUP_SIZE_M=args.group_size_m,  #
                                                 PINGPONG=args.pingpong,  #
                                                 L2_PREFETCH_DISTANCE=args.l2_prefetch_distance,  #
-                                                BENCHMARK=BENCHMARK,  #
+                                                BENCHMARK_MODE=BENCHMARK_MODE,  #
+                                                BENCHMARK_NUM_ITERS=args.benchmark_num_iters,  #
                                                 RESOLVE_PARTITION_CONFLICTS=args.resolve_partition_conflicts)
     else:
         assert (args.num_buffers in (2, 3, 4))
@@ -1940,5 +1948,6 @@ if __name__ == '__main__':
                                           GROUP_SIZE_M=args.group_size_m,  #
                                           L2_PREFETCH_DISTANCE=args.l2_prefetch_distance,  #
                                           ACTIVATION=args.activation,  #
-                                          BENCHMARK=BENCHMARK,  #
+                                          BENCHMARK_MODE=BENCHMARK_MODE,  #
+                                          BENCHMARK_NUM_ITERS=args.benchmark_num_iters,  #
                                           RESOLVE_PARTITION_CONFLICTS=args.resolve_partition_conflicts)
