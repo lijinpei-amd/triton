@@ -98,8 +98,8 @@ TDMChainOps createTDMAsyncGather(tt::DescriptorGatherOp gatherOp, Value alloc,
   return createTDMAsync(
       gatherOp, alloc, extractIdx,
       [&](OpBuilder &builder, Location loc, Value view, Value pred) {
-        // Gather wants a replicated index encoding; insert a layout convert if
-        // the incoming indices don't already have it.
+        // Convert to the TDM index layout for better gather performance;
+        // insert a layout convert if the indices don't already have it.
         auto indices = gatherOp.getXOffsets();
         auto indicesType = cast<RankedTensorType>(indices.getType());
         auto idxEnc = getTDMGatherScatterIndexEncoding(gatherOp, indicesType);
@@ -117,6 +117,8 @@ TDMChainOps createTDMAsyncGather(tt::DescriptorGatherOp gatherOp, Value alloc,
                                                         indices, view);
       });
 }
+
+namespace {
 
 bool canBeConvertedToAsyncLoad(unsigned numBuffers, tt::LoadOp loadOp,
                                ttg::SharedEncodingTrait sharedEnc,
@@ -475,6 +477,8 @@ createStreamOps(const LoadToInfoMap &loadToInfo, scf::ForOp &forOp,
 
   return loadToStreamOp;
 }
+
+} // namespace
 
 namespace SingleDotSchedule {
 namespace {
