@@ -1,8 +1,8 @@
 {
-  "llvm_hash": "56421f921b1dc05335fa8a6cfa4aeddd0ceb80c7",
+  "llvm_hash": "b129f1fac3093e45b3608204daad0cff032a6252",
   "build_number": 1,
   "sha256sum": {
-    "ubuntu-x64": "ef3e442896467bfe16ff55498f32cc2a7e154b3c00c8f9ea74bbd00255f0883f"
+    "ubuntu-x64": "948e6df707bb3e0094af739546a7c20f18a3cd3ca5333c1c4bc0ad899739229a"
   },
   "url": "https://github.com/AMD-Triton/triton-mi450/releases/download/llvm-build-{rev}/{name}.tar.gz"
 }
