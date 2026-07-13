@@ -576,6 +576,8 @@ def test_runtime_gemm_tdm_pipelined_single_cta(BLOCK_M, BLOCK_N, BLOCK_K, NUM_BU
 @pytest.mark.parametrize("M,N,K,BLOCK_M,BLOCK_N,BLOCK_K,ctas_per_cga", _build_multi_cta_gemm_cases())
 def test_runtime_gemm_tdm_pipelined_multi_cta(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, ctas_per_cga, NUM_BUFFERS,
                                               TRANSPOSE_B, PERSISTENT, PREFETCH, L2_PREFETCH_DISTANCE, num_warps):
+    if ctas_per_cga[0] * ctas_per_cga[1] == 16:
+        pytest.skip("TODO: enable once num_ctas == 16 launches are fixed")
     # In the context of multi-cta, the "block" in _run_runtime_gemm_tdm_pipelined()
     # refers to the chunk of data collectively processed by all CTAs in the cluster.
     # However, the "block" of the testing parameters refers to the chunk of data

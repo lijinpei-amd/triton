@@ -2586,6 +2586,8 @@ def test_runtime_async_copy(M, N, vec_size, shared_layout, dtype):
                        cga_layout=[[0, 1], [0, 0], [1, 0], [0, 0]]),
     ttgl.BlockedLayout(size_per_thread=[1, 8], threads_per_warp=[4, 8], warps_per_cta=[1, 1], order=[1, 0],
                        cga_layout=[[0, 1], [0, 2], [0, 4], [0, 0]]),
+    ttgl.BlockedLayout(size_per_thread=[1, 8], threads_per_warp=[4, 8], warps_per_cta=[1, 1], order=[1, 0],
+                       cga_layout=[[0, 1], [0, 2], [0, 4], [0, 8]]),
 ])
 def test_runtime_async_copy_layouts_multi_cta(blocked_layout):
     M = 1024
@@ -2593,6 +2595,9 @@ def test_runtime_async_copy_layouts_multi_cta(blocked_layout):
     BLOCK_M = 128
     BLOCK_N = 128
     num_ctas = 2**len(blocked_layout.cga_layout)
+
+    if num_ctas == 16:
+        pytest.skip("TODO: enable once num_ctas == 16 launches are fixed")
 
     shared_layout = ttgl.SwizzledSharedLayout(1, 1, 1, [1, 0], blocked_layout.cga_layout)
 
