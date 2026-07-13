@@ -38,6 +38,9 @@ def ConvertTritonAMDGPUToLLVM : Pass<"convert-triton-amdgpu-to-llvm", "mlir::Mod
                "Specify the GFX architecture name, e.g., gfx942, gfx950, etc.">,
         Option<"ftz", "ftz", "bool", /*default*/"true",
                "flush denorms for math functions">,
+        Option<"disableMembar", "disable-membar", "bool", /*default*/"false",
+               "Disable membar analysis (LDS barrier insertion). UNSAFE: may "
+               "introduce shared-memory data races; for debugging only.">,
     ];
 }
 

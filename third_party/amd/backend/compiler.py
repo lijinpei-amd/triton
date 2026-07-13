@@ -68,6 +68,12 @@ class HIPOptions:
     backend_name: str = 'hip'
     instrumentation_mode: str = ""
 
+    # Disable the AMD Membar analysis that inserts LDS synchronization barriers
+    # (ttg.barrier -> s_barrier_signal/s_barrier_wait) during convert-to-LLVM.
+    # UNSAFE: removing these barriers can introduce shared-memory data races.
+    # Intended for compiler debugging / barrier-source experiments only.
+    disable_membar: bool = False
+
     # The following option provides hints to the AMDGPU backend regarding instruction scheduling
     # for all `tt.dot` operations in a kernel. The "none" variant preserves the default
     # instruction scheduling of the AMDGPU backend which aims at maximizing occupancy.
@@ -362,7 +368,7 @@ class HIPBackend(BaseBackend):
         ## 3. __HIP_FTZ is default to 1 and not exposed as a kernel argument.
         ##    For now it is used as a controller for developers only.
         __HIP_FTZ = True
-        amd.passes.ttgpuir.add_to_llvmir(pm, options.arch, __HIP_FTZ)
+        amd.passes.ttgpuir.add_to_llvmir(pm, options.arch, __HIP_FTZ, options.disable_membar)
         amd.passes.ttgpuir.add_warp_specialize_to_llvm(pm, options.arch)
         passes.common.add_canonicalizer(pm)
         passes.common.add_cse(pm)
