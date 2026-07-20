@@ -1140,6 +1140,26 @@ void init_gluon_ir(py::module_ &m) {
              return self.create<ttag::ScaledUpcastFp8Op>(resultType, input,
                                                          scale);
            })
+      .def("create_cvt_scale_pk",
+           [](GluonOpBuilder &self, Value val, Value scale, Type elemType,
+              int axis,
+              const std::vector<std::pair<std::string, std::string>> &scaleSel,
+              int packAxis) -> Value {
+             SmallVector<Attribute> scaleSelAttrs;
+             scaleSelAttrs.reserve(scaleSel.size());
+             for (const auto &[scaleLane, scaleBytes] : scaleSel) {
+               auto lane = ttag::symbolizeCvtScalePkLane(scaleLane);
+               auto bytes = ttag::symbolizeCvtScalePkBytes(scaleBytes);
+               if (!lane || !bytes)
+                 throw py::value_error("invalid cvt_scale_pk scale selection");
+               scaleSelAttrs.push_back(ttag::CvtScalePkScaleSelAttr::get(
+                   self.getBuilder().getContext(), *lane, *bytes));
+             }
+             // packAxis < 0 => unset (fp4 x2 expansion defaults to `axis`).
+             return self.create<ttag::CvtScalePkOp>(
+                 val, scale, elemType, axis,
+                 self.getBuilder().getArrayAttr(scaleSelAttrs), packAxis);
+           })
       .def("create_extract_slice",
            [](GluonOpBuilder &self, Type resultType, Value source,
               std::vector<int64_t> &offsets) -> Value {

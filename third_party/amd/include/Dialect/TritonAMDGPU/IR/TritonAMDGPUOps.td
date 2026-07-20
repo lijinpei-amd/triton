@@ -623,6 +623,111 @@ def ScaledUpcastFp8Op : TT_AMDGPU_Op<"scaled_upcast_fp8", [
 }
 
 //===----------------------------------------------------------------------===//
+// CvtScalePkOp
+//===----------------------------------------------------------------------===//
+
+def CvtScalePkOp : TT_AMDGPU_Op<"cvt_scale_pk", [Pure]> {
+  let summary = "Upcast fp4/fp8 with a compact block-shared E8M0 scale (gfx1250)";
+
+  let description = [{
+    Upcast packed fp4 (e2m1, as i8) or fp8 (e4m3/e5m2) values to f16/bf16/f32,
+    multiplying each block along `axis` by a shared E8M0 exponent scale. This
+    maps to the `v_cvt_scale_pk8_*` (ROCDL `cvt.scale.pk8.*`) instructions
+    available on gfx1250+.
+
+    Unlike `amdgpu.scaled_upcast_fp4`/`amdgpu.scaled_upcast_fp8`, the `scale`
+    operand is *compact*: it has the element-output shape on non-`axis`
+    dimensions and is smaller than `output` along `axis` by a factor `k_scale`
+    (a power of two). It carries the raw E8M0 payload(s) packed into an i8
+    (1 scale), i16 (2 scales), i32 (4 scales), or the low 32 bits of an i64.
+    Each group of `k_scale` output elements shares one scale value along
+    `axis`. The lowering reuses that scale across however many pk8 instructions
+    are needed, pads short final input groups with undef, and drops unused
+    outputs. When fp4 packing and scaling use different axes, the two nibbles
+    of one byte can require different scales; the lowering extracts the needed
+    nibbles and repacks each scale-homogeneous group into a pk8 source.
+
+    All shape and layout constraints below apply to the *element* layout (the
+    upcast f16/bf16/f32 result), not the packed i8 *storage* layout of an fp4
+    `val`.  For a packed fp4 `val`, the element layout is the storage layout
+    expanded x2 along `pack_axis`; the result `output` carries that element
+    layout directly.
+
+    Attributes:
+      * `axis`      : the dimension along which the scale block is shared.
+      * `scale_sel` : a non-empty array of scale selections. Each selection
+                      contains a lane (`h0` for source lanes 0..15 or `h1` for
+                      lanes 16..31) and a Vscale byte routing. A single byte
+                      (`b0`..`b3`) is used by both destination half-warps. In a
+                      two-byte selection, the first byte is used by lanes
+                      0..15 and the second by lanes 16..31. Consecutive
+                      `k_scale`-element blocks use consecutive selections,
+                      wrapping around when there are more blocks than entries.
+                      The verifier checks every entry.
+      * `pack_axis` : (fp4 only, optional) the dimension along which two fp4
+                      values are packed into each i8 of `val`, i.e. the dim
+                      doubled from storage to element layout. Defaults to
+                      `axis` when unset.
+
+    The element (`output`) layout must satisfy
+    `layout(output) = identity1D(k_scale, "register", axis) * layout(scale)`.
+    For fp4 with `pack_axis != axis`, the conventional adjacent-nibble element
+    layout and this hardware-friendly scale layout may differ by a permutation
+    of register bases; that permutation is accepted and applied explicitly by
+    the lowering. The warp size must be 32, and the value-16 lane basis
+    ("lane-15") must own exactly one output bit exclusively. See the verifier
+    for details.
+  }];
+
+  let arguments = (ins
+    RankedTensorOf<[AnyTypeOf<[F8E4M3FN, F8E5M2, I8]>]>:$val,
+    RankedTensorOf<[AnyTypeOf<[I8, I16, I32, I64]>]>:$scale,
+    I32Attr:$axis,
+    AMDGPU_CvtScalePkScaleSelArrayAttr:$scale_sel,
+    OptionalAttr<I32Attr>:$pack_axis);
+  let results = (outs RankedTensorOf<[AnyTypeOf<[F16, BF16, F32]>]>:$output);
+
+  let builders = [
+      OpBuilder<(ins "Value":$val, "Value":$scale, "Type":$elemType,
+                     "int32_t":$axis, "ArrayAttr":$scaleSel,
+                     "int32_t":$packAxis), [{
+        auto valTy = cast<RankedTensorType>(val.getType());
+        RankedTensorType resultTy;
+        // `packAxis < 0` means "unset"; the fp4 x2 expansion then falls back to
+        // `axis`.
+        IntegerAttr packAxisAttr =
+            packAxis < 0 ? IntegerAttr() : $_builder.getI32IntegerAttr(packAxis);
+        if (valTy.getElementType().isInteger(8)) {
+          int32_t effPack = packAxis < 0 ? axis : packAxis;
+          auto inferred = mlir::triton::gpu::inferFp4ToFpResultType(
+              valTy, elemType, effPack, $_state.location);
+          assert(succeeded(inferred));
+          resultTy = *inferred;
+        } else {
+          resultTy = valTy.clone(elemType);
+        }
+        build($_builder, $_state, resultTy, val, scale,
+              $_builder.getI32IntegerAttr(axis),
+              scaleSel,
+              packAxisAttr);
+      }]>
+  ];
+
+  let assemblyFormat = [{
+    $val `scale` $scale `scale_sel` `=` $scale_sel attr-dict
+        `:` type($val) `,` type($scale) `->` type($output)
+  }];
+
+  let extraClassDeclaration = [{
+    // Encode the typed scale selection as the raw OPSEL expected by ROCDL.
+    // Returns nullopt when the byte routing is not supported by the input type.
+    std::optional<int32_t> getOpSel(CvtScalePkScaleSelAttr scaleSel);
+  }];
+
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // InThreadTransposeOp
 //===----------------------------------------------------------------------===//
 

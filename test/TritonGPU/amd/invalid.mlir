@@ -696,6 +696,38 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
 
 // -----
 
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_fp8_unsupported_bytes(%val: tensor<32x32xf8E4M3FN, #blocked>, %scale: tensor<32x1xi32, #blocked1>) {
+    // expected-error @+1 {{scale_sel[1] scale_bytes b0b2 is not supported for fp8}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>, #amdg.cvt_scale_pk_scale_sel<h1, b0b2>] {axis = 1 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi32, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+
+// -----
+
+module attributes {ttg.target = "hip:gfx1250"} {
+  tt.func @cvt_scale_pk_empty_scale_sel(%val: tensor<1x32xf8E4M3FN>, %scale: tensor<1x1xi32>) {
+    // expected-error @+1 {{scale_sel must contain at least one selection}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [] {axis = 1 : i32} : tensor<1x32xf8E4M3FN>, tensor<1x1xi32> -> tensor<1x32xf16>
+    tt.return
+  }
+}
+
+// -----
+
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_fp4_unsupported_bytes(%val: tensor<1x16xi8>, %scale: tensor<1x1xi32>) {
+    // expected-error @+1 {{scale_bytes b0 is not supported for packed fp4}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>] {axis = 1 : i32} : tensor<1x16xi8>, tensor<1x1xi32> -> tensor<1x32xf16>
+    tt.return
+  }
+}
+
+// -----
+
 // scaled_upcast_fp4: axis out of range for the tensor rank.
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
   tt.func @scaled_upcast_fp4_axis_out_of_range(%x: tensor<16x32xi8>, %s: tensor<16x64xi8>) {
@@ -718,11 +750,48 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
 
 // -----
 
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_16bit_upper_half(%val: tensor<32x32xf8E4M3FN, #blocked>, %scale: tensor<32x1xi16, #blocked1>) {
+    // expected-error @+1 {{selects the upper half of the scale}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b2>] {axis = 1 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi16, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+
+// -----
+
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_8bit_unavailable_byte(%val: tensor<32x32xf8E4M3FN, #blocked>, %scale: tensor<32x1xi8, #blocked1>) {
+    // expected-error @+1 {{selects Vscale byte 1, which is not available for an 8-bit scale}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b1>] {axis = 1 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi8, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+
+// -----
+
 // scaled_upcast_fp4: output axis extent not divisible by the scale axis extent.
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
   tt.func @scaled_upcast_fp4_axis_not_divisible(%x: tensor<16x32xi8>, %s: tensor<16x48xi8>) {
     // expected-error @+1 {{expected output.shape[axis] to be divisible by scale.shape[axis]}}
     %u = amdg.scaled_upcast_fp4 %x scale %s {axis = 1 : i32} : tensor<16x32xi8>, tensor<16x48xi8> -> tensor<16x64xbf16>
+    tt.return
+  }
+}
+
+// -----
+
+// warp size != 32 (target still gfx1250 so the target gate passes first).
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [64, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [64, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 64 : i32} {
+  tt.func @cvt_scale_pk_requires_warp32(%val: tensor<64x32xf8E4M3FN, #blocked>, %scale: tensor<64x1xi32, #blocked1>) {
+    // expected-error @+1 {{warp size (threads per warp) must be 32}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>] {axis = 1 : i32} : tensor<64x32xf8E4M3FN, #blocked>, tensor<64x1xi32, #blocked1> -> tensor<64x32xbf16, #blocked>
     tt.return
   }
 }
@@ -735,6 +804,46 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
   tt.func @scaled_upcast_fp4_one_sided_encoding(%x: tensor<16x32xi8>, %s: tensor<16x64xi8, #enc>) {
     // expected-error @+1 {{scale and output must both have an encoding, or neither}}
     %u = amdg.scaled_upcast_fp4 %x scale %s {axis = 1 : i32} : tensor<16x32xi8>, tensor<16x64xi8, #enc> -> tensor<16x64xbf16>
+    tt.return
+  }
+}
+
+// -----
+
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_pack_axis_on_fp8(%val: tensor<32x32xf8E4M3FN, #blocked>, %scale: tensor<32x1xi32, #blocked1>) {
+    // expected-error @+1 {{pack_axis is only valid for packed fp4}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>] {axis = 1 : i32, pack_axis = 0 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi32, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+
+// -----
+
+// Non-gfx1250 target is rejected by the op verifier.
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx942", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_requires_gfx1250(%val: tensor<32x32xf8E4M3FN, #blocked>, %scale: tensor<32x1xi32, #blocked1>) {
+    // expected-error @+1 {{cvt_scale_pk requires a gfx1250 target}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>] {axis = 1 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi32, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+
+// -----
+
+// A cross-axis fp4 layout may reorder register bases, but it may not change
+// the lane mapping inherited from the compact scale layout.
+#val = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [0, 1]}>
+#scale_bad = #ttg.blocked<{sizePerThread = [2, 2], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [0, 1]}>
+#out = #ttg.blocked<{sizePerThread = [2, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [0, 1]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_cross_axis_non_register_mismatch(%val: tensor<32x32xi8, #val>, %scale: tensor<64x2xi32, #scale_bad>) {
+    // expected-error @+1 {{output layout must equal identity1D(k_scale, register, axis) * scale layout}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0b2>] {axis = 1 : i32, pack_axis = 0 : i32} : tensor<32x32xi8, #val>, tensor<64x2xi32, #scale_bad> -> tensor<64x32xf16, #out>
     tt.return
   }
 }

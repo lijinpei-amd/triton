@@ -25,6 +25,7 @@
 #define TRITON_AMDGPU_ATTRDEFS
 
 include "mlir/IR/AttrTypeBase.td"
+include "mlir/IR/EnumAttr.td"
 include "triton/Dialect/Triton/IR/TritonInterfaces.td"
 include "TritonAMDGPUDialect.td"
 
@@ -32,6 +33,44 @@ class TritonAMDGPU_Attr<string name, list<Trait> traits = [],
                      string baseCppClass = "::mlir::Attribute">
   : AttrDef<TritonAMDGPU_Dialect, name, traits, baseCppClass> {
 }
+
+def AMDGPU_CvtScalePkLaneAttr : I32EnumAttr<
+    "CvtScalePkLane", "source half-warp containing the packed scale",
+    [
+      I32EnumAttrCase<"H0", 0, "h0">,
+      I32EnumAttrCase<"H1", 1, "h1">
+    ]> {
+  let cppNamespace = "::mlir::triton::amdgpu";
+}
+
+def AMDGPU_CvtScalePkBytesAttr : I32EnumAttr<
+    "CvtScalePkBytes", "Vscale byte routing for the two destination half-warps",
+    [
+      I32EnumAttrCase<"B0", 0, "b0">,
+      I32EnumAttrCase<"B1", 1, "b1">,
+      I32EnumAttrCase<"B2", 2, "b2">,
+      I32EnumAttrCase<"B3", 3, "b3">,
+      I32EnumAttrCase<"B0B1", 4, "b0b1">,
+      I32EnumAttrCase<"B2B3", 5, "b2b3">,
+      I32EnumAttrCase<"B0B2", 6, "b0b2">,
+      I32EnumAttrCase<"B1B3", 7, "b1b3">
+    ]> {
+  let cppNamespace = "::mlir::triton::amdgpu";
+}
+
+def AMDGPU_CvtScalePkScaleSelAttr
+    : TritonAMDGPU_Attr<"CvtScalePkScaleSel"> {
+  let mnemonic = "cvt_scale_pk_scale_sel";
+  let parameters = (ins
+    EnumParameter<AMDGPU_CvtScalePkLaneAttr>:$lane,
+    EnumParameter<AMDGPU_CvtScalePkBytesAttr>:$bytes
+  );
+  let assemblyFormat = "`<` $lane `,` $bytes `>`";
+}
+
+def AMDGPU_CvtScalePkScaleSelArrayAttr
+    : TypedArrayAttrBase<AMDGPU_CvtScalePkScaleSelAttr,
+                         "array of cvt_scale_pk scale selections">;
 
 def SetFP8Clamping : TritonAMDGPU_Attr<"SetFP8Clamping"> {
   let mnemonic = "amdgcn.set.fp8.clamping";

@@ -2,7 +2,7 @@ from triton.runtime.jit import constexpr_function
 from triton._C.libtriton.gluon_ir import get_amd_wmma_scale_layout as _get_wmma_scale_layout
 
 from ..._core import builtin, int8, uint8, int32, float8e4nv, tensor, _unwrap_if_constexpr
-from .._ops import _wmma, _verify_wmma, _mma_scaled, _scaled_upcast
+from .._ops import _wmma, _verify_wmma, _mma_scaled, _scaled_upcast, _cvt_scale_pk
 from .._layouts import AMDWMMALayout
 from ..cdna3 import buffer_load, buffer_store
 from ._layouts import PartitionedSharedLayout, make_partitioned_dot_layouts
@@ -12,8 +12,8 @@ from . import mbarrier
 from . import cluster
 
 __all__ = [
-    "async_copy", "tdm", "mbarrier", "cluster", "wmma", "wmma_scaled", "scaled_upcast", "buffer_load", "buffer_store",
-    "get_wmma_scale_layout", "PartitionedSharedLayout", "make_partitioned_dot_layouts"
+    "async_copy", "tdm", "mbarrier", "cluster", "wmma", "wmma_scaled", "scaled_upcast", "cvt_scale_pk", "buffer_load",
+    "buffer_store", "get_wmma_scale_layout", "PartitionedSharedLayout", "make_partitioned_dot_layouts"
 ]
 
 
@@ -128,6 +128,60 @@ def scaled_upcast(src, scale, elem_type, axis=None, _semantic=None):
     assert scale.dtype in (int8, uint8), \
         f"Expected scale to use raw E8M0 payload in int8/uint8 but got {scale.dtype}"
     return _scaled_upcast(src, scale, elem_type, axis, _semantic)
+
+
+@builtin
+def cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis=None, _semantic=None):
+    """
+    Upcast fp4/fp8 with a *compact* block-shared E8M0 scale (GFX1250
+    ``v_cvt_scale_pk8``).
+
+    Unlike :func:`scaled_upcast`, ``scale`` has the element-output shape on
+    every non-``axis`` dimension and is smaller than the output along ``axis``
+    by a power-of-two factor ``k_scale``. Each group of ``k_scale`` output
+    elements along ``axis`` shares one scale value. ``scale`` carries the raw E8M0
+    payload(s) packed into ``int32``/``uint32`` (4 scales) or
+    ``int16``/``uint16`` (2 scales). The lowering reuses each scale across all
+    required pk8 instructions, pads a short final input group with undef, and
+    drops unused outputs. Consecutive scale blocks use consecutive entries of
+    ``scale_sel``, wrapping around when there are more blocks than selections.
+    With fp4 packing and scaling on different axes, it may convert one packed
+    byte under two scales and retain one nibble from each conversion.
+
+    Args:
+        val (tensor): fp8 (e4m3/e5m2) tensor, or packed fp4 (e2m1) as
+            ``int8``/``uint8`` with 2 values per byte along ``pack_axis``.
+        scale (tensor): compact raw E8M0 scale in int16/uint16/int32/uint32.
+        axis (int): dimension along which a scale block is shared.
+        scale_sel (sequence[tuple[str, str]]): non-empty sequence of
+            ``(scale_lane, scale_bytes)`` selections. ``scale_lane`` is
+            ``"h0"`` for source lanes 0..15 or ``"h1"`` for source lanes
+            16..31. ``scale_bytes`` is one of ``"b0"`, ``"b1"``, ``"b2"``,
+            ``"b3"``, ``"b0b1"``, ``"b2b3"``, ``"b0b2"``, or ``"b1b3"``.
+            A single byte is used by both destination half-warps; for a
+            two-byte selection, the first byte is used by lanes 0..15 and the
+            second by lanes 16..31. Selection ``i % len(scale_sel)`` is used
+            for scale block ``i`` along ``axis``. Unsupported fp4/fp8 and
+            block-mode combinations are rejected.
+        elem_type: result element type, ``fp16``, ``bf16`` or ``fp32``.
+        pack_axis (int, optional): fp4 only. The dimension along which two fp4
+            values are packed into each i8 of ``val`` (the storage->element x2
+            expansion dim). Defaults to ``axis`` when ``None``. All shape and
+            layout constraints apply to the *element* layout, not the packed
+            storage layout.
+
+    The element (result) layout must satisfy
+    ``layout = Identity("reg", axis, k_scale) * layout(scale)``. For fp4 with
+    ``pack_axis != axis``, it may differ from that layout by a permutation of
+    register bases so adjacent low/high nibbles keep their conventional
+    element order. The warp size must be 32, and the value-16 lane basis must
+    own exactly one output bit.
+    """
+    axis = _unwrap_if_constexpr(axis)
+    scale_sel = _unwrap_if_constexpr(scale_sel)
+    elem_type = _unwrap_if_constexpr(elem_type)
+    pack_axis = _unwrap_if_constexpr(pack_axis)
+    return _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, _semantic)
 
 
 def _get_wmma_scale_layout_impl(*args, **kwargs):

@@ -612,6 +612,285 @@ Attribute ScaledUpcastFp8Op::inferSrcEncoding(unsigned opIdx,
   return dstEnc;
 }
 
+//===----------------------------------------------------------------------===//
+// CvtScalePkOp
+//===----------------------------------------------------------------------===//
+
+// Return the Vscale byte(s) selected for destination lanes 0..15 and 16..31.
+// A single entry is shared by both halves. Byte 0 is Vscale[7:0], byte 1 is
+// [15:8], byte 2 is [23:16], and byte 3 is [31:24].
+static SmallVector<int> decodeScaleBytes(CvtScalePkBytes bytes) {
+  switch (bytes) {
+  case CvtScalePkBytes::B0:
+    return {0};
+  case CvtScalePkBytes::B1:
+    return {1};
+  case CvtScalePkBytes::B2:
+    return {2};
+  case CvtScalePkBytes::B3:
+    return {3};
+  case CvtScalePkBytes::B0B1:
+    return {0, 1};
+  case CvtScalePkBytes::B2B3:
+    return {2, 3};
+  case CvtScalePkBytes::B0B2:
+    return {0, 2};
+  case CvtScalePkBytes::B1B3:
+    return {1, 3};
+  }
+  llvm_unreachable("unknown cvt_scale_pk byte selection");
+}
+
+std::optional<int32_t>
+CvtScalePkOp::getOpSel(CvtScalePkScaleSelAttr scaleSel) {
+  bool isFp4 = getVal().getType().getElementType().isInteger(8);
+  int32_t opSel = scaleSel.getLane() == CvtScalePkLane::H1 ? 1 : 0;
+
+  // Tables 52 and 53 encode byte routing differently. Keep that encoding at
+  // the dialect/lowering boundary rather than exposing it through the op.
+  if (isFp4) {
+    switch (scaleSel.getBytes()) {
+    case CvtScalePkBytes::B0B1:
+      return opSel;
+    case CvtScalePkBytes::B2B3:
+      return opSel | 2;
+    case CvtScalePkBytes::B0B2:
+      return opSel | 4;
+    case CvtScalePkBytes::B1B3:
+      return opSel | 6;
+    default:
+      return std::nullopt;
+    }
+  }
+
+  switch (scaleSel.getBytes()) {
+  case CvtScalePkBytes::B0:
+    return opSel;
+  case CvtScalePkBytes::B2:
+    return opSel | 2;
+  case CvtScalePkBytes::B1:
+    return opSel | 4;
+  case CvtScalePkBytes::B3:
+    return opSel | 6;
+  case CvtScalePkBytes::B0B1:
+    return opSel | 8;
+  case CvtScalePkBytes::B2B3:
+    return opSel | 10;
+  default:
+    return std::nullopt;
+  }
+}
+
+LogicalResult CvtScalePkOp::verify() {
+  RankedTensorType valTy = getVal().getType();
+  RankedTensorType scaleTy = getScale().getType();
+  RankedTensorType outTy = getOutput().getType();
+  auto *ctx = getContext();
+  int64_t rank = outTy.getRank();
+
+  // cvt_scale_pk maps to v_cvt_scale_pk8, which only exists on gfx1250+. Gate
+  // on the module target when it is known (tolerant of target-less contexts,
+  // mirroring BufferLoadToLocalOp::verify).
+  if (auto mod = getOperation()->getParentOfType<ModuleOp>()) {
+    TargetFeatures features = TargetFeatures::fromModuleOp(mod);
+    if (!features.getArch().empty() && !features.supportsCvtPkScalePk8())
+      return emitError() << "cvt_scale_pk requires a gfx1250 target";
+  }
+
+  if (valTy.getRank() != rank || scaleTy.getRank() != rank)
+    return emitError() << "val, scale and output must have the same rank";
+
+  int32_t axis = getAxis();
+  if (axis < 0 || axis >= rank)
+    return emitError() << "axis " << axis << " out of range for rank " << rank;
+
+  bool packedFp4 = valTy.getElementType().isInteger(8);
+
+  // For packed fp4, `pack_axis` (defaulting to `axis`) is the dim doubled from
+  // the storage (i8) layout to the element (output) layout. The element-layout
+  // constraints below are all checked on `output`.
+  int32_t packAxis = axis;
+  if (auto packAttr = getPackAxisAttr()) {
+    packAxis = packAttr.getInt();
+    if (!packedFp4)
+      return emitError() << "pack_axis is only valid for packed fp4 (i8) val";
+    if (packAxis < 0 || packAxis >= rank)
+      return emitError() << "pack_axis " << packAxis << " out of range for rank "
+                         << rank;
+  }
+
+  // 1. output shape must equal the "unpacked" val shape (fp4 doubles pack_axis),
+  //    and the packed fp4 <-> output relationship must hold (reuses Fp4ToFp).
+  if (packedFp4) {
+    if (failed(mlir::triton::gpu::Fp4ToFpOp::verifyFp4ToFp(*this, valTy, outTy,
+                                                           packAxis)))
+      return failure();
+  } else {
+    if (valTy.getShape() != outTy.getShape())
+      return emitError() << "val and output must have the same shape for fp8";
+  }
+
+  // 2. k_scale = out[axis] / scale[axis]; other dims equal. k_scale is the
+  //    number of output elements sharing one scale along `axis`. It must be a
+  //    power of two (the layout expands the scale by identity1D(k_scale, ...)).
+  //    The lowering reuses a scale across all required pk8 groups, pads a short
+  //    final input group with undef, and drops unused outputs.
+  for (int64_t d = 0; d < rank; ++d) {
+    if (d == axis)
+      continue;
+    if (outTy.getDimSize(d) != scaleTy.getDimSize(d))
+      return emitError() << "scale and output must have equal size on non-axis "
+                            "dim "
+                         << d;
+  }
+  int64_t outK = outTy.getDimSize(axis);
+  int64_t scaleK = scaleTy.getDimSize(axis);
+  if (scaleK <= 0 || outK % scaleK != 0)
+    return emitError() << "output axis size " << outK
+                       << " must be a positive multiple of scale axis size "
+                       << scaleK;
+  int64_t kScale = outK / scaleK;
+  if (kScale <= 0 || (kScale & (kScale - 1)) != 0)
+    return emitError() << "k_scale (output/scale along axis) must be a power of "
+                          "two, got "
+                       << kScale;
+  // fp4 packs two values per i8, so a scale must cover an even number of them.
+  if (packedFp4 && kScale < 2)
+    return emitError() << "k_scale must be even (>= 2) for packed fp4, got "
+                       << kScale;
+
+  // 3. Byte-routing/type compatibility and narrow-scale byte availability.
+  if (getScaleSel().empty())
+    return emitError() << "scale_sel must contain at least one selection";
+
+  unsigned scaleBits = scaleTy.getElementType().getIntOrFloatBitWidth();
+  for (auto [scaleSelIdx, scaleSelAttr] : llvm::enumerate(getScaleSel())) {
+    auto scaleSel = cast<CvtScalePkScaleSelAttr>(scaleSelAttr);
+    CvtScalePkBytes scaleBytes = scaleSel.getBytes();
+    std::optional<int32_t> opSel = getOpSel(scaleSel);
+    if (!opSel) {
+      if (packedFp4)
+        return emitError()
+               << "scale_sel[" << scaleSelIdx << "] scale_bytes "
+               << stringifyCvtScalePkBytes(scaleBytes)
+               << " is not supported for packed fp4; expected one of b0b1, "
+                  "b2b3, b0b2, b1b3";
+      return emitError()
+             << "scale_sel[" << scaleSelIdx << "] scale_bytes "
+             << stringifyCvtScalePkBytes(scaleBytes)
+             << " is not supported for fp8; expected one of b0, b1, b2, b3, "
+                "b0b1, b2b3";
+    }
+
+    if (scaleBits < 32) {
+      for (int byte : decodeScaleBytes(scaleBytes))
+        if (byte >= static_cast<int>(scaleBits / 8)) {
+          if (scaleBits == 16)
+            return emitError()
+                   << "scale_sel[" << scaleSelIdx << "] scale_bytes "
+                   << stringifyCvtScalePkBytes(scaleBytes)
+                   << " selects the upper half of the scale (Vscale byte "
+                   << byte << "), which is not available for a 16-bit scale";
+          return emitError()
+                 << "scale_sel[" << scaleSelIdx << "] scale_bytes "
+                 << stringifyCvtScalePkBytes(scaleBytes)
+                 << " selects Vscale byte " << byte
+                 << ", which is not available for an " << scaleBits
+                 << "-bit scale";
+        }
+    }
+  }
+
+  // 4. Layout contract:  layout(output) == identity1D(k_scale, reg, axis) *
+  //    layout(scale). The new fast-moving register dimension expands the scale
+  //    along `axis`.
+  Attribute valEnc = valTy.getEncoding();
+  Attribute scaleEnc = scaleTy.getEncoding();
+  Attribute outEnc = outTy.getEncoding();
+  if (bool(valEnc) != bool(outEnc) || bool(scaleEnc) != bool(outEnc))
+    return emitError()
+           << "val, scale and output must all have an encoding, or none";
+  if (!outEnc)
+    return success();
+
+  StringAttr kReg = StringAttr::get(ctx, "register");
+  StringAttr kLane = StringAttr::get(ctx, "lane");
+
+  LinearLayout scaleLL = triton::gpu::toLinearLayout(scaleTy);
+  LinearLayout outLL = triton::gpu::toLinearLayout(outTy);
+
+  // For fp8 (not packed), val and output share the same distributed layout.
+  if (!packedFp4 && triton::gpu::toLinearLayout(valTy) != outLL)
+    return emitError() << "val and output must have the same layout for fp8";
+
+  auto outDimNames = standardOutDimNames(ctx, rank);
+  StringAttr dimAxis = outDimNames[axis];
+  LinearLayout expected =
+      LinearLayout::identity1D(kScale, kReg, dimAxis) * scaleLL;
+
+  SmallVector<StringAttr> order(outLL.getOutDimNames());
+  expected = expected.transposeOuts(order);
+  LinearLayout outLLT = outLL.transposeOuts(order);
+  bool layoutMatches = expected == outLLT;
+  // For fp4, the element layout produced from packed storage has the
+  // `pack_axis` nibble basis first (low/high nibbles are adjacent).  When the
+  // scale and pack axes differ, the hardware-friendly scale layout instead
+  // has the `axis` scale-block bases first.  Accept exactly a permutation of
+  // register bases between those two representations; the lowering applies
+  // that permutation explicitly while preserving the element coordinates.
+  if (!layoutMatches && packedFp4 && packAxis != axis) {
+    if (auto permutation =
+            regPermForDivide(outLLT, expected, /*left=*/true))
+      layoutMatches = permutation->apply(outLLT) == expected;
+  }
+  if (!layoutMatches)
+    return emitError() << "output layout must equal identity1D(k_scale, "
+                          "register, axis) * scale layout"
+                          " (up to a register permutation for fp4 with "
+                          "pack_axis != axis):\nexpected: "
+                       << expected.toString()
+                       << "\ngot: " << outLLT.toString();
+
+  // 5. Warp size must be 32 (gfx1250 wave32).
+  if (outLL.getInDimSize(kLane) != 32)
+    return emitError() << "warp size (threads per warp) must be 32, got "
+                       << outLL.getInDimSize(kLane);
+
+  // 6. "lane-15" constraint (Tables 52/53 route scales by lane-half): the
+  //    value-16 lane basis (index 4) must map to exactly one output bit, and no
+  //    other basis may touch that bit.
+  ArrayRef<int32_t> lane15 = outLL.getBasis(kLane, /*pos=*/4);
+  int ownDim = -1, ownBit = -1, popcnt = 0;
+  for (int d = 0; d < (int)lane15.size(); ++d) {
+    uint32_t v = (uint32_t)lane15[d];
+    for (; v; v &= v - 1)
+      ++popcnt;
+    if (lane15[d]) {
+      ownDim = d;
+      ownBit = lane15[d];
+    }
+  }
+  if (popcnt != 1)
+    return emitError() << "the value-16 lane basis (\"lane-15\") must map to "
+                          "exactly one output bit, but maps to "
+                       << popcnt << " bits";
+
+  for (StringAttr inDim : outLL.getInDimNames()) {
+    int nbases = outLL.getInDimSizeLog2(inDim);
+    for (int pos = 0; pos < nbases; ++pos) {
+      if (inDim == kLane && pos == 4)
+        continue;
+      if (outLL.getBasis(inDim, pos)[ownDim] & ownBit)
+        return emitError()
+               << "the output bit owned by the value-16 lane basis "
+                  "(\"lane-15\") must not be mapped by any other basis, but "
+               << inDim.strref() << " basis " << pos << " also maps it";
+    }
+  }
+
+  return success();
+}
+
 LogicalResult ConcatOp::verify() {
   auto sources = getSources();
   auto result = getResult();

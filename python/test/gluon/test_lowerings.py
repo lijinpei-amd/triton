@@ -1,10 +1,14 @@
+import math
+
 import torch
 import pytest
 
 import triton
 from triton.experimental import gluon
 from triton.experimental.gluon import language as ttgl
-from triton._internal_testing import is_blackwell, is_cuda, is_hip, is_hopper_or_newer, get_hip_lds_size
+from triton._internal_testing import (is_blackwell, is_cuda, is_hip, is_hip_gfx1250, is_hopper_or_newer,
+                                       get_hip_lds_size)
+from triton._C.libtriton import ir, gluon_ir
 from triton._C.libtriton.gluon_ir import make_cga_layout
 from triton.experimental.gluon.language.amd.gfx1250 import PartitionedSharedLayout
 from triton.experimental.gluon.language.nvidia.blackwell import TensorMemoryLayout, allocate_tensor_memory
@@ -2275,3 +2279,491 @@ def test_partitioned_shared_layout(M, K, num_partitions, num_groups, partition_d
 
     # Verify output matches input
     torch.testing.assert_close(output_tensor, input_tensor, atol=0, rtol=0)
+
+
+
+# =============================================================================
+# gfx1250 `amdgpu.cvt_scale_pk` (gluon `cvt_scale_pk`) on-device numeric tests
+# =============================================================================
+
+# fp4 (e2m1) 4-bit code -> value LUT (sign-magnitude).
+_FP4_LUT = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, -0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0]
+
+_TTGL_DT = {"f16": ttgl.float16, "bf16": ttgl.bfloat16, "f32": ttgl.float32}
+_TORCH_DT = {"f16": torch.float16, "bf16": torch.bfloat16, "f32": torch.float32}
+
+
+def _decode_fp4(packed, pack_axis=1):
+    """Unpack each byte into adjacent low/high fp4 elements along pack_axis."""
+    lut = torch.tensor(_FP4_LUT, device=packed.device, dtype=torch.float32)
+    lo = lut[(packed & 0xF).long()]
+    hi = lut[((packed >> 4) & 0xF).long()]
+    return torch.stack([lo, hi], dim=pack_axis + 1).flatten(pack_axis, pack_axis + 1)
+
+
+def _cvt_scale_pk_to_linear_layout(layout, shape):
+    if isinstance(layout, ttgl.DistributedLinearLayout):
+        assert list(layout.shape) == list(shape)
+        return layout
+    # cvt_scale_pk is gfx1250-only; use its target when expanding higher-level
+    # blocked, slice, WMMA, and dot-operand layouts on the host.
+    context = ir.context()
+    ir.load_dialects(context)
+    builder = gluon_ir.GluonOpBuilder(context, "gfx1250")
+    return builder.to_linear_layout(layout._to_ir(builder), list(shape))
+
+
+def _cvt_scale_pk_fp4_element_layout(packed_linear, out_shape, pack_axis):
+    """Expand a packed-i8 layout to its logical low/high-nibble layout."""
+
+    def expand(bases):
+        return [basis[:pack_axis] + [2 * basis[pack_axis]] + basis[pack_axis + 1:] for basis in bases]
+
+    minor_element_basis = [0] * len(out_shape)
+    minor_element_basis[pack_axis] = 1
+    return ttgl.DistributedLinearLayout(
+        [minor_element_basis] + expand(packed_linear.reg_bases),
+        expand(packed_linear.lane_bases),
+        expand(packed_linear.warp_bases),
+        expand(packed_linear.block_bases),
+        out_shape,
+    )
+
+
+@gluon.constexpr_function
+def _cvt_scale_pk_compact_scale_layout(out_linear, out_shape, scale_shape, axis, k_scale):
+    """Remove the element bases for one compact scale block from an output layout."""
+    reg_bases = list(out_linear.reg_bases)
+    for bit in range(k_scale.bit_length() - 1):
+        basis = [0] * len(out_shape)
+        basis[axis] = 1 << bit
+        reg_bases.remove(basis)
+
+    def compact(bases):
+        return [basis[:axis] + [basis[axis] // k_scale] + basis[axis + 1:] for basis in bases]
+
+    return ttgl.DistributedLinearLayout(
+        compact(reg_bases),
+        compact(out_linear.lane_bases),
+        compact(out_linear.warp_bases),
+        compact(out_linear.block_bases),
+        scale_shape,
+    )
+
+
+def _cvt_scale_pk_make_scale_layout(val_layout, out_shape, axis, k_factor, pack_axis=None):
+    if pack_axis is None:
+        out_linear = _cvt_scale_pk_to_linear_layout(val_layout, out_shape)
+    else:
+        packed_shape = list(out_shape)
+        packed_shape[pack_axis] //= 2
+        packed_linear = _cvt_scale_pk_to_linear_layout(val_layout, packed_shape)
+        out_linear = _cvt_scale_pk_fp4_element_layout(packed_linear, out_shape, pack_axis)
+    scale_shape = list(out_shape)
+    scale_shape[axis] //= k_factor
+    return _cvt_scale_pk_compact_scale_layout(out_linear, out_shape, scale_shape, axis, k_factor)
+
+
+@gluon.jit
+def _cvt_scale_pk_layout_kernel(val_ptr, scale_ptr, out_ptr, V0: ttgl.constexpr, V1: ttgl.constexpr, S0: ttgl.constexpr,
+                                S1: ttgl.constexpr, O0: ttgl.constexpr, O1: ttgl.constexpr, VAL_LAYOUT: ttgl.constexpr,
+                                SCALE_LAYOUT: ttgl.constexpr, AXIS: ttgl.constexpr, SCALE_SEL: ttgl.constexpr,
+                                ELEM_TYPE: ttgl.constexpr, PACK_AXIS: ttgl.constexpr):
+    v0 = ttgl.arange(0, V0, layout=ttgl.SliceLayout(1, VAL_LAYOUT))[:, None]
+    v1 = ttgl.arange(0, V1, layout=ttgl.SliceLayout(0, VAL_LAYOUT))[None, :]
+    val = ttgl.load(val_ptr + v0 * V1 + v1)
+
+    s0 = ttgl.arange(0, S0, layout=ttgl.SliceLayout(1, SCALE_LAYOUT))[:, None]
+    s1 = ttgl.arange(0, S1, layout=ttgl.SliceLayout(0, SCALE_LAYOUT))[None, :]
+    scale = ttgl.load(scale_ptr + s0 * S1 + s1)
+
+    if PACK_AXIS < 0:
+        res = ttgl.amd.gfx1250.cvt_scale_pk(val, scale, axis=AXIS, scale_sel=SCALE_SEL, elem_type=ELEM_TYPE)
+    else:
+        res = ttgl.amd.gfx1250.cvt_scale_pk(val, scale, axis=AXIS, scale_sel=SCALE_SEL, elem_type=ELEM_TYPE,
+                                            pack_axis=PACK_AXIS)
+
+    out_layout: ttgl.constexpr = res.type.layout
+    o0 = ttgl.arange(0, O0, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    o1 = ttgl.arange(0, O1, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    ttgl.store(out_ptr + o0 * O1 + o1, res)
+
+
+def _cvt_scale_pk_blocked_layout(axis):
+    if axis == 0:
+        return ttgl.BlockedLayout([8, 1], [1, 32], [1, 4], [0, 1])
+    return ttgl.BlockedLayout([1, 8], [32, 1], [4, 1], [1, 0])
+
+
+def _cvt_scale_pk_blocked_slice_layout(axis):
+    layout = _cvt_scale_pk_blocked_layout(axis)
+    parent = ttgl.BlockedLayout(
+        [1] + layout.size_per_thread,
+        [1] + layout.threads_per_warp,
+        [1] + layout.warps_per_cta,
+        [dim + 1 for dim in layout.order] + [0],
+    )
+    return ttgl.SliceLayout(0, parent)
+
+
+def _cvt_scale_pk_wmma_layout(axis, sliced=False):
+    # WMMA v3 has its accumulator element dimension on opposite axes for the
+    # two transpose modes. Pick the mode whose fast element dimension is axis.
+    transposed = axis == 1
+    if not sliced:
+        return ttgl.amd.AMDWMMALayout(3, transposed, [[0, 1], [1, 0]], instr_shape=[16, 16, 128])
+    parent = ttgl.amd.AMDWMMALayout(3, transposed, [[0, 0, 1], [0, 1, 0]], instr_shape=[16, 16, 128], rank=3)
+    return ttgl.SliceLayout(0, parent)
+
+
+def _cvt_scale_pk_dot_layout(axis, sliced=False, packed=False):
+    operand_index = 1 if axis == 0 else 0
+    k_width = 8 if packed else 16
+    if not sliced:
+        parent = ttgl.amd.AMDWMMALayout(3, True, [[0, 1], [1, 0]], instr_shape=[16, 16, 64 if packed else 128])
+        return ttgl.DotOperandLayout(operand_index, parent, k_width)
+    parent = ttgl.amd.AMDWMMALayout(3, True, [[0, 0, 1], [0, 1, 0]],
+                                             instr_shape=[16, 16, 64 if packed else 128], rank=3)
+    return ttgl.SliceLayout(0, ttgl.DotOperandLayout(operand_index, parent, k_width))
+
+
+def _cvt_scale_pk_fp8_layout_cases():
+    cases = []
+    for axis in (0, 1):
+        blocked_shape = (16, 128) if axis == 0 else (128, 16)
+        dot_shape = (128, 32) if axis == 0 else (32, 128)
+        for sliced in (False, True):
+            suffix = "-slice" if sliced else ""
+            blocked = _cvt_scale_pk_blocked_slice_layout(axis) if sliced else _cvt_scale_pk_blocked_layout(axis)
+            cases.append((blocked, blocked_shape, axis, f"blocked{suffix}-axis{axis}"))
+            cases.append((_cvt_scale_pk_wmma_layout(axis, sliced), (32, 32), axis, f"wmma-v3{suffix}-axis{axis}"))
+            cases.append((_cvt_scale_pk_dot_layout(axis, sliced), dot_shape, axis, f"dot-op{suffix}-axis{axis}"))
+    return cases
+
+
+def _cvt_scale_pk_fp4_layout_cases():
+    cases = []
+    for axis in (0, 1):
+        pack_axis = axis
+        blocked_shape = (16, 128) if axis == 0 else (128, 16)
+        dot_shape = (128, 32) if axis == 0 else (32, 128)
+        cases.append(
+            (_cvt_scale_pk_blocked_layout(axis), blocked_shape, axis, pack_axis, f"blocked-axis{axis}-pack{pack_axis}"))
+        cases.append(
+            (_cvt_scale_pk_dot_layout(axis,
+                                      packed=True), dot_shape, axis, pack_axis, f"dot-op-axis{axis}-pack{pack_axis}"))
+    return cases
+
+
+def _cvt_scale_pk_scale_sel_cases(is_fp4):
+    # Enumerate every scale width that contains the byte(s) named by scale_sel.
+    dtypes = {
+        "b0": (torch.int8, torch.int16, torch.int32),
+        "b1": (torch.int16, torch.int32),
+        "b2": (torch.int32, ),
+        "b3": (torch.int32, ),
+        "b0b1": (torch.int16, torch.int32),
+        "b2b3": (torch.int32, ),
+        "b0b2": (torch.int32, ),
+        "b1b3": (torch.int32, ),
+    }
+    scale_bytes = ("b0b1", "b2b3", "b0b2", "b1b3") if is_fp4 else ("b0", "b1", "b2", "b3", "b0b1", "b2b3")
+    return [(((lane, bytes_), ), dtype, f"{lane}-{bytes_}-{str(dtype).removeprefix('torch.')}")
+            for lane in ("h0", "h1")
+            for bytes_ in scale_bytes
+            for dtype in dtypes[bytes_]]
+
+
+def _make_cvt_scale_pk_scale(shape, dtype, device):
+    """Create compact scales with a distinct E8M0 payload in every byte."""
+    info = torch.iinfo(dtype)
+    bytes_per_element = info.bits // 8
+    element_indices = torch.arange(math.prod(shape), dtype=torch.int64)
+    words = torch.zeros_like(element_indices)
+    for byte in range(bytes_per_element):
+        # The prime period keeps lane^16 partners distinct for the power-of-two
+        # layouts under test while limiting factors to 2^-8 through 2^8.
+        exponents = 119 + (bytes_per_element * element_indices + byte) % 17
+        words |= exponents << (8 * byte)
+    if info.min < 0:
+        sign_bit = 1 << (info.bits - 1)
+        words = torch.where(words >= sign_bit, words - (1 << info.bits), words)
+    return words.reshape(shape).to(device=device, dtype=dtype)
+
+
+def _cvt_scale_pk_reference_factors(scale, scale_layout, k_axis, k_factor, *, scale_sel=(("h0", "b0"), ), is_fp4=False):
+    """Route compact E8M0 payloads and expand them to value coordinates.
+
+    This is the Torch reference for the lane-half and byte routing performed
+    by cvt_scale_pk. It does not modify or duplicate the scale tensor payload.
+    """
+    if not 0 <= k_axis < scale.ndim:
+        raise ValueError(f"invalid k_axis {k_axis} for a rank-{scale.ndim} scale tensor")
+    if k_factor <= 0:
+        raise ValueError(f"k_factor must be positive, got {k_factor}")
+    if not scale_sel:
+        raise ValueError("scale_sel must not be empty")
+    if any(lane not in ("h0", "h1") for lane, _ in scale_sel):
+        raise ValueError(f"invalid scale lane in {scale_sel}")
+
+    scale_linear = _cvt_scale_pk_to_linear_layout(scale_layout, scale.shape)
+    rank = scale.ndim
+    device = scale.device
+    bases_by_domain = [
+        scale_linear.reg_bases,
+        scale_linear.lane_bases,
+        scale_linear.warp_bases,
+        scale_linear.block_bases,
+    ]
+    domain_indices = torch.meshgrid(
+        *[torch.arange(1 << len(bases), device=device, dtype=torch.int64) for bases in bases_by_domain], indexing="ij")
+    domain_indices = [indices.reshape(-1) for indices in domain_indices]
+
+    def apply_bases(indices, bases):
+        coords = torch.zeros((indices.numel(), rank), device=device, dtype=torch.int64)
+        for bit, basis in enumerate(bases):
+            basis = torch.tensor(basis, device=device, dtype=torch.int64)
+            coords ^= ((indices >> bit) & 1)[:, None] * basis
+        return coords
+
+    domain_coords = [apply_bases(indices, bases) for indices, bases in zip(domain_indices, bases_by_domain)]
+    reg_coords, lane_coords, warp_coords, block_coords = domain_coords
+    dst_coords = reg_coords ^ lane_coords ^ warp_coords ^ block_coords
+
+    # The lowering selects scale_sel from the register-local scale block, with
+    # lane/warp/block held at zero. The instruction then sources Vscale from
+    # the selected half-wave while preserving the low four lane bits.
+    selector_indices = reg_coords[:, k_axis] % len(scale_sel)
+    selector_source_halves = torch.tensor([lane == "h1" for lane, _ in scale_sel], device=device, dtype=torch.int64)
+    source_lanes = (domain_indices[1] & 15) | (selector_source_halves[selector_indices] << 4)
+    source_lane_coords = apply_bases(source_lanes, scale_linear.lane_bases)
+    source_coords = reg_coords ^ source_lane_coords ^ warp_coords ^ block_coords
+
+    shape = torch.tensor(scale.shape, device=device, dtype=torch.int64)
+    if torch.any(dst_coords >= shape) or torch.any(source_coords >= shape):
+        raise AssertionError("scale layout produced an out-of-bounds coordinate")
+    scale_words = scale.to(torch.int64)[tuple(source_coords[:, dim] for dim in range(rank))]
+
+    # gfx1250 stepping behavior aliases the block16 byte encodings as captured
+    # by the exhaustive OPSEL tests below.
+    if is_fp4:
+        byte_routes = {"b0b1": (0, 1), "b2b3": (2, 3), "b0b2": (0, 1), "b1b3": (2, 3)}
+    else:
+        byte_routes = {
+            "b0": (0, 0),
+            "b1": (1, 1),
+            "b2": (2, 2),
+            "b3": (3, 3),
+            "b0b1": (0, 0),
+            "b2b3": (2, 2),
+        }
+    if any(scale_bytes not in byte_routes for _, scale_bytes in scale_sel):
+        raise ValueError(f"invalid scale byte selection in {scale_sel}")
+    selector_byte_routes = torch.tensor([byte_routes[scale_bytes] for _, scale_bytes in scale_sel], device=device,
+                                        dtype=torch.int64)
+    destination_halves = ((domain_indices[1] >> 4) & 1)[:, None]
+    byte_indices = selector_byte_routes[selector_indices].gather(1, destination_halves).squeeze(1)
+    exponents = (scale_words >> (8 * byte_indices)) & 0xFF
+
+    # Zero layout bases can make multiple hardware coordinates represent one
+    # tensor coordinate. Coalesce those aliases deterministically and verify
+    # that they agree on the scale routed to that coordinate.
+    logical_strides = []
+    stride = 1
+    for size in reversed(scale.shape):
+        logical_strides.append(stride)
+        stride *= size
+    logical_strides.reverse()
+    flat_dst = (dst_coords * torch.tensor(logical_strides, device=device, dtype=torch.int64)).sum(dim=1)
+    order = torch.argsort(flat_dst, stable=True)
+    flat_dst = flat_dst[order]
+    exponents = exponents[order]
+    is_first = torch.ones_like(flat_dst, dtype=torch.bool)
+    is_first[1:] = flat_dst[1:] != flat_dst[:-1]
+    previous_exponents = torch.roll(exponents, 1)
+    if torch.any(~is_first & (exponents != previous_exponents)):
+        raise AssertionError("scale layout aliases route inconsistent scale values")
+    if int(is_first.sum()) != scale.numel():
+        raise AssertionError("scale layout does not cover every scale tensor coordinate")
+
+    routed_scale = torch.empty(scale.numel(), device=device, dtype=torch.float32)
+    routed_scale.index_copy_(0, flat_dst[is_first], torch.exp2(exponents[is_first].float() - 127))
+    return routed_scale.reshape(scale.shape).repeat_interleave(k_factor, dim=k_axis)
+
+
+def _check_cvt_scale_pk(val, val_layout, scale, scale_layout, axis, scale_sel, *, elem_type=ttgl.float32,
+                        out_dtype=torch.float32, pack_axis=None, num_warps=4):
+    """Run cvt_scale_pk in Gluon and compare it with the Torch reference."""
+    val_shape = tuple(val.shape)
+    scale_shape = tuple(scale.shape)
+    out_shape = list(val_shape)
+    is_fp4 = pack_axis is not None
+    if is_fp4:
+        out_shape[pack_axis] *= 2
+    out_shape = tuple(out_shape)
+
+    assert all(scale_shape[dim] == out_shape[dim] for dim in range(2) if dim != axis)
+    assert out_shape[axis] % scale_shape[axis] == 0
+    k_factor = out_shape[axis] // scale_shape[axis]
+
+    out = torch.empty(out_shape, device=val.device, dtype=out_dtype)
+    _cvt_scale_pk_layout_kernel[(1, )](val, scale, out, *val_shape, *scale_shape, *out_shape, val_layout, scale_layout,
+                                       axis, scale_sel, elem_type, pack_axis if is_fp4 else -1, num_warps=num_warps)
+
+    ref_val = _decode_fp4(val, pack_axis) if is_fp4 else val.float()
+    factor = _cvt_scale_pk_reference_factors(scale, scale_layout, axis, k_factor, scale_sel=scale_sel, is_fp4=is_fp4)
+    torch.testing.assert_close(out, (ref_val * factor).to(out_dtype), atol=0, rtol=0)
+
+
+def test_cvt_scale_pk_reference_factors():
+    # The zero warp basis deliberately aliases each logical coordinate. The
+    # second lane half must still use the corresponding h0 scale value.
+    scale_layout = ttgl.DistributedLinearLayout(
+        reg_bases=[[0, 1]],
+        lane_bases=[[1, 0], [2, 0], [4, 0], [8, 0], [16, 0]],
+        warp_bases=[[0, 0]],
+        block_bases=[],
+        shape=[32, 2],
+    )
+    scale = _make_cvt_scale_pk_scale((32, 2), torch.int8, "cpu")
+
+    factor = _cvt_scale_pk_reference_factors(scale, scale_layout, 1, 4)
+
+    exponents = scale.to(torch.int64) & 0xFF
+    routed_exponents = torch.cat([exponents[:16], exponents[:16]], dim=0)
+    expected = torch.exp2(routed_exponents.float() - 127).repeat_interleave(4, dim=1)
+    torch.testing.assert_close(factor, expected, atol=0, rtol=0)
+
+
+def _cvt_scale_pk_fp8_cases():
+    cases = []
+    for val_layout, shape, axis, layout_id in _cvt_scale_pk_fp8_layout_cases():
+        scale_shape = list(shape)
+        scale_shape[axis] //= 8
+        scale_shape = tuple(scale_shape)
+        scale_layout = _cvt_scale_pk_make_scale_layout(val_layout, shape, axis, 8)
+        for scale_sel, scale_dtype, scale_sel_id in _cvt_scale_pk_scale_sel_cases(is_fp4=False):
+            cases.append(
+                pytest.param(shape, val_layout, scale_shape, scale_layout, axis, scale_sel, scale_dtype,
+                             torch.float8_e4m3fn, ttgl.float32, torch.float32, 4, id=f"{layout_id}-{scale_sel_id}"))
+
+    val_layout = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+    for val_kind, val_dtype in (("e4m3", torch.float8_e4m3fn), ("e5m2", torch.float8_e5m2)):
+        for out_dt in ("f16", "bf16", "f32"):
+            cases.append(
+                pytest.param((32, 32), val_layout, (32, 1), scale_layout, 1, (("h0", "b0"), ), torch.int8, val_dtype,
+                             _TTGL_DT[out_dt], _TORCH_DT[out_dt], 1, id=f"dtype-{val_kind}-{out_dt}"))
+    cases.extend([
+        pytest.param((32, 128), ttgl.BlockedLayout([1, 128], [32, 1], [1, 1], [1, 0]), (32, 4),
+                     ttgl.BlockedLayout([1, 4], [32, 1], [1, 1], [1, 0]), 1, (("h0", "b0"), ("h0", "b2")), torch.int32,
+                     torch.float8_e4m3fn, ttgl.float32, torch.float32, 1, id="scale-sel-round-robin"),
+        pytest.param((32, 32), val_layout, (32, 1), scale_layout, 1, (("h0", "b0"), ), torch.int64, torch.float8_e4m3fn,
+                     ttgl.float32, torch.float32, 1, id="scale-i64"),
+        pytest.param((32, 32), val_layout, (32, 1), scale_layout, 1, (("h0", "b0"), ), torch.int16, torch.float8_e4m3fn,
+                     ttgl.bfloat16, torch.bfloat16, 1, id="scale-i16"),
+        pytest.param((32, 32), val_layout, (32, 1), scale_layout, 1, (("h0", "b0"), ), torch.uint16,
+                     torch.float8_e4m3fn, ttgl.bfloat16, torch.bfloat16, 1, id="scale-u16"),
+        pytest.param((32, 32), val_layout, (32, 2), ttgl.BlockedLayout([1, 2], [32, 1], [1, 1],
+                                                                       [1, 0]), 1, (("h0", "b0b1"), ), torch.int16,
+                     torch.float8_e4m3fn, ttgl.bfloat16, torch.bfloat16, 1, id="block16"),
+        pytest.param((32, 32), val_layout, (32, 8), ttgl.BlockedLayout([1, 4], [32, 1], [1, 1],
+                                                                       [1, 0]), 1, (("h0", "b0"), ), torch.int8,
+                     torch.float8_e4m3fn, ttgl.bfloat16, torch.bfloat16, 1, id="k-scale-4"),
+    ])
+    return cases
+
+
+def _cvt_scale_pk_fp4_cases():
+    cases = []
+    for val_layout, out_shape, axis, pack_axis, layout_id in _cvt_scale_pk_fp4_layout_cases():
+        val_shape = list(out_shape)
+        val_shape[pack_axis] //= 2
+        val_shape = tuple(val_shape)
+        scale_shape = list(out_shape)
+        scale_shape[axis] //= 8
+        scale_shape = tuple(scale_shape)
+        scale_layout = _cvt_scale_pk_make_scale_layout(val_layout, out_shape, axis, 8, pack_axis)
+        for scale_sel, scale_dtype, scale_sel_id in _cvt_scale_pk_scale_sel_cases(is_fp4=True):
+            cases.append(
+                pytest.param(val_shape, val_layout, scale_shape, scale_layout, axis, pack_axis, scale_sel, scale_dtype,
+                             ttgl.float32, torch.float32, 4, id=f"{layout_id}-{scale_sel_id}"))
+
+    val_layout = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+    cases.extend([
+        pytest.param((32, 32), val_layout, (32, 2), scale_layout, 1, 1, (("h0", "b0b1"), ), torch.int16,
+                     _TTGL_DT[out_dt], _TORCH_DT[out_dt], 1, id=f"dtype-{out_dt}") for out_dt in ("f16", "bf16", "f32")
+    ])
+    cases.extend([
+        pytest.param((32, 32), ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [0, 1]), (64, 2),
+                     ttgl.BlockedLayout([2, 2], [32, 1], [1, 1], [0, 1]), 1, 0, (("h0", "b0b2"), ), torch.int32,
+                     ttgl.float32, torch.float32, 1, id="pack-axis0-k-scale-16"),
+        pytest.param((32, 32), ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [0, 1]), (64, 16),
+                     ttgl.BlockedLayout([2, 16], [32, 1], [1, 1], [0, 1]), 1, 0, (("h0", "b0b1"), ), torch.int16,
+                     ttgl.float32, torch.float32, 1, id="pack-axis0-k-scale-2"),
+        pytest.param((32, 32), ttgl.BlockedLayout([32, 1], [1, 32], [1, 1], [1, 0]), (2, 64),
+                     ttgl.BlockedLayout([2, 2], [1, 32], [1, 1], [1, 0]), 0, 1, (("h0", "b0b2"), ), torch.int32,
+                     ttgl.float32, torch.float32, 1, id="pack-axis1-scale-axis0"),
+        pytest.param((32, 32), val_layout, (32, 16), ttgl.BlockedLayout([1, 16], [32, 1], [1, 1], [1, 0]), 1, 1,
+                     (("h0", "b0b1"), ), torch.int16, ttgl.float16, torch.float16, 1, id="k-scale-4"),
+    ])
+    return cases
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize(
+    [
+        "shape",
+        "val_layout",
+        "scale_shape",
+        "scale_layout",
+        "axis",
+        "scale_sel",
+        "scale_dtype",
+        "val_dtype",
+        "elem_type",
+        "out_dtype",
+        "num_warps",
+    ],
+    _cvt_scale_pk_fp8_cases(),
+)
+def test_amd_cvt_scale_pk_fp8(device, shape, val_layout, scale_shape, scale_layout, axis, scale_sel, scale_dtype,
+                              val_dtype, elem_type, out_dtype, num_warps):
+    torch.manual_seed(0)
+    val = (torch.randint(-4, 5, shape, device=device).float() * 0.5).to(val_dtype)
+    if scale_dtype == torch.int64:
+        # Low 32 bits carry E8M0 payloads; nonzero high bits verify truncation.
+        scale = _make_cvt_scale_pk_scale(scale_shape, torch.int32, device).to(torch.int64) & 0xFFFFFFFF
+        high_bits = 1 + torch.arange(math.prod(scale_shape), device=device, dtype=torch.int64).reshape(scale_shape)
+        scale |= high_bits << 40
+    else:
+        scale = _make_cvt_scale_pk_scale(scale_shape, scale_dtype, device)
+    _check_cvt_scale_pk(val, val_layout, scale, scale_layout, axis, scale_sel, elem_type=elem_type, out_dtype=out_dtype,
+                        num_warps=num_warps)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize(
+    [
+        "shape",
+        "val_layout",
+        "scale_shape",
+        "scale_layout",
+        "axis",
+        "pack_axis",
+        "scale_sel",
+        "scale_dtype",
+        "elem_type",
+        "out_dtype",
+        "num_warps",
+    ],
+    _cvt_scale_pk_fp4_cases(),
+)
+def test_amd_cvt_scale_pk_fp4(device, shape, val_layout, scale_shape, scale_layout, axis, pack_axis, scale_sel,
+                              scale_dtype, elem_type, out_dtype, num_warps):
+    torch.manual_seed(0)
+    packed = torch.randint(0, 256, shape, device=device, dtype=torch.uint8)
+    scale = _make_cvt_scale_pk_scale(scale_shape, scale_dtype, device)
+    _check_cvt_scale_pk(packed, val_layout, scale, scale_layout, axis, scale_sel, elem_type=elem_type,
+                        out_dtype=out_dtype, pack_axis=pack_axis, num_warps=num_warps)

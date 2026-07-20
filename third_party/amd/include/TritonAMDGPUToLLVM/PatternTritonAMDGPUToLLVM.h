@@ -20,6 +20,10 @@ void populateScaledUpcastOpToLLVMPatterns(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     const AMD::TargetInfo &targetInfo, mlir::PatternBenefit benefit);
 
+void populateCvtScalePkOpToLLVMPatterns(
+    mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    const AMD::TargetInfo &targetInfo, mlir::PatternBenefit benefit);
+
 } // namespace mlir::triton::AMD
 
 #endif // TRITON_THIRD_PARTY_AMD_INCLUDE_TRITONAMDGPUTOLLVM_PATTERNTRITONAMDGPUTOLLVM_H_

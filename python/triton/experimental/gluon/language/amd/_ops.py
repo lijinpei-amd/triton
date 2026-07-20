@@ -154,3 +154,129 @@ def _scaled_upcast(src, scale, elem_type, axis, semantic):
     handle = semantic.builder.create_scaled_upcast_fp4(src.handle, scale.handle, elem_type.to_ir(semantic.builder),
                                                        axis)
     return _wrap_scaled_upcast_result(handle, elem_type, semantic)
+
+
+_CVT_SCALE_PK_LANES = ("h0", "h1")
+_CVT_SCALE_PK_BYTES = ("b0", "b1", "b2", "b3", "b0b1", "b2b3", "b0b2", "b1b3")
+_CVT_SCALE_PK_BYTE_INDICES = {
+    "b0": (0, ),
+    "b1": (1, ),
+    "b2": (2, ),
+    "b3": (3, ),
+    "b0b1": (0, 1),
+    "b2b3": (2, 3),
+    "b0b2": (0, 2),
+    "b1b3": (1, 3),
+}
+
+
+def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
+    _check(isinstance(val.type, ttgl.distributed_type),
+           lambda: f"Expected val to have a distributed_type but got {val.type}")
+    _check(isinstance(scale.type, ttgl.distributed_type),
+           lambda: f"Expected scale to have a distributed_type but got {scale.type}")
+    _check(elem_type in {ttgl.float16, ttgl.bfloat16, ttgl.float32},
+           lambda: f"Expected elem_type to be fp16, bf16 or fp32 but got {elem_type}")
+
+    axis = _unwrap_if_constexpr(axis)
+    scale_sel = _unwrap_if_constexpr(scale_sel)
+    pack_axis = _unwrap_if_constexpr(pack_axis)
+
+    tuple_types = (tuple, list, ttgl.tuple)
+    _check(isinstance(scale_sel, tuple_types) and len(scale_sel) > 0,
+           lambda: "scale_sel must be a non-empty sequence of (scale_lane, scale_bytes) tuples")
+    normalized_scale_sel = []
+    for scale_sel_idx, selection in enumerate(scale_sel):
+        selection = _unwrap_if_constexpr(selection)
+        _check(isinstance(selection, tuple_types) and len(selection) == 2,
+               lambda: f"scale_sel[{scale_sel_idx}] must be a tuple of two strings: (scale_lane, scale_bytes)")
+        scale_lane, scale_bytes = selection
+        _check(scale_lane in _CVT_SCALE_PK_LANES,
+               lambda: f"invalid scale lane {scale_lane!r} in scale_sel[{scale_sel_idx}]; expected 'h0' or 'h1'")
+        _check(scale_bytes in _CVT_SCALE_PK_BYTES,
+               lambda: f"invalid scale bytes {scale_bytes!r} in scale_sel[{scale_sel_idx}]; "
+               f"expected one of {', '.join(_CVT_SCALE_PK_BYTES)}")
+        normalized_scale_sel.append((scale_lane, scale_bytes))
+    scale_sel = normalized_scale_sel
+
+    rank = len(val.type.shape)
+    _check(-rank <= axis < rank, lambda: f"axis {axis} out of range for rank {rank}")
+    if axis < 0:
+        axis += rank
+
+    packed_fp4 = val.dtype in {ttgl.int8, ttgl.uint8}
+    _check(packed_fp4 or val.dtype in {ttgl.float8e4nv, ttgl.float8e5},
+           lambda: f"Expected val to be fp8 (e4m3/e5m2) or packed fp4 (int8/uint8) but got {val.dtype}")
+
+    # `pack_axis` (fp4 only) is the storage->element x2 expansion dim; defaults
+    # to `axis`. Shape/layout constraints are on the element (output) layout.
+    if pack_axis is None:
+        pack_axis_eff = axis
+    else:
+        _check(packed_fp4, lambda: "pack_axis is only valid for packed fp4 (int8/uint8) val")
+        pack_axis_eff = pack_axis
+        _check(-rank <= pack_axis_eff < rank, lambda: f"pack_axis {pack_axis} out of range for rank {rank}")
+        if pack_axis_eff < 0:
+            pack_axis_eff += rank
+
+    out_shape = list(val.type.shape)
+    if packed_fp4:
+        out_shape[pack_axis_eff] *= 2
+
+    scale_dtypes = {
+        ttgl.int8, ttgl.uint8, ttgl.int16, ttgl.uint16, ttgl.int32, ttgl.uint32, ttgl.int64, ttgl.uint64
+    }
+    _check(scale.dtype in scale_dtypes,
+           lambda: f"Expected scale to be an 8/16/32/64-bit integer but got {scale.dtype}")
+    if scale.dtype in {ttgl.int8, ttgl.uint8}:
+        scale_bits = 8
+    elif scale.dtype in {ttgl.int16, ttgl.uint16}:
+        scale_bits = 16
+    elif scale.dtype in {ttgl.int32, ttgl.uint32}:
+        scale_bits = 32
+    else:
+        scale_bits = 64
+
+    _check(len(scale.type.shape) == rank, lambda: "scale must have the same rank as val")
+    for d in range(rank):
+        if d == axis:
+            continue
+        _check(scale.type.shape[d] == out_shape[d],
+               lambda: f"scale and output must have equal size on non-axis dim {d}")
+    out_k = out_shape[axis]
+    scale_k = scale.type.shape[axis]
+    _check(scale_k > 0 and out_k % scale_k == 0,
+           lambda: f"output axis size {out_k} must be a positive multiple of scale axis size {scale_k}")
+    k_scale = out_k // scale_k
+    # k_scale must be a power of two (the layout expands the scale by
+    # identity1D(k_scale, ...)). The lowering reuses each scale across all
+    # required pk8 groups, pads a short final group, and drops unused outputs.
+    _check(k_scale > 0 and (k_scale & (k_scale - 1)) == 0,
+           lambda: f"k_scale (output/scale along axis) must be a power of two, got {k_scale}")
+    _check(not packed_fp4 or k_scale >= 2,
+           lambda: f"k_scale must be even (>= 2) for packed fp4, got {k_scale}")
+
+    fp4_bytes = ("b0b1", "b2b3", "b0b2", "b1b3")
+    fp8_bytes = ("b0", "b1", "b2", "b3", "b0b1", "b2b3")
+    supported_bytes = fp4_bytes if packed_fp4 else fp8_bytes
+    for scale_sel_idx, (_, scale_bytes) in enumerate(scale_sel):
+        _check(scale_bytes in supported_bytes,
+               lambda: f"scale bytes {scale_bytes!r} in scale_sel[{scale_sel_idx}] are not supported for "
+               f"{'packed fp4' if packed_fp4 else 'fp8'}; expected one of {', '.join(supported_bytes)}")
+
+        if scale_bits < 32:
+            used_bytes = _CVT_SCALE_PK_BYTE_INDICES[scale_bytes]
+            if scale_bits == 16:
+                _check(all(b < 2 for b in used_bytes),
+                       lambda: f"scale bytes {scale_bytes!r} in scale_sel[{scale_sel_idx}] select the upper half "
+                       "of a 16-bit scale")
+            else:
+                unavailable_byte = next((b for b in used_bytes if b >= 1), None)
+                _check(unavailable_byte is None,
+                       lambda: f"scale bytes {scale_bytes!r} in scale_sel[{scale_sel_idx}] select Vscale byte "
+                       f"{unavailable_byte}, which is not available for an 8-bit scale")
+
+    pack_axis_arg = -1 if pack_axis is None else pack_axis_eff
+    handle = semantic.builder.create_cvt_scale_pk(val.handle, scale.handle, elem_type.to_ir(semantic.builder), axis,
+                                                  scale_sel, pack_axis_arg)
+    return _wrap_scaled_upcast_result(handle, elem_type, semantic)
