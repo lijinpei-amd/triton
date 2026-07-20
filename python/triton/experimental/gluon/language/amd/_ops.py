@@ -148,3 +148,110 @@ def _scaled_upcast(src, scale, elem_type, axis, semantic):
     handle = semantic.builder.create_scaled_upcast_fp4(src.handle, scale.handle, elem_type.to_ir(semantic.builder),
                                                        axis)
     return _wrap_scaled_upcast_result(handle, elem_type, semantic)
+
+
+def _scale_sel_bytes(is_fp4, sel):
+    """Decode which Vscale byte(s) `sel` (OPSEL) selects per Tables 52/53.
+
+    Returns (bytes, reserved). Bytes 2 and 3 are the "upper half".
+    """
+    if is_fp4:
+        block16 = (sel >> 2) & 1
+        hi = (sel >> 1) & 1
+        if not block16:
+            return ([2, 3] if hi else [0, 1]), False
+        return ([1, 3] if hi else [0, 2]), False
+    block16 = (sel >> 3) & 1
+    o1 = (sel >> 1) & 1
+    o2 = (sel >> 2) & 1
+    if not block16:
+        return [2 * o1 + o2], False
+    if o2:
+        return [], True
+    return ([2, 3] if o1 else [0, 1]), False
+
+
+def _scale_upcast(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
+    _check(isinstance(val.type, ttgl.distributed_type),
+           lambda: f"Expected val to have a distributed_type but got {val.type}")
+    _check(isinstance(scale.type, ttgl.distributed_type),
+           lambda: f"Expected scale to have a distributed_type but got {scale.type}")
+    _check(elem_type in {ttgl.float16, ttgl.bfloat16, ttgl.float32},
+           lambda: f"Expected elem_type to be fp16, bf16 or fp32 but got {elem_type}")
+
+    axis = _unwrap_if_constexpr(axis)
+    scale_sel = _unwrap_if_constexpr(scale_sel)
+    pack_axis = _unwrap_if_constexpr(pack_axis)
+
+    rank = len(val.type.shape)
+    _check(-rank <= axis < rank, lambda: f"axis {axis} out of range for rank {rank}")
+    if axis < 0:
+        axis += rank
+
+    packed_fp4 = val.dtype in {ttgl.int8, ttgl.uint8}
+    _check(packed_fp4 or val.dtype in {ttgl.float8e4nv, ttgl.float8e5},
+           lambda: f"Expected val to be fp8 (e4m3/e5m2) or packed fp4 (int8/uint8) but got {val.dtype}")
+
+    # `pack_axis` (fp4 only) is the storage->element x2 expansion dim; defaults
+    # to `axis`. Shape/layout constraints are on the element (output) layout.
+    if pack_axis is None:
+        pack_axis_eff = axis
+    else:
+        _check(packed_fp4, lambda: "pack_axis is only valid for packed fp4 (int8/uint8) val")
+        pack_axis_eff = pack_axis
+        _check(-rank <= pack_axis_eff < rank, lambda: f"pack_axis {pack_axis} out of range for rank {rank}")
+        if pack_axis_eff < 0:
+            pack_axis_eff += rank
+        # The lowering only supports the x2 fp4 expansion along `axis`.
+        _check(pack_axis_eff == axis,
+               lambda: f"pack_axis ({pack_axis_eff}) != axis ({axis}) is not yet supported by cvt_scale_pk")
+
+    out_shape = list(val.type.shape)
+    if packed_fp4:
+        out_shape[pack_axis_eff] *= 2
+
+    _check(scale.dtype in {ttgl.int16, ttgl.uint16, ttgl.int32, ttgl.uint32},
+           lambda: f"Expected scale to be int16/uint16/int32/uint32 but got {scale.dtype}")
+    scale_bits = 16 if scale.dtype in {ttgl.int16, ttgl.uint16} else 32
+
+    _check(len(scale.type.shape) == rank, lambda: "scale must have the same rank as val")
+    for d in range(rank):
+        if d == axis:
+            continue
+        _check(scale.type.shape[d] == out_shape[d],
+               lambda: f"scale and output must have equal size on non-axis dim {d}")
+    out_k = out_shape[axis]
+    scale_k = scale.type.shape[axis]
+    _check(scale_k > 0 and out_k % scale_k == 0,
+           lambda: f"output axis size {out_k} must be a positive multiple of scale axis size {scale_k}")
+    k_scale = out_k // scale_k
+    # k_scale must be a power of two (the layout expands the scale by
+    # identity1D(k_scale, ...)); k_scale > 8 reuses a scale across k_scale/8 pk8
+    # groups, k_scale < 8 pads the pk8 inputs with undef and drops the extra
+    # outputs.
+    _check(k_scale > 0 and (k_scale & (k_scale - 1)) == 0,
+           lambda: f"k_scale (output/scale along axis) must be a power of two, got {k_scale}")
+    _check(not packed_fp4 or k_scale >= 2,
+           lambda: f"k_scale must be even (>= 2) for packed fp4, got {k_scale}")
+
+    sel_bits = 3 if packed_fp4 else 4
+    _check(0 <= scale_sel < (1 << sel_bits),
+           lambda: f"scale_sel {scale_sel} out of range [0, {1 << sel_bits}) for {'fp4' if packed_fp4 else 'fp8'}")
+
+    # The block-select bit only means block16/block32 when the scale spans a
+    # hardware block of 16 or 32; cross-check it only then.
+    block16 = (scale_sel >> (2 if packed_fp4 else 3)) & 1
+    if k_scale in (16, 32):
+        _check((16 if block16 else 32) == k_scale,
+               lambda: f"scale_sel encodes block{16 if block16 else 32} but k_scale is {k_scale}")
+
+    used_bytes, reserved = _scale_sel_bytes(packed_fp4, scale_sel)
+    _check(not reserved, lambda: f"scale_sel {scale_sel} is a reserved combination")
+    if scale_bits == 16:
+        _check(all(b < 2 for b in used_bytes),
+               lambda: f"scale_sel {scale_sel} selects the upper half of a 16-bit scale")
+
+    pack_axis_arg = -1 if pack_axis is None else pack_axis_eff
+    handle = semantic.builder.create_scale_upcast(val.handle, scale.handle, elem_type.to_ir(semantic.builder), axis,
+                                                  scale_sel, pack_axis_arg)
+    return _wrap_scaled_upcast_result(handle, elem_type, semantic)

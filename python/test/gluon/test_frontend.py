@@ -3175,6 +3175,203 @@ def test_amd_scaled_upcast_fp8_requires_matching_layout(target):
 
 
 @pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_fp8(target):
+
+    @gluon.jit
+    def kernel():
+        out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, out_layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.bfloat16)
+
+    module = run_parser(kernel, *make_args(num_warps=1), target=target)
+    expecttest.assert_expected_inline(
+        anonymize_ir(module.str_nodebug()), """\
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "...", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func public @kernel() attributes {noinline = false} {
+    %cst = arith.constant 1.000000e+00 : f32
+    %0 = arith.truncf %cst : f32 to f8E4M3FN
+    %1 = tt.splat %0 : f8E4M3FN -> tensor<32x32xf8E4M3FN, #blocked>
+    %c127_i32 = arith.constant 127 : i32
+    %cst_0 = arith.constant dense<127> : tensor<32x1xi32, #blocked1>
+    %2 = amdg.cvt_scale_pk %1 scale %cst_0 {axis = 1 : i32, scale_sel = 0 : i32} : tensor<32x32xf8E4M3FN, #blocked>, tensor<32x1xi32, #blocked1> -> tensor<32x32xbf16, #blocked>
+    tt.return
+  }
+}
+""")
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_fp4(target):
+
+    @gluon.jit
+    def kernel():
+        out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 64], [32, 1], [1, 1], [1, 0])
+        val_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 0x11, ttgl.uint8, val_layout)
+        scale = ttgl.full([32, 2], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=2, elem_type=ttgl.float16)
+
+    module = run_parser(kernel, *make_args(num_warps=1), target=target)
+    expecttest.assert_expected_inline(
+        anonymize_ir(module.str_nodebug()), """\
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 2], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked2 = #ttg.blocked<{sizePerThread = [1, 64], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "...", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func public @kernel() attributes {noinline = false} {
+    %c17_i8 = arith.constant 17 : i8
+    %cst = arith.constant dense<17> : tensor<32x32xi8, #blocked>
+    %c127_i32 = arith.constant 127 : i32
+    %cst_0 = arith.constant dense<127> : tensor<32x2xi32, #blocked1>
+    %0 = amdg.cvt_scale_pk %cst scale %cst_0 {axis = 1 : i32, scale_sel = 2 : i32} : tensor<32x32xi8, #blocked>, tensor<32x2xi32, #blocked1> -> tensor<32x64xf16, #blocked2>
+    tt.return
+  }
+}
+""")
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_fp4_explicit_pack_axis(target):
+
+    @gluon.jit
+    def kernel():
+        out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 64], [32, 1], [1, 1], [1, 0])
+        val_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 0x11, ttgl.uint8, val_layout)
+        scale = ttgl.full([32, 2], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=2, elem_type=ttgl.float16, pack_axis=1)
+
+    module = run_parser(kernel, *make_args(num_warps=1), target=target)
+    expecttest.assert_expected_inline(
+        anonymize_ir(module.str_nodebug()), """\
+#blocked = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked1 = #ttg.blocked<{sizePerThread = [1, 2], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+#blocked2 = #ttg.blocked<{sizePerThread = [1, 64], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "...", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func public @kernel() attributes {noinline = false} {
+    %c17_i8 = arith.constant 17 : i8
+    %cst = arith.constant dense<17> : tensor<32x32xi8, #blocked>
+    %c127_i32 = arith.constant 127 : i32
+    %cst_0 = arith.constant dense<127> : tensor<32x2xi32, #blocked1>
+    %0 = amdg.cvt_scale_pk %cst scale %cst_0 {axis = 1 : i32, pack_axis = 1 : i32, scale_sel = 2 : i32} : tensor<32x32xi8, #blocked>, tensor<32x2xi32, #blocked1> -> tensor<32x64xf16, #blocked2>
+    tt.return
+  }
+}
+""")
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_pack_axis_on_fp8(target):
+
+    @gluon.jit
+    def kernel():
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.bfloat16, pack_axis=0)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "pack_axis is only valid for packed fp4" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_pack_axis_ne_axis(target):
+
+    @gluon.jit
+    def kernel():
+        out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 64], [32, 1], [1, 1], [1, 0])
+        val_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 0x11, ttgl.uint8, val_layout)
+        scale = ttgl.full([32, 2], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.float16, pack_axis=0)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "is not yet supported by cvt_scale_pk" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_bad_result_type(target):
+
+    @gluon.jit
+    def kernel():
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.int32)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "Expected elem_type to be fp16, bf16 or fp32" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_out_of_range_scale_sel(target):
+
+    @gluon.jit
+    def kernel():
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=16, elem_type=ttgl.bfloat16)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "out of range" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_block_mismatch(target):
+
+    @gluon.jit
+    def kernel():
+        # k_scale == 32 (block32) but scale_sel bit 3 selects block16.
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int32, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=8, elem_type=ttgl.bfloat16)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "block16 but k_scale is 32" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
+def test_amd_scale_upcast_rejects_16bit_upper_half(target):
+
+    @gluon.jit
+    def kernel():
+        # 16-bit scale with scale_sel selecting Vscale byte 2 (upper half).
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+        val = ttgl.full([32, 32], 1.0, ttgl.float8e4nv, layout)
+        scale = ttgl.full([32, 1], 0x7F, ttgl.int16, scale_layout)
+        ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=2, elem_type=ttgl.bfloat16)
+
+    with pytest.raises(CompilationError) as e:
+        run_parser(kernel, target=target)
+    err = str(e.value.__cause__ or e.value)
+    assert "upper half of a 16-bit scale" in err
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_GFX1250])
 def test_amd_wmma_scaled(target):
 
     @gluon.jit

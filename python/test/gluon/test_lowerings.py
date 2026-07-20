@@ -4,7 +4,8 @@ import pytest
 import triton
 from triton.experimental import gluon
 from triton.experimental.gluon import language as ttgl
-from triton._internal_testing import is_blackwell, is_cuda, is_hip, is_hopper_or_newer, get_hip_lds_size
+from triton._internal_testing import (is_blackwell, is_cuda, is_hip, is_hip_gfx1250, is_hopper_or_newer,
+                                       get_hip_lds_size)
 from triton._C.libtriton.gluon_ir import make_cga_layout
 from triton.experimental.gluon.language.amd.gfx1250 import PartitionedSharedLayout
 from triton.experimental.gluon.language.nvidia.blackwell import TensorMemoryLayout, allocate_tensor_memory
@@ -2273,3 +2274,307 @@ def test_partitioned_shared_layout(M, K, num_partitions, num_groups, partition_d
 
     # Verify output matches input
     torch.testing.assert_close(output_tensor, input_tensor, atol=0, rtol=0)
+
+
+
+# =============================================================================
+# gfx1250 `amdgpu.cvt_scale_pk` (gluon `scale_upcast`) on-device numeric tests
+# =============================================================================
+
+# fp4 (e2m1) 4-bit code -> value LUT (sign-magnitude).
+_FP4_LUT = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, -0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0]
+
+_TTGL_DT = {"f16": ttgl.float16, "bf16": ttgl.bfloat16, "f32": ttgl.float32}
+_TORCH_DT = {"f16": torch.float16, "bf16": torch.bfloat16, "f32": torch.float32}
+
+
+def _replicate_bytes(exps4):
+    """Pack four E8M0 exponent bytes into a signed int32 (byte0 is low)."""
+    return int.from_bytes(bytes(exps4), "little", signed=True)
+
+
+def _decode_fp4(packed):
+    """[M, Nin] uint8 -> [M, 2*Nin] f32, low nibble then high nibble along axis."""
+    lut = torch.tensor(_FP4_LUT, device=packed.device, dtype=torch.float32)
+    lo = lut[(packed & 0xF).long()]
+    hi = lut[((packed >> 4) & 0xF).long()]
+    return torch.stack([lo, hi], dim=-1).reshape(packed.shape[0], -1)
+
+
+@gluon.jit
+def _cvt_scale_pk_fp8_kernel(val_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, N: ttgl.constexpr, SEL: ttgl.constexpr,
+                             DT: ttgl.constexpr):
+    out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 1], [32, 1], [1, 1], [1, 0])
+    offs_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    offs_n = ttgl.arange(0, N, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    val = ttgl.load(val_ptr + offs_m * N + offs_n)
+    s_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, scale_layout))[:, None]
+    s_n = ttgl.arange(0, 1, layout=ttgl.SliceLayout(0, scale_layout))[None, :]
+    scale = ttgl.load(scale_ptr + s_m + s_n)
+    res = ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=SEL, elem_type=DT)
+    ttgl.store(out_ptr + offs_m * N + offs_n, res)
+
+
+@gluon.jit
+def _cvt_scale_pk_fp4_kernel(val_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, Nout: ttgl.constexpr,
+                             Nin: ttgl.constexpr, SEL: ttgl.constexpr, DT: ttgl.constexpr):
+    out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 64], [32, 1], [1, 1], [1, 0])
+    val_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+    vm = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, val_layout))[:, None]
+    vn = ttgl.arange(0, Nin, layout=ttgl.SliceLayout(0, val_layout))[None, :]
+    val = ttgl.load(val_ptr + vm * Nin + vn)
+    sm = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, scale_layout))[:, None]
+    sn = ttgl.arange(0, 2, layout=ttgl.SliceLayout(0, scale_layout))[None, :]
+    scale = ttgl.load(scale_ptr + sm * 2 + sn)
+    res = ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=SEL, elem_type=DT)
+    om = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    on = ttgl.arange(0, Nout, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    ttgl.store(out_ptr + om * Nout + on, res)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize("val_kind", ["e4m3", "e5m2"])
+@pytest.mark.parametrize("out_dt", ["f16", "bf16", "f32"])
+def test_amd_cvt_scale_pk_fp8_dtypes(device, val_kind, out_dt):
+    M, N = 32, 32
+    torch.manual_seed(0)
+    torch_fp8 = torch.float8_e4m3fn if val_kind == "e4m3" else torch.float8_e5m2
+    ref_f32 = (torch.randint(-4, 5, (M, N), device=device).float() * 0.5).to(torch_fp8).float()
+    val = ref_f32.to(torch_fp8)
+    # Uniform scale (all bytes = one exponent) -> routing-independent factor.
+    exp = 129  # factor 2^2
+    scale = torch.full((M, 1), _replicate_bytes([exp] * 4), device=device, dtype=torch.int32)
+
+    out = torch.empty((M, N), device=device, dtype=_TORCH_DT[out_dt])
+    _cvt_scale_pk_fp8_kernel[(1, )](val, scale, out, M, N, 0, _TTGL_DT[out_dt], num_warps=1)
+
+    ref = (ref_f32 * (2.0**(exp - 127))).to(_TORCH_DT[out_dt])
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize("out_dt", ["f16", "bf16", "f32"])
+def test_amd_cvt_scale_pk_fp4_dtypes(device, out_dt):
+    M, Nout, Nin = 32, 64, 32
+    torch.manual_seed(0)
+    packed = torch.randint(0, 256, (M, Nin), device=device, dtype=torch.uint8)
+    exp = 126  # factor 2^-1, uniform across bytes/columns/rows
+    sval = _replicate_bytes([exp] * 4)
+    scale = torch.full((M, 2), sval, device=device, dtype=torch.int32)
+
+    out = torch.empty((M, Nout), device=device, dtype=_TORCH_DT[out_dt])
+    _cvt_scale_pk_fp4_kernel[(1, )](packed, scale, out, M, Nout, Nin, 0, _TTGL_DT[out_dt], num_warps=1)
+
+    ref = (_decode_fp4(packed) * (2.0**(exp - 127))).to(_TORCH_DT[out_dt])
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+def test_amd_cvt_scale_pk_fp4_per_block_scale(device):
+    # Distinct scale per k_scale=32 output column block (compact-scale-along-axis).
+    M, Nout, Nin = 32, 64, 32
+    torch.manual_seed(1)
+    packed = torch.randint(0, 256, (M, Nin), device=device, dtype=torch.uint8)
+    expA, expB = 129, 126  # cols 0..31 -> 2^2, cols 32..63 -> 2^-1
+    scale = torch.empty((M, 2), device=device, dtype=torch.int32)
+    scale[:, 0] = _replicate_bytes([expA] * 4)
+    scale[:, 1] = _replicate_bytes([expB] * 4)
+
+    out = torch.empty((M, Nout), device=device, dtype=torch.float16)
+    _cvt_scale_pk_fp4_kernel[(1, )](packed, scale, out, M, Nout, Nin, 0, ttgl.float16, num_warps=1)
+
+    elem = _decode_fp4(packed)
+    factor = torch.ones((M, Nout), device=device, dtype=torch.float32)
+    factor[:, 0:32] = 2.0**(expA - 127)
+    factor[:, 32:64] = 2.0**(expB - 127)
+    ref = (elem * factor).to(torch.float16)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+# fp8 block32 scale_sel -> Vscale byte index (both lane halves equal, "<- same").
+_FP8_SEL_BYTE = {0: 0, 2: 2, 4: 1, 6: 3}
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize("sel", [0, 2, 4, 6])
+def test_amd_cvt_scale_pk_fp8_scale_sel(device, sel):
+    # Uniform-across-lanes scale with 4 distinct bytes; scale_sel selects one.
+    M, N = 32, 32
+    torch.manual_seed(0)
+    ref_f32 = (torch.randint(-4, 5, (M, N), device=device).float() * 0.5).to(torch.float8_e4m3fn).float()
+    val = ref_f32.to(torch.float8_e4m3fn)
+    exps = [127, 128, 129, 130]  # byte0..3 -> factors 1,2,4,8
+    scale = torch.full((M, 1), _replicate_bytes(exps), device=device, dtype=torch.int32)
+
+    out = torch.empty((M, N), device=device, dtype=torch.float32)
+    _cvt_scale_pk_fp8_kernel[(1, )](val, scale, out, M, N, sel, ttgl.float32, num_warps=1)
+
+    exp = exps[_FP8_SEL_BYTE[sel]]
+    ref = (ref_f32 * (2.0**(exp - 127))).to(torch.float32)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize("sel", [0, 2])
+def test_amd_cvt_scale_pk_fp4_scale_sel(device, sel):
+    # fp4 block32: lane0..15 and lane16..31 read different Vscale bytes.
+    #   sel bit1 == 0 -> (byte0, byte1);  sel bit1 == 1 -> (byte2, byte3)
+    M, Nout, Nin = 32, 64, 32
+    torch.manual_seed(0)
+    packed = torch.randint(0, 256, (M, Nin), device=device, dtype=torch.uint8)
+    exps = [127, 128, 129, 130]  # byte0..3 -> factors 1,2,4,8
+    scale = torch.full((M, 2), _replicate_bytes(exps), device=device, dtype=torch.int32)
+
+    out = torch.empty((M, Nout), device=device, dtype=torch.float32)
+    _cvt_scale_pk_fp4_kernel[(1, )](packed, scale, out, M, Nout, Nin, sel, ttgl.float32, num_warps=1)
+
+    hi = (sel >> 1) & 1
+    lo_byte = 2 if hi else 0   # rows 0..15
+    hi_byte = 3 if hi else 1   # rows 16..31
+    elem = _decode_fp4(packed)
+    factor = torch.empty((M, 1), device=device, dtype=torch.float32)
+    factor[0:16, 0] = 2.0**(exps[lo_byte] - 127)
+    factor[16:32, 0] = 2.0**(exps[hi_byte] - 127)
+    ref = (elem * factor).to(torch.float32)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+@pytest.mark.parametrize("scale_dtype", [torch.int16, torch.uint16])
+def test_amd_cvt_scale_pk_fp8_i16_scale(device, scale_dtype):
+    # 16-bit scale: only the low 16 bits (bytes 0,1) exist; scale_sel=0 -> byte0.
+    M, N = 32, 32
+    torch.manual_seed(0)
+    ref_f32 = (torch.randint(-4, 5, (M, N), device=device).float() * 0.5).to(torch.float8_e4m3fn).float()
+    val = ref_f32.to(torch.float8_e4m3fn)
+    exp = 128  # factor 2^1, in byte0
+    sval16 = int.from_bytes(bytes([exp, exp]), "little", signed=(scale_dtype == torch.int16))
+    scale = torch.full((M, 1), sval16, device=device, dtype=scale_dtype)
+
+    out = torch.empty((M, N), device=device, dtype=torch.bfloat16)
+    _cvt_scale_pk_fp8_kernel[(1, )](val, scale, out, M, N, 0, ttgl.bfloat16, num_warps=1)
+
+    ref = (ref_f32 * (2.0**(exp - 127))).to(torch.bfloat16)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@gluon.jit
+def _cvt_scale_pk_fp8_block16_kernel(val_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, N: ttgl.constexpr,
+                                     SEL: ttgl.constexpr):
+    out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [32, 1], [1, 1], [1, 0])
+    offs_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    offs_n = ttgl.arange(0, N, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    val = ttgl.load(val_ptr + offs_m * N + offs_n)
+    s_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, scale_layout))[:, None]
+    s_n = ttgl.arange(0, 2, layout=ttgl.SliceLayout(0, scale_layout))[None, :]
+    scale = ttgl.load(scale_ptr + s_m * 2 + s_n)
+    res = ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=SEL, elem_type=ttgl.bfloat16)
+    ttgl.store(out_ptr + offs_m * N + offs_n, res)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+def test_amd_cvt_scale_pk_fp8_block16(device):
+    # k_scale = 16 (block16): scale[:,0] -> cols 0..15, scale[:,1] -> cols 16..31.
+    # scale_sel = 8 sets the block16 bit (bit3). Scale uniform across bytes/rows
+    # so the check is independent of lane-half byte routing.
+    M, N = 32, 32
+    torch.manual_seed(0)
+    ref_f32 = (torch.randint(-4, 5, (M, N), device=device).float() * 0.5).to(torch.float8_e4m3fn).float()
+    val = ref_f32.to(torch.float8_e4m3fn)
+    expA, expB = 129, 126
+    scale = torch.empty((M, 2), device=device, dtype=torch.int32)
+    scale[:, 0] = _replicate_bytes([expA] * 4)
+    scale[:, 1] = _replicate_bytes([expB] * 4)
+
+    out = torch.empty((M, N), device=device, dtype=torch.bfloat16)
+    _cvt_scale_pk_fp8_block16_kernel[(1, )](val, scale, out, M, N, 8, num_warps=1)
+
+    factor = torch.ones((M, N), device=device, dtype=torch.float32)
+    factor[:, 0:16] = 2.0**(expA - 127)
+    factor[:, 16:32] = 2.0**(expB - 127)
+    ref = (ref_f32 * factor).to(torch.bfloat16)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@gluon.jit
+def _cvt_scale_pk_fp8_ksmall_kernel(val_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, N: ttgl.constexpr,
+                                    SN: ttgl.constexpr):
+    out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 4], [32, 1], [1, 1], [1, 0])
+    offs_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    offs_n = ttgl.arange(0, N, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    val = ttgl.load(val_ptr + offs_m * N + offs_n)
+    s_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, scale_layout))[:, None]
+    s_n = ttgl.arange(0, SN, layout=ttgl.SliceLayout(0, scale_layout))[None, :]
+    scale = ttgl.load(scale_ptr + s_m * SN + s_n)
+    res = ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.bfloat16)
+    ttgl.store(out_ptr + offs_m * N + offs_n, res)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+def test_amd_cvt_scale_pk_fp8_k_scale_lt_8(device):
+    # k_scale = 4 (< pk8): the lowering pads each pk8 with undef and drops the
+    # extra outputs. scale[:, c] applies to output cols [4c, 4c+4).
+    M, N = 32, 32
+    SN = N // 4  # k_scale = 4
+    torch.manual_seed(0)
+    ref_f32 = (torch.randint(-4, 5, (M, N), device=device).float() * 0.5).to(torch.float8_e4m3fn).float()
+    val = ref_f32.to(torch.float8_e4m3fn)
+    # Uniform across rows/bytes, distinct per column block -> routing-agnostic.
+    exps = [127, 128, 129, 130, 126, 131, 125, 132][:SN]
+    scale = torch.empty((M, SN), device=device, dtype=torch.int32)
+    for c, e in enumerate(exps):
+        scale[:, c] = _replicate_bytes([e] * 4)
+
+    out = torch.empty((M, N), device=device, dtype=torch.bfloat16)
+    _cvt_scale_pk_fp8_ksmall_kernel[(1, )](val, scale, out, M, N, SN, num_warps=1)
+
+    factor = torch.ones((M, N), device=device, dtype=torch.float32)
+    for c, e in enumerate(exps):
+        factor[:, 4 * c:4 * c + 4] = 2.0**(e - 127)
+    ref = (ref_f32 * factor).to(torch.bfloat16)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)
+
+
+@gluon.jit
+def _cvt_scale_pk_fp4_ksmall_kernel(val_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, Nout: ttgl.constexpr,
+                                    Nin: ttgl.constexpr, SN: ttgl.constexpr):
+    out_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 64], [32, 1], [1, 1], [1, 0])
+    val_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 32], [32, 1], [1, 1], [1, 0])
+    scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 16], [32, 1], [1, 1], [1, 0])
+    vm = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, val_layout))[:, None]
+    vn = ttgl.arange(0, Nin, layout=ttgl.SliceLayout(0, val_layout))[None, :]
+    val = ttgl.load(val_ptr + vm * Nin + vn)
+    sm = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, scale_layout))[:, None]
+    sn = ttgl.arange(0, SN, layout=ttgl.SliceLayout(0, scale_layout))[None, :]
+    scale = ttgl.load(scale_ptr + sm * SN + sn)
+    res = ttgl.amd.gfx1250.scale_upcast(val, scale, axis=1, scale_sel=0, elem_type=ttgl.float16)
+    om = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, out_layout))[:, None]
+    on = ttgl.arange(0, Nout, layout=ttgl.SliceLayout(0, out_layout))[None, :]
+    ttgl.store(out_ptr + om * Nout + on, res)
+
+
+@pytest.mark.skipif(not is_hip_gfx1250(), reason="Requires AMD gfx1250 (cvt.scale.pk8)")
+def test_amd_cvt_scale_pk_fp4_k_scale_lt_8(device):
+    # fp4 k_scale = 4 (< pk8): 2 i8 (=4 fp4) per scale, padded to a pk8.
+    M, Nout, Nin = 32, 64, 32
+    SN = Nout // 4  # k_scale = 4
+    torch.manual_seed(0)
+    packed = torch.randint(0, 256, (M, Nin), device=device, dtype=torch.uint8)
+    exps = [127 + (c % 5) - 2 for c in range(SN)]  # 125..129 cycling
+    scale = torch.empty((M, SN), device=device, dtype=torch.int32)
+    for c, e in enumerate(exps):
+        scale[:, c] = _replicate_bytes([e] * 4)
+
+    out = torch.empty((M, Nout), device=device, dtype=torch.float16)
+    _cvt_scale_pk_fp4_ksmall_kernel[(1, )](packed, scale, out, M, Nout, Nin, SN, num_warps=1)
+
+    elem = _decode_fp4(packed)
+    factor = torch.ones((M, Nout), device=device, dtype=torch.float32)
+    for c, e in enumerate(exps):
+        factor[:, 4 * c:4 * c + 4] = 2.0**(e - 127)
+    ref = (elem * factor).to(torch.float16)
+    torch.testing.assert_close(out, ref, atol=0, rtol=0)

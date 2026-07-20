@@ -1100,6 +1100,13 @@ void init_gluon_ir(py::module_ &m) {
              return self.create<ttag::ScaledUpcastFp8Op>(resultType, input,
                                                          scale);
            })
+      .def("create_scale_upcast",
+           [](GluonOpBuilder &self, Value val, Value scale, Type elemType,
+              int axis, int scaleSel, int packAxis) -> Value {
+             // packAxis < 0 => unset (fp4 x2 expansion defaults to `axis`).
+             return self.create<ttag::CvtScalePkOp>(val, scale, elemType, axis,
+                                                    scaleSel, packAxis);
+           })
       .def("create_extract_slice",
            [](GluonOpBuilder &self, Type resultType, Value source,
               std::vector<int64_t> &offsets) -> Value {
