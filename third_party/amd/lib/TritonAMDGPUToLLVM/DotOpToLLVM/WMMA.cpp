@@ -187,8 +187,12 @@ Value getOperandVals(ConversionPatternRewriter &rewriter,
 
   auto inDims = dotLayout.pseudoinvert().apply(outCoords);
 
-  const int startReg = inDims[0].second; // "register"
-  const int lane = inDims[1].second;     // "lane"
+  const int startRegBase = inDims[0].second; // "register"
+  const int lane = inDims[1].second;         // "lane"
+
+  const int repsPerReg =
+      std::max(1, static_cast<int>(dotEnc.getKWidth()) / kBase);
+  const int startReg = startRegBase + (kIdx % repsPerReg) * kBase;
 
   if (isScale && lane != 0) {
     assert(opSel && "opSel must be provided when isScale is true");
