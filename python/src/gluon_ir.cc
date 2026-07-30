@@ -1144,7 +1144,7 @@ void init_gluon_ir(py::module_ &m) {
            [](GluonOpBuilder &self, Value val, Value scale, Type elemType,
               int axis,
               const std::vector<std::pair<std::string, std::string>> &scaleSel,
-              int packAxis) -> Value {
+              int kWidth, int packAxis) -> Value {
              SmallVector<Attribute> scaleSelAttrs;
              scaleSelAttrs.reserve(scaleSel.size());
              for (const auto &[scaleLane, scaleBytes] : scaleSel) {
@@ -1155,10 +1155,12 @@ void init_gluon_ir(py::module_ &m) {
                scaleSelAttrs.push_back(ttag::CvtScalePkScaleSelAttr::get(
                    self.getBuilder().getContext(), *lane, *bytes));
              }
-             // packAxis < 0 => unset (fp4 x2 expansion defaults to `axis`).
+             // Negative values mean unset. kWidth then defaults from the
+             // element layout, and fp4 packAxis defaults to `axis`.
              return self.create<ttag::CvtScalePkOp>(
                  val, scale, elemType, axis,
-                 self.getBuilder().getArrayAttr(scaleSelAttrs), packAxis);
+                 self.getBuilder().getArrayAttr(scaleSelAttrs), kWidth,
+                 packAxis);
            })
       .def("create_extract_slice",
            [](GluonOpBuilder &self, Type resultType, Value source,

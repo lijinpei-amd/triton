@@ -40,6 +40,55 @@ static std::optional<int> getLocalElement(const LinearLayout &layout,
   return elementIdx;
 }
 
+// Find the register and lane that own `tensorCoords`, with warp/block held at
+// zero. Keeping both coordinates is important for packed fp4: equal register
+// indices in different lanes are different packed sources and must not be
+// coalesced.
+static std::optional<std::pair<int32_t, int32_t>>
+getRegisterAndLane(const LinearLayout &layout,
+                   const TensorCoords &tensorCoords, MLIRContext *ctx) {
+  StringAttr kRegister = StringAttr::get(ctx, "register");
+  StringAttr kLane = StringAttr::get(ctx, "lane");
+  int32_t reg = 0;
+  int32_t lane = 0;
+  for (auto [inDim, value] : layout.pseudoinvert().apply(tensorCoords)) {
+    if (inDim == kRegister)
+      reg = value;
+    else if (inDim == kLane)
+      lane = value;
+    else if (value != 0)
+      return std::nullopt;
+  }
+  return std::pair{reg, lane};
+}
+
+// Find the local register whose value at `lane` owns `tensorCoords`, with the
+// remaining hierarchy coordinates held at zero.  cvt.scale.pk8 can source its
+// scale from either lane x or lane x^16, so scale lookup cannot always use the
+// current lane.
+static std::optional<int>
+getLocalElementAtLane(const LinearLayout &layout,
+                      const TensorCoords &tensorCoords, int32_t lane,
+                      MLIRContext *ctx) {
+  StringAttr kElement = StringAttr::get(ctx, "register");
+  StringAttr kLane = StringAttr::get(ctx, "lane");
+  int elementCount = layout.getInDimSize(kElement);
+  for (int elementIdx = 0; elementIdx < elementCount; ++elementIdx) {
+    SmallVector<std::pair<StringAttr, int32_t>> inputs;
+    for (StringAttr inDim : layout.getInDimNames()) {
+      int32_t value = 0;
+      if (inDim == kElement)
+        value = elementIdx;
+      else if (inDim == kLane)
+        value = lane;
+      inputs.push_back({inDim, value});
+    }
+    if (layout.apply(inputs) == tensorCoords)
+      return elementIdx;
+  }
+  return std::nullopt;
+}
+
 // Emit a single `cvt.scale.pk8` ROCDL op producing 8 elements.
 template <typename ConvertOp>
 static Value createPk8(RewriterBase &rewriter, Location loc, Type resultType,
@@ -91,7 +140,9 @@ struct CvtScalePkOpPattern
 
     Type elementType = op.getType().getElementType();
     Type valElementType = op.getVal().getType().getElementType();
-    bool fromFp4 = valElementType.isInteger(8);
+    bool fromFp4 = isa<IntegerType>(valElementType);
+    int fp4ValuesPerStorage =
+        fromFp4 ? valElementType.getIntOrFloatBitWidth() / 4 : 1;
     bool isE4M3 = isa<Float8E4M3FNType>(valElementType);
 
     auto valValues =
@@ -104,12 +155,14 @@ struct CvtScalePkOpPattern
 
     SmallVector<int64_t> valShape(op.getVal().getType().getShape());
     if (fromFp4)
-      valShape[packAxis] *= 2;
+      valShape[packAxis] *= fp4ValuesPerStorage;
     int64_t valK = valShape[axis];
     int64_t scaleK = op.getScale().getType().getShape()[axis];
     if (valK % scaleK != 0)
       return rewriter.notifyMatchFailure(op, "invalid scale/output axis sizes");
-    int kFactor = static_cast<int>(valK / scaleK);
+    int scaleFactor = static_cast<int>(valK / scaleK);
+    int kWidth = op.getKWidth().value_or(
+        triton::gpu::getContigPerThread(op.getType())[axis]);
     SmallVector<int32_t> opSels;
     opSels.reserve(op.getScaleSel().size());
     for (Attribute scaleSelAttr : op.getScaleSel()) {
@@ -130,8 +183,6 @@ struct CvtScalePkOpPattern
     auto scaleToI32 = [&](Value scale) -> Value {
       if (scaleBits < 32)
         return b.zext(i32_ty, scale);
-      if (scaleBits > 32)
-        return b.trunc(i32_ty, scale);
       return scale;
     };
 
@@ -140,15 +191,18 @@ struct CvtScalePkOpPattern
     auto outDims = standardOutDimNames(ctx, op.getType().getRank());
     StringAttr axisDim = outDims[axis];
 
-    // Work in the logical element layout. For fp4, insert a minor element bit
-    // along pack_axis: elements 2*r/2*r+1 denote the low/high nibble of packed
-    // i8 register r.
-    LinearLayout valElementLayout =
-        triton::gpu::toLinearLayout(op.getVal().getType());
+    // Work in the logical element layout. For fp4, insert the minor element
+    // bits along pack_axis so each i8/i16/i32 storage element expands to
+    // 2/4/8 consecutive logical nibbles.
+    LinearLayout valStorageLayout =
+        triton::gpu::toLinearLayout(op.getVal().getType())
+            .removeZeroBasesAlongDim(kElement);
+    LinearLayout valElementLayout = valStorageLayout;
     if (fromFp4) {
       StringAttr packDim = outDims[packAxis];
-      valElementLayout =
-          LinearLayout::identity1D(2, kElement, packDim) * valElementLayout;
+      valElementLayout = LinearLayout::identity1D(
+                             fp4ValuesPerStorage, kElement, packDim) *
+                         valElementLayout;
     }
     valElementLayout = valElementLayout.removeZeroBasesAlongDim(kElement);
     LinearLayout scaleLayout =
@@ -161,12 +215,12 @@ struct CvtScalePkOpPattern
       return rewriter.notifyMatchFailure(
           op, "logical val layout is inconsistent with output layout");
 
-    if (fromFp4 && kFactor % 2 != 0)
-      return rewriter.notifyMatchFailure(op, "fp4 k_scale must be even");
+    if (fromFp4 && scaleFactor % 2 != 0)
+      return rewriter.notifyMatchFailure(op, "fp4 scale_factor must be even");
     int valElementCount = valElementLayout.getInDimSize(kElement);
     int scaleElementCount = scaleLayout.getInDimSize(kElement);
     if (valElementCount !=
-        static_cast<int>(valValues.size()) * (fromFp4 ? 2 : 1))
+        static_cast<int>(valValues.size()) * fp4ValuesPerStorage)
       return rewriter.notifyMatchFailure(
           op, "logical val element count is inconsistent with val");
     if (scaleElementCount != static_cast<int>(scaleValues.size()))
@@ -209,57 +263,58 @@ struct CvtScalePkOpPattern
       return tensorCoords;
     };
 
-    struct AxisElementGroup {
-      int32_t scaleCoord;
+    struct AxisSelectionGroup {
+      int32_t selectorCoord;
       SmallVector<int32_t> axisCoords;
     };
 
     // Split the logical element layout into its non-axis and axis projections.
-    // Element bases that cover the low scale-block bits may appear anywhere
-    // in the element domain, so group projected elements by their actual
-    // scale coordinate and order each group by its low axis coordinate.
+    // Element bases that cover the low k_width bits may appear anywhere in the
+    // element domain, so group projected elements by their actual selection
+    // coordinate and order each group by its low axis coordinate.
     int nonAxisElementCount = valNonAxisLayout.getInDimSize(kElement);
     int axisElementCount = valAxisLayout.getInDimSize(kElement);
-    int elementsPerInstr = std::min(kElementsPerPk8, kFactor);
-    if (axisElementCount % kFactor != 0)
+    if (axisElementCount % kWidth != 0)
       return rewriter.notifyMatchFailure(
-          op, "axis element count is not divisible by kFactor");
+          op, "axis element count is not divisible by k_width");
     assert(nonAxisElementCount * axisElementCount == valElementCount);
 
-    SmallVector<AxisElementGroup> axisElementGroups;
+    SmallVector<AxisSelectionGroup> axisSelectionGroups;
     for (int axisElementIdx = 0; axisElementIdx < axisElementCount;
          ++axisElementIdx) {
       TensorCoords axisCoords =
           getElementCoords(valAxisLayout, axisElementIdx, ctx);
       assert(axisCoords.size() == 1 && axisCoords[0].first == axisDim);
       int32_t axisCoord = axisCoords[0].second;
-      int32_t scaleCoord = axisCoord / kFactor;
-      int32_t elementOffset = axisCoord % kFactor;
+      int32_t selectorCoord = axisCoord / kWidth;
+      int32_t elementOffset = axisCoord % kWidth;
 
       auto groupIt = llvm::find_if(
-          axisElementGroups, [&](const AxisElementGroup &group) {
-            return group.scaleCoord == scaleCoord;
+          axisSelectionGroups, [&](const AxisSelectionGroup &group) {
+            return group.selectorCoord == selectorCoord;
           });
-      if (groupIt == axisElementGroups.end()) {
-        axisElementGroups.push_back(
-            {scaleCoord, SmallVector<int32_t>(kFactor, -1)});
-        groupIt = std::prev(axisElementGroups.end());
+      if (groupIt == axisSelectionGroups.end()) {
+        axisSelectionGroups.push_back(
+            {selectorCoord, SmallVector<int32_t>(kWidth, -1)});
+        groupIt = std::prev(axisSelectionGroups.end());
       }
       if (groupIt->axisCoords[elementOffset] != -1)
         return rewriter.notifyMatchFailure(
             op, "element mapping does not uniquely cover the low axis bits");
       groupIt->axisCoords[elementOffset] = axisCoord;
     }
-    if (static_cast<int>(axisElementGroups.size()) * kFactor !=
+    if (static_cast<int>(axisSelectionGroups.size()) * kWidth !=
             axisElementCount ||
-        llvm::any_of(axisElementGroups, [](const AxisElementGroup &group) {
+        llvm::any_of(axisSelectionGroups,
+                     [](const AxisSelectionGroup &group) {
           return llvm::is_contained(group.axisCoords, -1);
         }))
       return rewriter.notifyMatchFailure(
-          op, "element mapping does not cover all low scale-block axis bits");
+          op, "element mapping does not cover every k_width group");
 
-    // Pair every non-axis element with each locally-held axis scale block;
-    // each pair emits ceil(kFactor / kElementsPerPk8) pk8 calls.
+    // Pair every non-axis element with each locally-held k_width group.  Split
+    // again at scale_factor boundaries because scale selection and scale reuse
+    // are independent.
     // Build wider vectors from equal-width inputs using a balanced shuffle
     // tree, preserving the packed-register pairs for LLVM's shuffle combiner.
     auto concatVectors = [&](SmallVector<Value> vectors) -> Value {
@@ -293,98 +348,140 @@ struct CvtScalePkOpPattern
          nonAxisElementIdx < nonAxisElementCount; ++nonAxisElementIdx) {
       TensorCoords nonAxisCoords =
           getElementCoords(valNonAxisLayout, nonAxisElementIdx, ctx);
-      for (const AxisElementGroup &axisElementGroup : axisElementGroups) {
-        int32_t opSel =
-            opSels[axisElementGroup.scaleCoord % opSels.size()];
-        TensorCoords scaleCoords =
-            withAxisCoord(nonAxisCoords, axisElementGroup.scaleCoord);
-        std::optional<int> scaleElementIdx =
-            getLocalElement(scaleLayout, scaleCoords, ctx);
-        if (!scaleElementIdx)
-          return rewriter.notifyMatchFailure(
-              op, "scale coordinate does not map to a local element");
-        if (*scaleElementIdx < 0 || *scaleElementIdx >= scaleElementCount)
-          return rewriter.notifyMatchFailure(
-              op, "scale coordinate does not map to a local element");
-        Value scaleI32 = scaleToI32(scaleValues[*scaleElementIdx]);
+      for (const AxisSelectionGroup &selectionGroup : axisSelectionGroups) {
+        int32_t opSel = opSels[selectionGroup.selectorCoord % opSels.size()];
+        int32_t sourceLane = (opSel & 1) ? 16 : 0;
 
-        for (int elementOffset = 0; elementOffset < kFactor;
-             elementOffset += kElementsPerPk8) {
-          SmallVector<Value> srcElements;
-          // For fp4, bitcast each unique packed i8 register to its two i4
-          // elements once, then record the packed register and nibble selected
-          // by every logical source element.
-          SmallVector<Value> fp4PackedRegs;
-          SmallVector<Value> fp4ElementsByPackedReg;
-          SmallVector<int32_t> fp4ShuffleMask;
-          SmallVector<int> resultElementIndices;
-          srcElements.reserve(elementsPerInstr);
-          fp4PackedRegs.reserve(elementsPerInstr);
-          fp4ElementsByPackedReg.reserve(elementsPerInstr);
-          fp4ShuffleMask.reserve(kElementsPerPk8);
-          resultElementIndices.reserve(elementsPerInstr);
+        struct AxisScaleGroup {
+          int32_t scaleCoord;
+          SmallVector<int32_t> axisCoords;
+        };
+        SmallVector<AxisScaleGroup> scaleGroups;
+        for (int32_t axisCoord : selectionGroup.axisCoords) {
+          int32_t scaleCoord = axisCoord / scaleFactor;
+          auto scaleGroupIt = llvm::find_if(
+              scaleGroups, [&](const AxisScaleGroup &group) {
+                return group.scaleCoord == scaleCoord;
+              });
+          if (scaleGroupIt == scaleGroups.end()) {
+            scaleGroups.push_back({scaleCoord, {}});
+            scaleGroupIt = std::prev(scaleGroups.end());
+          }
+          scaleGroupIt->axisCoords.push_back(axisCoord);
+        }
 
-          for (int instrElementIdx = 0; instrElementIdx < elementsPerInstr;
-               ++instrElementIdx) {
-            int32_t axisCoord =
-                axisElementGroup.axisCoords[elementOffset + instrElementIdx];
-            TensorCoords valCoords =
-                withAxisCoord(nonAxisCoords, axisCoord);
-            std::optional<int> elementIdx =
-                getLocalElement(valElementLayout, valCoords, ctx);
-            if (!elementIdx || *elementIdx < 0 ||
-                *elementIdx >= valElementCount)
-              return rewriter.notifyMatchFailure(
-                  op, "val coordinate does not map to a local element");
+        for (const AxisScaleGroup &scaleGroup : scaleGroups) {
+          TensorCoords scaleCoords =
+              withAxisCoord(nonAxisCoords, scaleGroup.scaleCoord);
+          std::optional<int> scaleElementIdx = getLocalElementAtLane(
+              scaleLayout, scaleCoords, sourceLane, ctx);
+          if (!scaleElementIdx || *scaleElementIdx < 0 ||
+              *scaleElementIdx >= scaleElementCount)
+            return rewriter.notifyMatchFailure(
+                op, "required scale is not owned by the selected lane or its "
+                    "half-warp peer");
+          Value scaleI32 = scaleToI32(scaleValues[*scaleElementIdx]);
 
-            if (fromFp4) {
-              int packedReg = *elementIdx >> 1;
-              if (packedReg < 0 ||
-                  packedReg >= static_cast<int>(valValues.size()))
+          for (int elementOffset = 0;
+               elementOffset < static_cast<int>(scaleGroup.axisCoords.size());
+               elementOffset += kElementsPerPk8) {
+            int elementsPerInstr = std::min(
+                kElementsPerPk8,
+                static_cast<int>(scaleGroup.axisCoords.size()) -
+                    elementOffset);
+            SmallVector<Value> srcElements;
+            // For fp4, retain each logical value's packed (register, lane,
+            // nibble) provenance. Bitcast each unique i8/i16/i32 source once
+            // to <2/4/8xi4>; do not scalarize a contiguous packed source before
+            // the final pk8 shuffle.
+            SmallVector<std::pair<int32_t, int32_t>> fp4PackedSources;
+            SmallVector<Value> fp4ElementsByPackedSource;
+            SmallVector<int32_t> fp4ShuffleMask;
+            SmallVector<int> resultElementIndices;
+            srcElements.reserve(elementsPerInstr);
+            fp4PackedSources.reserve(elementsPerInstr);
+            fp4ElementsByPackedSource.reserve(elementsPerInstr);
+            fp4ShuffleMask.reserve(kElementsPerPk8);
+            resultElementIndices.reserve(elementsPerInstr);
+
+            for (int instrElementIdx = 0; instrElementIdx < elementsPerInstr;
+                 ++instrElementIdx) {
+              int32_t axisCoord =
+                  scaleGroup.axisCoords[elementOffset + instrElementIdx];
+              TensorCoords valCoords =
+                  withAxisCoord(nonAxisCoords, axisCoord);
+              std::optional<int> elementIdx =
+                  getLocalElement(valElementLayout, valCoords, ctx);
+              if (!elementIdx || *elementIdx < 0 ||
+                  *elementIdx >= valElementCount)
                 return rewriter.notifyMatchFailure(
-                    op, "packed val register is out of range");
-              Value packedRegValue = valValues[packedReg];
-              auto packedRegIt =
-                  llvm::find(fp4PackedRegs, packedRegValue);
-              int packedRegIdx =
-                  std::distance(fp4PackedRegs.begin(), packedRegIt);
-              if (packedRegIt == fp4PackedRegs.end()) {
-                fp4PackedRegs.push_back(packedRegValue);
-                fp4ElementsByPackedReg.push_back(
-                    b.bitcast(packedRegValue, vec_ty(int_ty(4), 2)));
-              }
-              fp4ShuffleMask.push_back(2 * packedRegIdx + (*elementIdx & 1));
-            } else {
-              srcElements.push_back(valValues[*elementIdx]);
-            }
-            resultElementIndices.push_back(*elementIdx);
-          }
+                    op, "val coordinate does not map to a local element");
 
-          Value src;
-          if (fromFp4) {
-            Value packedRegElements = concatVectors(fp4ElementsByPackedReg);
-            int32_t undefElementIdx = static_cast<int32_t>(
-                2 * fp4ElementsByPackedReg.size());
-            fp4ShuffleMask.resize(kElementsPerPk8, undefElementIdx);
-            Value fp4Elements = LLVM::ShuffleVectorOp::create(
-                rewriter, loc, packedRegElements,
-                b.undef(packedRegElements.getType()), fp4ShuffleMask);
-            src = b.bitcast(fp4Elements, i32_ty);
-          } else {
-            Value srcVec = b.undef(vec_ty(i8_ty, kElementsPerPk8));
-            for (auto [i, srcElement] : llvm::enumerate(srcElements))
-              srcVec = b.insert_element(srcVec, srcElement, b.i32_val(i));
-            src = b.bitcast(srcVec, vec_ty(i32_ty, 2));
-          }
-          Value convertedElements = emitPk8(src, scaleI32, opSel);
-          for (auto [instrElementIdx, resultElementIdx] :
-               llvm::enumerate(resultElementIndices)) {
-            if (resultElements[resultElementIdx])
-              return rewriter.notifyMatchFailure(
-                  op, "output element was produced more than once");
-            resultElements[resultElementIdx] =
-                b.extract_element(convertedElements,
-                                  b.i32_val(instrElementIdx));
+              if (fromFp4) {
+                TensorCoords packedCoords = valCoords;
+                assert(packedCoords[packAxis].first == outDims[packAxis]);
+                int32_t packedNibble =
+                    packedCoords[packAxis].second % fp4ValuesPerStorage;
+                packedCoords[packAxis].second /= fp4ValuesPerStorage;
+                std::optional<std::pair<int32_t, int32_t>> packedSource =
+                    getRegisterAndLane(valStorageLayout, packedCoords, ctx);
+                if (!packedSource || packedSource->first < 0 ||
+                    packedSource->first >= static_cast<int>(valValues.size()))
+                  return rewriter.notifyMatchFailure(
+                      op, "packed val coordinate does not map to a register "
+                          "and lane");
+                auto packedSourceIt =
+                    llvm::find(fp4PackedSources, *packedSource);
+                int packedSourceIdx =
+                    std::distance(fp4PackedSources.begin(), packedSourceIt);
+                if (packedSourceIt == fp4PackedSources.end()) {
+                  fp4PackedSources.push_back(*packedSource);
+                  fp4ElementsByPackedSource.push_back(b.bitcast(
+                      valValues[packedSource->first],
+                      vec_ty(int_ty(4), fp4ValuesPerStorage)));
+                }
+                fp4ShuffleMask.push_back(
+                    fp4ValuesPerStorage * packedSourceIdx + packedNibble);
+              } else {
+                srcElements.push_back(valValues[*elementIdx]);
+              }
+              resultElementIndices.push_back(*elementIdx);
+            }
+
+            Value src;
+            if (fromFp4) {
+              Value packedRegElements =
+                  concatVectors(fp4ElementsByPackedSource);
+              int32_t undefElementIdx = static_cast<int32_t>(
+                  fp4ValuesPerStorage * fp4ElementsByPackedSource.size());
+              fp4ShuffleMask.resize(kElementsPerPk8, undefElementIdx);
+              int packedWidth =
+                  cast<VectorType>(packedRegElements.getType()).getNumElements();
+              bool isIdentity = packedWidth == kElementsPerPk8;
+              for (int i = 0; isIdentity && i < kElementsPerPk8; ++i)
+                isIdentity = fp4ShuffleMask[i] == i;
+              Value fp4Elements = packedRegElements;
+              if (!isIdentity)
+                fp4Elements = LLVM::ShuffleVectorOp::create(
+                    rewriter, loc, packedRegElements,
+                    b.undef(packedRegElements.getType()), fp4ShuffleMask);
+              src = b.bitcast(fp4Elements, i32_ty);
+            } else {
+              Value srcVec = b.undef(vec_ty(i8_ty, kElementsPerPk8));
+              for (auto [i, srcElement] : llvm::enumerate(srcElements))
+                srcVec = b.insert_element(srcVec, srcElement, b.i32_val(i));
+              src = b.bitcast(srcVec, vec_ty(i32_ty, 2));
+            }
+            Value convertedElements = emitPk8(src, scaleI32, opSel);
+            for (auto [instrElementIdx, resultElementIdx] :
+                 llvm::enumerate(resultElementIndices)) {
+              if (resultElements[resultElementIdx])
+                return rewriter.notifyMatchFailure(
+                    op, "output element was produced more than once");
+              resultElements[resultElementIdx] =
+                  b.extract_element(convertedElements,
+                                    b.i32_val(instrElementIdx));
+            }
           }
         }
       }

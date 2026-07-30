@@ -170,7 +170,7 @@ _CVT_SCALE_PK_BYTE_INDICES = {
 }
 
 
-def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
+def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, k_width, pack_axis, semantic):
     _check(isinstance(val.type, ttgl.distributed_type),
            lambda: f"Expected val to have a distributed_type but got {val.type}")
     _check(isinstance(scale.type, ttgl.distributed_type),
@@ -180,6 +180,7 @@ def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
 
     axis = _unwrap_if_constexpr(axis)
     scale_sel = _unwrap_if_constexpr(scale_sel)
+    k_width = _unwrap_if_constexpr(k_width)
     pack_axis = _unwrap_if_constexpr(pack_axis)
 
     tuple_types = (tuple, list, ttgl.tuple)
@@ -204,16 +205,19 @@ def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
     if axis < 0:
         axis += rank
 
-    packed_fp4 = val.dtype in {ttgl.int8, ttgl.uint8}
+    packed_fp4_dtypes = {ttgl.int8, ttgl.uint8, ttgl.int16, ttgl.uint16, ttgl.int32, ttgl.uint32}
+    packed_fp4 = val.dtype in packed_fp4_dtypes
     _check(packed_fp4 or val.dtype in {ttgl.float8e4nv, ttgl.float8e5},
-           lambda: f"Expected val to be fp8 (e4m3/e5m2) or packed fp4 (int8/uint8) but got {val.dtype}")
+           lambda: f"Expected val to be fp8 (e4m3/e5m2) or packed fp4 "
+           f"(8/16/32-bit integer) but got {val.dtype}")
 
-    # `pack_axis` (fp4 only) is the storage->element x2 expansion dim; defaults
-    # to `axis`. Shape/layout constraints are on the element (output) layout.
+    # `pack_axis` (fp4 only) is expanded by the number of fp4 values in each
+    # storage element; defaults to `axis`. Shape/layout constraints are on the
+    # element (output) layout.
     if pack_axis is None:
         pack_axis_eff = axis
     else:
-        _check(packed_fp4, lambda: "pack_axis is only valid for packed fp4 (int8/uint8) val")
+        _check(packed_fp4, lambda: "pack_axis is only valid for packed fp4 integer val")
         pack_axis_eff = pack_axis
         _check(-rank <= pack_axis_eff < rank, lambda: f"pack_axis {pack_axis} out of range for rank {rank}")
         if pack_axis_eff < 0:
@@ -221,21 +225,14 @@ def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
 
     out_shape = list(val.type.shape)
     if packed_fp4:
-        out_shape[pack_axis_eff] *= 2
+        out_shape[pack_axis_eff] *= val.dtype.primitive_bitwidth // 4
 
-    scale_dtypes = {
-        ttgl.int8, ttgl.uint8, ttgl.int16, ttgl.uint16, ttgl.int32, ttgl.uint32, ttgl.int64, ttgl.uint64
-    }
+    scale_dtypes = {ttgl.int8, ttgl.uint8, ttgl.int16, ttgl.uint16, ttgl.int32, ttgl.uint32}
     _check(scale.dtype in scale_dtypes,
-           lambda: f"Expected scale to be an 8/16/32/64-bit integer but got {scale.dtype}")
-    if scale.dtype in {ttgl.int8, ttgl.uint8}:
-        scale_bits = 8
-    elif scale.dtype in {ttgl.int16, ttgl.uint16}:
-        scale_bits = 16
-    elif scale.dtype in {ttgl.int32, ttgl.uint32}:
-        scale_bits = 32
-    else:
-        scale_bits = 64
+           lambda: f"Expected scale to be an 8/16/32-bit integer but got {scale.dtype}")
+    scale_bits = scale.dtype.primitive_bitwidth
+    _check(not packed_fp4 or scale_bits >= 16,
+           lambda: "Expected packed fp4 scale to be a 16/32-bit integer")
 
     _check(len(scale.type.shape) == rank, lambda: "scale must have the same rank as val")
     for d in range(rank):
@@ -247,14 +244,17 @@ def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
     scale_k = scale.type.shape[axis]
     _check(scale_k > 0 and out_k % scale_k == 0,
            lambda: f"output axis size {out_k} must be a positive multiple of scale axis size {scale_k}")
-    k_scale = out_k // scale_k
-    # k_scale must be a power of two (the layout expands the scale by
-    # identity1D(k_scale, ...)). The lowering reuses each scale across all
-    # required pk8 groups, pads a short final group, and drops unused outputs.
-    _check(k_scale > 0 and (k_scale & (k_scale - 1)) == 0,
-           lambda: f"k_scale (output/scale along axis) must be a power of two, got {k_scale}")
-    _check(not packed_fp4 or k_scale >= 2,
-           lambda: f"k_scale must be even (>= 2) for packed fp4, got {k_scale}")
+    scale_factor = out_k // scale_k
+    _check(scale_factor > 0 and (scale_factor & (scale_factor - 1)) == 0,
+           lambda: f"scale_factor (output/scale along axis) must be a power of two, got {scale_factor}")
+    _check(not packed_fp4 or scale_factor >= 2,
+           lambda: f"scale_factor must be even (>= 2) for packed fp4, got {scale_factor}")
+
+    if k_width is not None:
+        _check(isinstance(k_width, int) and not isinstance(k_width, bool) and k_width > 0,
+               lambda: f"k_width must be a positive integer or None, got {k_width!r}")
+        _check((k_width & (k_width - 1)) == 0,
+               lambda: f"k_width must be a power of two, got {k_width}")
 
     fp4_bytes = ("b0b1", "b2b3", "b0b2", "b1b3")
     fp8_bytes = ("b0", "b1", "b2", "b3", "b0b1", "b2b3")
@@ -277,6 +277,7 @@ def _cvt_scale_pk(val, scale, axis, scale_sel, elem_type, pack_axis, semantic):
                        f"{unavailable_byte}, which is not available for an 8-bit scale")
 
     pack_axis_arg = -1 if pack_axis is None else pack_axis_eff
+    k_width_arg = -1 if k_width is None else k_width
     handle = semantic.builder.create_cvt_scale_pk(val.handle, scale.handle, elem_type.to_ir(semantic.builder), axis,
-                                                  scale_sel, pack_axis_arg)
+                                                  scale_sel, k_width_arg, pack_axis_arg)
     return _wrap_scaled_upcast_result(handle, elem_type, semantic)

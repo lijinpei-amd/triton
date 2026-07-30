@@ -254,6 +254,47 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
 
 // -----
 
+// FP4 needs distinct scale bytes for the two destination half-warps.
+#val = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#scale = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#out = #ttg.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_fp4_rejects_i8_scale(%val: tensor<1x128xi8, #val>, %scale: tensor<1x1xi8, #scale>) {
+    // expected-error @+1 {{packed fp4 scale must be a 16-bit or 32-bit integer}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0b1>] {axis = 1 : i32} : tensor<1x128xi8, #val>, tensor<1x1xi8, #scale> -> tensor<1x256xf16, #out>
+    tt.return
+  }
+}
+
+// -----
+
+// An i16 holds four fp4 values, so pack_axis expands by four.
+#val = #ttg.blocked<{sizePerThread = [1, 2], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#scale = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#out = #ttg.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_fp4_i16_rejects_x2_shape(%val: tensor<1x64xi16, #val>, %scale: tensor<1x1xi16, #scale>) {
+    // expected-error @+1 {{output dimension 1 must be 256 for packed fp4}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0b1>] {axis = 1 : i32} : tensor<1x64xi16, #val>, tensor<1x1xi16, #scale> -> tensor<1x128xf16, #out>
+    tt.return
+  }
+}
+
+// -----
+
+// k_width must describe a complete lane-local contiguous group.
+#val = #ttg.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#scale = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
+  tt.func @cvt_scale_pk_rejects_non_lane_local_k_width(%val: tensor<1x256xf8E4M3FN, #val>, %scale: tensor<1x1xi32, #scale>) {
+    // expected-error @+1 {{k_width 16 must divide the maximum 8 contiguous elements per lane along axis 1}}
+    %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0>] {axis = 1 : i32, k_width = 16 : i32} : tensor<1x256xf8E4M3FN, #val>, tensor<1x1xi32, #scale> -> tensor<1x256xf16, #val>
+    tt.return
+  }
+}
+
+// -----
+
 #linear1 = #ttg.linear<{register = [[1, 0], [2, 0], [4, 0], [8, 0]], lane = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], warp = [], block = [], order = [1, 0]}>
 #slice1 = #ttg.slice<{dim = 1, parent = #linear1}>
 #shared1 = #ttg.swizzled_shared<{vec = 1, perPhase = 1, maxPhase = 1, order = [1, 0], CGALayout = [[1, 0], [2, 0]]}>
@@ -835,14 +876,14 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
 
 // -----
 
-// A cross-axis fp4 layout may reorder register bases, but it may not change
-// the lane mapping inherited from the compact scale layout.
+// The scale required by each value must be owned by that lane or its half-warp
+// peer. This scale layout instead changes the low lane mapping.
 #val = #ttg.blocked<{sizePerThread = [1, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [0, 1]}>
 #scale_bad = #ttg.blocked<{sizePerThread = [2, 2], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [0, 1]}>
 #out = #ttg.blocked<{sizePerThread = [2, 32], threadsPerWarp = [32, 1], warpsPerCTA = [1, 1], order = [0, 1]}>
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
   tt.func @cvt_scale_pk_cross_axis_non_register_mismatch(%val: tensor<32x32xi8, #val>, %scale: tensor<64x2xi32, #scale_bad>) {
-    // expected-error @+1 {{output layout must equal identity1D(k_scale, register, axis) * scale layout}}
+    // expected-error @+1 {{scale for output register 0, lane 1 is not owned by lane 1 (the same lane or its half-warp peer)}}
     %0 = amdg.cvt_scale_pk %val scale %scale scale_sel = [#amdg.cvt_scale_pk_scale_sel<h0, b0b2>] {axis = 1 : i32, pack_axis = 0 : i32} : tensor<32x32xi8, #val>, tensor<64x2xi32, #scale_bad> -> tensor<64x32xf16, #out>
     tt.return
   }
