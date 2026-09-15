@@ -615,6 +615,9 @@ class HIPBackend(BaseBackend):
         if options.waves_per_eu != 0:
             kernel_fn.add_fn_attr("amdgpu-waves-per-eu", f"{options.waves_per_eu},{options.waves_per_eu}")
 
+        shared_mem_size = src.get_int_attr("ttg.shared") or 0
+        kernel_fn.add_fn_attr("amdgpu-dynamic-lds-bytes", f"{shared_mem_size},{shared_mem_size}")
+
         if is_coexec_scheduler_enabled(options.arch) and options.num_warps <= 4:
             kernel_fn.add_fn_attr("amdgpu-sched-strategy", "coexec")
 
