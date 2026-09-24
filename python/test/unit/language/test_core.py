@@ -3971,7 +3971,7 @@ def test_trans_4d(dtype_str, shape, perm, device, with_allocator):
     # Don't do zeros_like -- that copies the layout, which we don't want.
     actual = torch.zeros(expected.shape, dtype=getattr(torch, dtype_str), device=device)
 
-    _intj_launch_or_interpret(kernel, (1, ), input, actual, *shape, *[shape[i] for i in perm], *perm, num_warps=8)
+    kernel[(1, )](input, actual, *shape, *[shape[i] for i in perm], *perm, num_warps=8)
 
     np.testing.assert_equal(to_numpy(expected), to_numpy(actual))
 

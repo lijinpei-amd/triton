@@ -2733,6 +2733,13 @@
     },
     {
       "path": "python/test/unit/language/test_core.py",
+      "line": 3974,
+      "target": "kernel",
+      "reason": "unsupported_scratch_allocator",
+      "detail": "test_trans_4d constructs tensor descriptors in the JIT kernel; NVIDIA SM90+ TMA lowering requires global scratch, which intj cannot allocate for launch."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
       "line": 4311,
       "target": "kernel",
       "reason": "needs_compiled_kernel_result",
