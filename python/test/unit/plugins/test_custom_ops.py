@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import torch
 
 import triton
@@ -71,7 +72,7 @@ def test_custom_ops(tmp_path: pathlib.Path):
     output_triton = torch.empty_like(x)
     n_elements = output_triton.numel()
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    h = add_kernel[grid](x, output_triton, n_elements, BLOCK_SIZE=32)
+    h = _intj_launch(add_kernel, grid, x, output_triton, n_elements, BLOCK_SIZE=32, return_compiled=True)
 
     src = h.asm["source"]
     assert "arith.addf" in src

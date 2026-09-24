@@ -183,8 +183,8 @@ def test_runtime_scaled_upcast_fp4(compact_scale, BLOCK_K):
         scale = scale.repeat_interleave(SCALE_FACTOR, dim=1).contiguous()
     y = torch.empty((BLOCK_M, BLOCK_K), dtype=torch.bfloat16, device="cuda")
 
-    pgm = scaled_upcast_fp4_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR, compact_scale,
-                                          num_warps=4)
+    pgm = _intj_launch(scaled_upcast_fp4_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR,
+                       compact_scale, num_warps=4, return_compiled=True)
 
     assert pgm.asm["amdgcn"].count("v_cvt_scale_pk8_bf16_fp4") == BLOCK_K // 32
     y_ref = (x_ref * scale_ref).to(torch.bfloat16)
@@ -241,8 +241,8 @@ def test_runtime_scaled_upcast_fp4_bf16_gemm_layouts():
     scale, scale_ref = create_mxfp_scale(0, BLOCK_N, BLOCK_K, "e8m0", SCALE_FACTOR)
     y = torch.empty((BLOCK_N, BLOCK_K), dtype=torch.bfloat16, device="cuda")
 
-    pgm = scaled_upcast_fp4_bf16_gemm_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_N, BLOCK_K, SCALE_FACTOR,
-                                                    num_warps=4)
+    pgm = _intj_launch(scaled_upcast_fp4_bf16_gemm_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_N, BLOCK_K,
+                       SCALE_FACTOR, num_warps=4, return_compiled=True)
 
     assert "v_cvt_scale_pk8_bf16_fp4" in pgm.asm["amdgcn"]
     y_ref = (x_ref * scale_ref).to(torch.bfloat16)
@@ -294,7 +294,8 @@ def test_runtime_scaled_upcast_fp8(fp8_dtype, out_dtype):
     scale = scale.repeat_interleave(SCALE_FACTOR, dim=1).contiguous()
     y = torch.empty((BLOCK_M, BLOCK_K), dtype=torch_out, device="cuda")
 
-    pgm = scaled_upcast_fp8_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, ttgl_out, num_warps=1)
+    pgm = _intj_launch(scaled_upcast_fp8_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, ttgl_out,
+                       num_warps=1, return_compiled=True)
 
     assert f"v_cvt_scale_pk8_{out_dtype}_{in_mnemonic}" in pgm.asm["amdgcn"]
     y_ref = (x_ref * scale_ref).to(torch_out)
@@ -337,7 +338,8 @@ def test_runtime_scaled_upcast_fp8_non_broadcast_block16():
     scale = scale.repeat_interleave(SCALE_FACTOR, dim=1).contiguous()
     y = torch.empty((BLOCK_M, BLOCK_K), dtype=torch.bfloat16, device="cuda")
 
-    pgm = scaled_upcast_fp8_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, num_warps=1)
+    pgm = _intj_launch(scaled_upcast_fp8_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, num_warps=1,
+                       return_compiled=True)
 
     assert "v_cvt_scale_pk8_bf16_fp8" in pgm.asm["amdgcn"]
     y_ref = (x_ref * scale_ref).to(torch.bfloat16)
@@ -388,7 +390,8 @@ def test_runtime_scaled_downcast_fp4(dtype, ttgl_dtype, in_suffix, BLOCK_K):
     x = (unpacked_ref * scale_ref).to(dtype).contiguous()
     y = torch.empty((BLOCK_M, BLOCK_K // 2), dtype=torch.uint8, device="cuda")
 
-    pgm = scaled_downcast_fp4_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR, num_warps=4)
+    pgm = _intj_launch(scaled_downcast_fp4_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR,
+                       num_warps=4, return_compiled=True)
 
     assert f"v_cvt_scalef32_pk8_fp4_{in_suffix}" in pgm.asm["amdgcn"]
     torch.testing.assert_close(y.cpu(), packed, atol=0, rtol=0)
@@ -440,8 +443,8 @@ def test_runtime_scaled_downcast_fp8(fp8_dtype, dtype, ttgl_dtype, in_suffix):
     x = (v_ref * scale_ref).to(dtype).contiguous()
     y = torch.empty((BLOCK_M, BLOCK_K), dtype=torch_fp8, device="cuda")
 
-    pgm = scaled_downcast_fp8_kernel[(1, )](x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR, fp8_dtype,
-                                            num_warps=4)
+    pgm = _intj_launch(scaled_downcast_fp8_kernel, (1, ), x.cuda(), scale.cuda(), y, BLOCK_M, BLOCK_K, SCALE_FACTOR,
+                       fp8_dtype, num_warps=4, return_compiled=True)
 
     assert f"v_cvt_scalef32_pk8_{out_mnemonic}_{in_suffix}" in pgm.asm["amdgcn"]
     torch.testing.assert_close(y.view(torch.uint8).cpu(), v, atol=0, rtol=0)
@@ -1249,8 +1252,8 @@ def test_amd_wmma_scaled(wmma_shape, transposed, M, N, K, a_type, b_type, a_scal
         b_scale_ref = 1.0
 
     c = torch.zeros((M, N), dtype=torch.float32).cuda()
-    pgm = kernel[(1, )](c, a, a_scale, b, b_scale, a_type, b_type, M, N, K, scale_factor, instr_m, instr_n, transposed,
-                        num_warps=4)
+    pgm = _intj_launch(kernel, (1, ), c, a, a_scale, b, b_scale, a_type, b_type, M, N, K, scale_factor, instr_m,
+                       instr_n, transposed, num_warps=4, return_compiled=True)
 
     no_scales = not with_a_scale and not with_b_scale
 
@@ -1601,8 +1604,8 @@ def test_amd_wmma_scaled_tdm(M, N, K, mxfp_type, hasScale, scale_dtype, scale_fa
     y = make_finite(y, type_b)
 
     z = torch.zeros((M, N), dtype=torch.float32).cuda()
-    pgm = scaled_wmma_tdm_gluon_kernel[(1, )](x, *x.stride(), scale_x, y, *y.stride(), scale_y, z, M, N, K, type_a,
-                                              type_b, scale_factor)
+    pgm = _intj_launch(scaled_wmma_tdm_gluon_kernel, (1, ), x, *x.stride(), scale_x, y, *y.stride(), scale_y, z, M, N,
+                       K, type_a, type_b, scale_factor, return_compiled=True)
     amdgcn = pgm.asm["amdgcn"]
 
     patterns = (
@@ -4063,9 +4066,9 @@ def test_runtime_tdm_scatter(NUM_INDICES, BLOCK_M, BLOCK_N, dst_col_offset, dtyp
     out_d = out.cuda()
     indices_d = dst_row_indices.cuda()
 
-    h = tdm_scatter_kernel[(1, )](inp_d, out_d, indices_d, M_out=M_out, N_out=N_out, stride_m=out_d.stride(0),
-                                  stride_n=out_d.stride(1), BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, NUM_INDICES=NUM_INDICES,
-                                  DST_COL_OFFSET=dst_col_offset)
+    h = _intj_launch(tdm_scatter_kernel, (1, ), inp_d, out_d, indices_d, M_out=M_out, N_out=N_out,
+                     stride_m=out_d.stride(0), stride_n=out_d.stride(1), BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
+                     NUM_INDICES=NUM_INDICES, DST_COL_OFFSET=dst_col_offset, return_compiled=True)
 
     # Assert that only a single tensor_store_from_lds is emitted
     amdgcn = h.asm["amdgcn"]
@@ -5007,7 +5010,8 @@ def test_cache_modifier(loadCM, storeCM, test_kernel):
 
     src = torch.rand((N, ), dtype=torch.float16).cuda()
     dst = torch.empty((N, ), dtype=torch.float16).cuda()
-    pgm = test_kernel[(triton.cdiv(N, BLOCK), )](src, dst, BLOCK, loadCM, storeCM, num_warps=1)
+    pgm = _intj_launch(test_kernel, (triton.cdiv(N, BLOCK), ), src, dst, BLOCK, loadCM, storeCM, num_warps=1,
+                       return_compiled=True)
 
     torch.testing.assert_close(dst, src)
 

@@ -274,7 +274,8 @@ def test_atomic_load_store_vectorization(op, dtype, stride, offset, mask_group, 
     else:
         expected = torch.where(mask, src[x * stride + offset], out)
 
-    compiled = kernel[(1, )](src, out, stride, offset, mask_group, op == "store", num_warps=1)
+    compiled = _intj_launch(kernel, (1, ), src, out, stride, offset, mask_group, op == "store", num_warps=1,
+                            return_compiled=True)
 
     assert torch.equal(out, expected)
     if dtype == torch.bool:
@@ -403,8 +404,8 @@ def test_noinline_call_preserves_live_shared_allocation(NESTED, fresh_knobs):
     output = torch.empty_like(values)
     sentinel_output = torch.empty_like(values)
 
-    compiled = _noinline_shared_allocation_call_kernel[(1, )](values, output, sentinel_output, NESTED, THREADS_PER_WARP,
-                                                              num_warps=4)
+    compiled = _intj_launch(_noinline_shared_allocation_call_kernel, (1, ), values, output, sentinel_output, NESTED,
+                            THREADS_PER_WARP, num_warps=4, return_compiled=True)
 
     assert compiled.metadata.shared >= 2 * values.numel() * values.element_size()
     assert compiled.asm["ttgir"].count("noinline = true") >= 1 + int(NESTED)
@@ -2136,7 +2137,7 @@ def test_amd_direct_load_to_shared(use_buffer_load):
     torch.manual_seed(0)
     a = torch.randn((128, 16), dtype=torch.float16, device='cuda')
     b = torch.empty_like(a)
-    pgm = kernel[(1, )](a, b, use_buffer_load)
+    pgm = _intj_launch(kernel, (1, ), a, b, use_buffer_load, return_compiled=True)
 
     torch.testing.assert_close(a, b)
     assert re.search(r'ttg\.local_load .* \{ttg\.amdg\.syncedViaAsyncWait = true\}', pgm.asm['ttgir'], re.MULTILINE)
@@ -2371,12 +2372,14 @@ def test_amd_mfma_scaled(M, N, K, a_type, b_type, has_scale, device='cuda'):
         a_scale, a_scale_ref = _create_mxfp_scale(0, M, K)
         b_scale, b_scale_ref = _create_mxfp_scale(1, N, K)
         out = torch.empty((M, N), dtype=torch.float32, device=device)
-        compiled = kernel[(1, )](out, a, b, a_scale, b_scale, M, N, K, a_type, b_type, num_warps=4)
+        compiled = _intj_launch(kernel, (1, ), out, a, b, a_scale, b_scale, M, N, K, a_type, b_type, num_warps=4,
+                                return_compiled=True)
         out_ref = torch.matmul(a_ref * a_scale_ref, b_ref * b_scale_ref)
         torch.testing.assert_close(out, out_ref)
     else:
         out = torch.empty((M, N), dtype=torch.float32, device=device)
-        compiled = kernel[(1, )](out, a, b, None, None, M, N, K, a_type, b_type, num_warps=4)
+        compiled = _intj_launch(kernel, (1, ), out, a, b, None, None, M, N, K, a_type, b_type, num_warps=4,
+                                return_compiled=True)
         out_ref = torch.matmul(a_ref, b_ref)
         torch.testing.assert_close(out, out_ref)
 
@@ -2900,7 +2903,7 @@ def test_shared_dynamic_stage_synchronization(high_base, fresh_knobs):
 
     out = torch.empty(128, device="cuda", dtype=torch.int32)
     n_iters = 7
-    compiled = kernel[(1, )](out, n_iters, high_base, num_warps=4)
+    compiled = _intj_launch(kernel, (1, ), out, n_iters, high_base, num_warps=4, return_compiled=True)
     stages = list(range(4))
     total = 0
     for iteration in range(n_iters):
@@ -3266,7 +3269,7 @@ def test_packed_arith_reduction(dtype):
     b = torch.randint(-1, 2, (128, 128), device="cuda").to(dtype)
     out_a = torch.empty(128, device="cuda", dtype=dtype)
     out_b = torch.empty_like(out_a)
-    compiled = kernel[(1, )](a, b, out_a, out_b)
+    compiled = _intj_launch(kernel, (1, ), a, b, out_a, out_b, return_compiled=True)
 
     torch.testing.assert_close(out_a, a.sum(dim=1), atol=0, rtol=0)
     torch.testing.assert_close(out_b, b.sum(dim=1), atol=0, rtol=0)
@@ -3374,7 +3377,7 @@ def test_packed_arith_chains(dtype):
     b = torch.rand_like(a)
     c = torch.rand_like(a)
     out = torch.empty_like(a)
-    compiled = kernel[(1, )](a, b, c, out)
+    compiled = _intj_launch(kernel, (1, ), a, b, c, out, return_compiled=True)
 
     reference = torch.addcmul(c, ((a + b) - b) * b, b)
     tolerance = {torch.float32: 1e-6, torch.float16: 1e-3, torch.bfloat16: 1e-2}[dtype]
@@ -3411,7 +3414,7 @@ def test_buffer_atomic_rmw_add_bf16():
 
     a = torch.randn((BLOCK), dtype=elem_type, device="cuda")
     origin_a = a.clone()
-    compiled = kernel[(1, )](a, BLOCK, SIZE_PER_THREAD)
+    compiled = _intj_launch(kernel, (1, ), a, BLOCK, SIZE_PER_THREAD, return_compiled=True)
 
     torch_ref = origin_a + torch.ones((BLOCK, ), device='cuda', dtype=torch.bfloat16)
     torch.testing.assert_close(a, torch_ref)

@@ -1192,7 +1192,7 @@ def test_reduce_broadcast_across_warps(op, device):
     values[0] = 257  # Make both the sum and XOR nonzero.
     x = torch.tensor(values, device=device)
     y = torch.empty((), dtype=torch.int32, device=device)
-    compiled = kernel[(1, )](x, y, op, num_warps=4)
+    compiled = _intj_launch(kernel, (1, ), x, y, op, num_warps=4, return_compiled=True)
     reduce_fn = {"add": np.add, "xor": np.bitwise_xor, "max": np.maximum}[op]
     assert y.item() == reduce_fn.reduce(values)
     # One full-warp redux, then one redux over four broadcast warp results.

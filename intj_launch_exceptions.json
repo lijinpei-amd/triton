@@ -139,7 +139,7 @@
       "line": 206,
       "target": "_consan_noinline_convert_layout_kernel",
       "reason": "unsupported_profile_scratch",
-      "detail": "test_consan_noinline_convert_layout_scratch: ConSan instrumentation needs profile scratch, which intj rejects; the test also inspects returned CompiledKernel.metadata.shared and CompiledKernel.asm['ttgir'], which intj launch does not return."
+      "detail": "test_consan_noinline_convert_layout_scratch: ConSan instrumentation needs profile scratch, which intj rejects."
     },
     {
       "path": "python/test/gluon/test_consan.py",
@@ -594,7 +594,7 @@
       "line": 3895,
       "target": "kernel",
       "reason": "unsupported_profile_scratch",
-      "detail": "test_deadlock_user_cluster_barrier_inside_warp_specialize: ConSan instrumentation needs profile scratch, num_ctas includes unsupported multi-CTA variants, and the test inspects returned CompiledKernel.asm['ptx']; intj cannot preserve those launch and return semantics."
+      "detail": "test_deadlock_user_cluster_barrier_inside_warp_specialize: ConSan instrumentation needs profile scratch, which intj rejects; every execution reaching this launch is also multi-CTA."
     },
     {
       "path": "python/test/gluon/test_consan.py",
@@ -752,623 +752,560 @@
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 277,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_atomic_load_store_vectorization: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 308,
+      "line": 309,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_atomic_poll_tensor_results: kernel[(1,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 362,
+      "line": 363,
       "target": "copy_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_copy_kernel: copy_kernel[(4,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 406,
-      "target": "_noinline_shared_allocation_call_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_noinline_call_preserves_live_shared_allocation: _noinline_shared_allocation_call_kernel[(1,)] inspects compiled.metadata, compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 423,
+      "line": 424,
       "target": "copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_copy_kernel_multi_cta: copy_kernel[(4,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 475,
+      "line": 476,
       "target": "local_store_transposed_cga_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_local_store_transposed_cga_to_non_transposed_alloc: local_store_transposed_cga_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 523,
+      "line": 524,
       "target": "async_shared_store_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_async_shared_store: async_shared_store_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 534,
+      "line": 535,
       "target": "async_shared_store_f16_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_async_shared_store_packed_f16: async_shared_store_f16_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 577,
+      "line": 578,
       "target": "tma_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_tma: tma_kernel[(1,)] passes TensorDescriptor object(s) desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 587,
+      "line": 588,
       "target": "noinline_tma_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_proxy_fence_noinline_tma_store: noinline_tma_kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 642,
+      "line": 643,
       "target": "tma_im2col_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_im2col: tma_im2col_kernel[(1,)] passes num_ctas=2 if multicast else 1; the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 688,
+      "line": 689,
       "target": "tma_round_f32_to_tf32_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_gluon_tma_round_f32_to_tf32: tma_round_f32_to_tf32_kernel[(1,)] passes TensorDescriptor object(s) in_desc, out_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 734,
+      "line": 735,
       "target": "tma_multicast_copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_multicast_copy: tma_multicast_copy_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 805,
+      "line": 806,
       "target": "tma_gather_scatter_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_gather_scatter_multi_cta: tma_gather_scatter_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 885,
+      "line": 886,
       "target": "tma_gather_scatter_subslice_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_gather_scatter_subslice: tma_gather_scatter_subslice_kernel[(1,)] passes num_ctas=1 << len(cga_layout); the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1013,
+      "line": 1014,
       "target": "tcgen05_mma_multicast_commit_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_multicast_commit: tcgen05_mma_multicast_commit_kernel[(1,)] passes num_ctas=ctas_per_cga[0] * ctas_per_cga[1]; the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1142,
+      "line": 1143,
       "target": "tcgen05_mma_scaled_direct_multicast_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_scaled_direct_multicast_barrier: tcgen05_mma_scaled_direct_multicast_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1259,
+      "line": 1260,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mbarrier_arrive_multicast: kernel[(num_ctas,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1294,
+      "line": 1295,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mbarrier_arrive_broadcast_one_cta: kernel[(num_ctas,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1343,
+      "line": 1344,
       "target": "tma_device_load_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_device_tma_load: tma_device_load_kernel[(1,)] passes Gluon layout object(s) smem_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1381,
+      "line": 1382,
       "target": "tma_device_store_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_device_tma_store: tma_device_store_kernel[(1,)] passes Gluon layout object(s) smem_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1443,
+      "line": 1444,
       "target": "mma_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_warpgroup_mma: mma_kernel[(1,)] passes Gluon layout object(s) block_layout, acc_layout, shared_layout_a, shared_layout_b as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1481,
+      "line": 1482,
       "target": "mma_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tcgen05_mma_collector_a: mma_kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_tuple_and_layout_constexpr",
+      "detail": "Passes shape tuples and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1509,
+      "line": 1510,
       "target": "mma_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tcgen05_mma_collector_ab: mma_kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_tuple_and_layout_constexpr",
+      "detail": "Passes shape tuples and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1618,
+      "line": 1619,
       "target": "mma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_two_ctas_transposed_lhs_shared_layout: mma_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1838,
+      "line": 1839,
       "target": "tma_mma_shared_inputs_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "_run_tma_mma_shared_inputs: tma_mma_shared_inputs_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2068,
+      "line": 2069,
       "target": "mma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mma_shared_inputs: mma_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2139,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_amd_direct_load_to_shared: kernel[(1,)] inspects pgm.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 2203,
+      "line": 2204,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_amd_wmma: the BLOCKED_LAYOUT and WMMA_LAYOUT constexpr arguments are Gluon layout objects, which intj cannot encode in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2267,
+      "line": 2268,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_amd_mfma: kernel[(1, 1)] passes Gluon layout object(s) mfma_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2374,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_amd_mfma_scaled: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 2379,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_amd_mfma_scaled: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 2471,
+      "line": 2474,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_2d: the JIT reads captured TensorMemoryLayout and TensorMemoryScalesLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2507,
+      "line": 2510,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_pipeline_stage_subslice_index_reinterpret: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2549,
+      "line": 2552,
       "target": "tmem_row_slice_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_row_slice: the kernel reads the TensorMemoryLayout global from its defining Python scope; intj cannot revalidate that captured layout in its module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2575,
+      "line": 2578,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_source_layout_contiguous_subslice: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2605,
+      "line": 2608,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_noncontiguous_subslice_load_store: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2638,
+      "line": 2641,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_noncontiguous_subslice_load_min: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2660,
+      "line": 2663,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_subslice_unpacked_one_column: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2693,
+      "line": 2696,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_wait_predicated_store: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2748,
+      "line": 2751,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tmem_subslice_block_m_64: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures a TensorMemoryLayout class; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2860,
+      "line": 2863,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_block_m_64_mma: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures a TensorMemoryLayout class; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2903,
+      "line": 2979,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_shared_dynamic_stage_synchronization: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2976,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_proxy_fence_nested_multibuffer_prefix: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 3013,
+      "line": 3016,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_slice_reinterpret: kernel[(1,)] reads BLOCK, SPLIT_BLOCK, XBLOCK, YBLOCK, and NUM_THREADS host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3047,
+      "line": 3050,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_tma_slice: kernel[(1,)] passes TensorDescriptor object(s) in_desc, out_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3091,
+      "line": 3094,
       "target": "tmem_copy_no_scales",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_no_scales: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3126,
+      "line": 3129,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_noncontiguous_subslice: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3232,
+      "line": 3235,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_padded_shared_layout_subslice: kernel[(1,)] reads warp_size_cst, num_warps_cst, and smem_layout host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3269,
+      "line": 3333,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_packed_arith_reduction: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3330,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_packed_arith: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 3377,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_packed_arith_chains: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 3414,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_buffer_atomic_rmw_add_bf16: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_core.py",
-      "line": 3457,
+      "line": 3460,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_mma_v2: kernel[(1,)] reads B and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3485,
+      "line": 3488,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_dot_fma: kernel[(1,)] reads B and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3516,
+      "line": 3519,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_dot3d_fma: kernel[(1,)] reads B, BATCH, and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3564,
+      "line": 3567,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split_auto_layout_execution: kernel[(1,)] reads threads_per_warp host constexpr from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3637,
+      "line": 3640,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tcgen05_mma_scaled_minimal: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3689,
+      "line": 3692,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tcgen05_mma_scaled_noncontiguous_accumulator: the JIT reads captured TensorMemoryLayout and TensorMemoryScalesLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3837,
+      "line": 3840,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tcgen05_mma_scaled_lhs_tmem: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3982,
+      "line": 3985,
       "target": "in_thread_transpose_roundtrip_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_in_thread_convert_layout_8bit: in_thread_transpose_roundtrip_kernel[(1,)] inspects pgm.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes a Gluon layout constexpr; intj cannot bake layout objects."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4002,
+      "line": 4005,
       "target": "descriptor_shape_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_descriptor_shape: descriptor_shape_kernel[(1,)] passes TensorDescriptor object(s) desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4066,
+      "line": 4069,
       "target": "shared_gather_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_gather: shared_gather_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4113,
+      "line": 4116,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_memory_pointers: kernel[(1,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4152,
+      "line": 4155,
       "target": "shared_gather_scatter_two_ctas_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_gather_scatter_two_ctas: shared_gather_scatter_two_ctas_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4239,
+      "line": 4242,
       "target": "shared_gather_cga_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_gather_cga: shared_gather_cga_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4319,
+      "line": 4322,
       "target": "shared_subslice_two_ctas_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_subslice_two_ctas: shared_subslice_two_ctas_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4405,
+      "line": 4408,
       "target": "cross_cta_tma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_cross_cta_tma: cross_cta_tma_kernel[(1,)] passes num_ctas=1 << len(cga_layout); the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4455,
+      "line": 4458,
       "target": "shared_subslice_swizzled_register_block_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_subslice_swizzled_register_block: shared_subslice_swizzled_register_block_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4542,
+      "line": 4545,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_scatter: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4558,
+      "line": 4561,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_scatter: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4791,
+      "line": 4794,
       "target": "shared_atomic_scatter_rmw_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_atomic_scatter_rmw: shared_atomic_scatter_rmw_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_rhs, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4856,
+      "line": 4859,
       "target": "shared_atomic_scatter_rmw_broadcast_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_atomic_scatter_rmw_broadcast: shared_atomic_scatter_rmw_broadcast_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4895,
+      "line": 4898,
       "target": "shared_gather_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_gather_multiwarp: shared_gather_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4917,
+      "line": 4920,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_gather_multiwarp: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4999,
+      "line": 5002,
       "target": "gather_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_2d_native: gather_2d_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5074,
+      "line": 5077,
       "target": "scatter_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_2d_native: scatter_2d_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5168,
+      "line": 5171,
       "target": "gather_3d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_3d_native: gather_3d_kernel[(1,)] passes Gluon layout object(s) layout_3d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5263,
+      "line": 5266,
       "target": "scatter_3d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_3d_native: scatter_3d_kernel[(1,)] passes Gluon layout object(s) layout_3d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5365,
+      "line": 5368,
       "target": "gather_subslice_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_subslice_2d: gather_subslice_2d_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5466,
+      "line": 5469,
       "target": "scatter_subslice_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_subslice_2d: scatter_subslice_2d_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5547,
+      "line": 5550,
       "target": "gather_padded_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_padded: gather_padded_kernel[(1,)] passes Gluon layout object(s) layout_2d, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5622,
+      "line": 5625,
       "target": "scatter_padded_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_padded: scatter_padded_kernel[(1,)] passes Gluon layout object(s) layout_2d, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5721,
+      "line": 5724,
       "target": "gather_padded_subslice_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_padded_subslice: gather_padded_subslice_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5824,
+      "line": 5827,
       "target": "scatter_padded_subslice_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_padded_subslice: scatter_padded_subslice_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5935,
+      "line": 5938,
       "target": "tmem_reduction_kernel",
       "reason": "unsupported_enum_constexpr",
       "detail": "test_tmem_reduction: tmem_reduction_kernel[(1,)] passes propagate_nan as a tl.PropagateNan enum constexpr; intj supports scalar, dtype, string, and JIT-function constexprs, but not this enum object."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6002,
+      "line": 6005,
       "target": "clc_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_clc_basic: clc_kernel[(grid,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6242,
+      "line": 6245,
       "target": "mma_scaled_tcgen05_copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "mma_scaled_tcgen05_copy: mma_scaled_tcgen05_copy_kernel[grid] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6429,
+      "line": 6432,
       "target": "tmem288k_simple_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem288k_simple: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
@@ -1377,8 +1314,8 @@
       "path": "python/test/gluon/test_fpsan.py",
       "line": 2025,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_dot_fma: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures local shape or block constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
@@ -1433,8 +1370,8 @@
       "path": "python/test/gluon/test_fpsan.py",
       "line": 2253,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_dot_fma_batched: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures local shape or block constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
@@ -1678,8 +1615,8 @@
       "path": "python/test/gluon/test_lowerings.py",
       "line": 776,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tmem_load_store_instruction_sizes: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel captures a TensorMemoryLayout class; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_lowerings.py",
@@ -1699,15 +1636,8 @@
       "path": "python/test/gluon/test_lowerings.py",
       "line": 1132,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_reduce_partitioned: kernel[(32 // rows_per_block,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/gluon/test_lowerings.py",
-      "line": 1195,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_reduce_broadcast_across_warps: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes Gluon layout constexprs; intj cannot bake layout objects."
     },
     {
       "path": "python/test/gluon/test_lowerings.py",
@@ -1790,8 +1720,8 @@
       "path": "python/test/gluon/test_lowerings.py",
       "line": 1875,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_local_load_store_2d_layouts: kernel[(1,)] inspects obj.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_tuple_and_layout_constexpr",
+      "detail": "Passes a shape tuple and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "python/test/gluon/test_lowerings.py",
@@ -1811,15 +1741,15 @@
       "path": "python/test/gluon/test_lowerings.py",
       "line": 2277,
       "target": "_gather_kernel_1d",
-      "reason": "exempt_compiled_result",
-      "detail": "test_gather_layouts: _gather_kernel_1d[(1,)] inspects obj.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes Gluon layout constexprs; intj cannot bake layout objects."
     },
     {
       "path": "python/test/gluon/test_lowerings.py",
       "line": 2289,
       "target": "_gather_kernel_2d",
-      "reason": "exempt_compiled_result",
-      "detail": "test_gather_layouts: _gather_kernel_2d[(1,)] inspects obj.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes Gluon layout constexprs; intj cannot bake layout objects."
     },
     {
       "path": "python/test/gluon/test_lowerings.py",
@@ -1917,7 +1847,7 @@
       "line": 218,
       "target": "_pdl_consumer_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
@@ -1959,7 +1889,7 @@
       "line": 317,
       "target": "_gluon_ws_pdl_wait_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
@@ -1973,14 +1903,14 @@
       "line": 331,
       "target": "_gluon_ws_pdl_wait_noinline_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires launch_pdl, which intj rejects."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
       "line": 367,
       "target": "_gluon_ws_noinline_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires a multi-CTA cluster launch, which intj rejects. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires a multi-CTA cluster launch, which intj rejects."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
@@ -2008,7 +1938,7 @@
       "line": 503,
       "target": "_gluon_mbarrier_initial_empty_phase_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires a multi-CTA cluster launch, which intj rejects. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. This site also requires a multi-CTA cluster launch, which intj rejects."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
@@ -2085,7 +2015,7 @@
       "line": 948,
       "target": "kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
@@ -2232,21 +2162,21 @@
       "line": 1623,
       "target": "_host_tma_gather_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None. Descriptor arguments also require Triton driver marshaling."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. Descriptor arguments also require Triton driver marshaling."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
       "line": 1651,
       "target": "_host_tma_scatter_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None. Descriptor arguments also require Triton driver marshaling."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. Descriptor arguments also require Triton driver marshaling."
     },
     {
       "path": "python/test/gsan/test_gsan.py",
       "line": 1672,
       "target": "_host_tma_reduce_add_kernel",
       "reason": "gsan_runtime",
-      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None. Descriptor arguments also require Triton driver marshaling."
+      "detail": "GSan instrumented kernels need Triton CudaLauncher to append the hidden globals pointer, per-stream clock pointer, and kernel ID; intj raw launch does not provide that state. Descriptor arguments also require Triton driver marshaling."
     },
     {
       "path": "python/test/gsan/test_gsan_failures.py",
@@ -2504,8 +2434,8 @@
       "path": "python/test/unit/language/test_annotations.py",
       "line": 32,
       "target": "_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_int_annotation: _kernel[(1,)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "exempt_triton_annotation_contract",
+      "detail": "This test checks Triton's Python annotation parser, which is outside this intj migration cycle."
     },
     {
       "path": "python/test/unit/language/test_annotations.py",
@@ -2525,8 +2455,8 @@
       "path": "python/test/unit/language/test_annotations.py",
       "line": 71,
       "target": "_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_float_annotation: _kernel[(1,)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "exempt_triton_annotation_contract",
+      "detail": "This test checks Triton's Python annotation parser, which is outside this intj migration cycle."
     },
     {
       "path": "python/test/unit/language/test_clc.py",
@@ -2586,385 +2516,189 @@
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1640,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1678,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_atomic_load_store_coalesced: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1705,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1746,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_atomic_poll_no_timeout_uses_no_shared_memory: kernel[(1,)] inspects compiled.metadata from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1763,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1868,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2167,
-      "target": "serialized_add",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2189,
+      "line": 2191,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_scalar_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2210,
+      "line": 2212,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tensor_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2261,
+      "line": 2263,
       "target": "kernel_r",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2262,
+      "line": 2264,
       "target": "kernel_r",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2281,
+      "line": 2283,
       "target": "kernel_r",
       "reason": "unsupported_cooperative_grid",
       "detail": "The launch enables launch_cooperative_grid; intj does not support cooperative-grid launch metadata."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2511,
+      "line": 2513,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_cat_nd: kernel[(1,)] passes TensorDescriptor object(s) x_desc, y_desc, z_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2618,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2648,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_umulhi_known_bits: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3152,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_reduce64_integer: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3513,
+      "line": 3516,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3584,
-      "target": "histogram_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3736,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3894,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3896,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3974,
+      "line": 3978,
       "target": "kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "test_trans_4d constructs tensor descriptors in the JIT kernel; NVIDIA SM90+ TMA lowering requires global scratch, which intj cannot allocate for launch."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4311,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 4611,
+      "line": 4616,
       "target": "mxfp_upcast_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4700,
-      "target": "dot_scale_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 4792,
+      "line": 4797,
       "target": "_scaled_dot_scale_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4909,
+      "line": 4914,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4978,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_dot_mulbroadcasted: kernel[grid] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5114,
+      "line": 5119,
       "target": "patched_kernel",
       "reason": "unsupported_annotation",
       "detail": "test_const: patched_kernel[(1,)] uses tl.const pointer annotations; a focused intj probe raised ValueError: parameter 'in_ptr' has unsupported annotation <class 'triton.language.core.const'>."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5289,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5379,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5408,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5432,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5460,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5552,
-      "target": "_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5622,
+      "line": 5628,
       "target": "kernel",
       "reason": "unsupported_keyword_only_parameters",
       "detail": "The JIT kernel declares keyword-only parameters, which make_launcher currently rejects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5634,
+      "line": 5640,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5636,
+      "line": 5642,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5796,
+      "line": 5802,
       "target": "patched_kernel",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_reshape passes out_format as a tuple constexpr; intj rejects the tuple launch argument with TypeError: unsupported argument out_tuple of type tuple."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5992,
+      "line": 5998,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6019,
+      "line": 6025,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_packed: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6045,
+      "line": 6051,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_with_pointers: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6200,
+      "line": 6206,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_map_elementwise: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6607,
+      "line": 6613,
       "target": "kernel_patched",
       "reason": "unsupported_captured_global",
       "detail": "test_constexpr_assignment: kernel_patched[(1,)] reads global constexpr_type in the patched JIT body; a focused intj probe raised UnsupportedKernel for used_global_vals=['constexpr_type']."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6663,
+      "line": 6669,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "test_num_threads: kernel[(1,)] passes get_num_threads as a backend-specific Python function constexpr; intj cannot serialize that function as a kernel argument."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6688,
+      "line": 6694,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_globaltimer: kernel[(1,)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_function_constexpr",
+      "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6712,
+      "line": 6718,
       "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_smid: kernel[(out.shape[0],)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_function_constexpr",
+      "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6862,
-      "target": "matmul_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7146,
-      "target": "matmul_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7177,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tl_range_fuse: kernel[(1,)] inspects compiled_kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7230,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tl_range_fuse_dependent: kernel[(1,)] inspects compiled_kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7319,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7582,
+      "line": 7588,
       "target": "gather_test_kernel_1d",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7584,
+      "line": 7590,
       "target": "gather_test_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7903,
+      "line": 7909,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
@@ -2985,108 +2719,31 @@
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
-      "line": 317,
-      "target": "simple_persistent_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_simple_persistent_matmul: simple_persistent_kernel[grid] inspects k.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 425,
-      "target": "mxfp_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 760,
-      "target": "_gemm_kernel_preshuffled_scales_cdna4",
-      "reason": "exempt_compiled_result",
-      "detail": "test_preshuffle_scale_mxfp_cdna4 inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 806,
-      "target": "block_scale_mxfp_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_blocked_scale_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 884,
-      "target": "matmul_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_lhs_in_tmem: matmul_kernel[grid] inspects k.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 940,
+      "line": 945,
       "target": "lhs_in_tmem_kernel_mxfp",
       "reason": "compile_warmup_interception",
       "detail": "test_matmul has module-level pytest.mark.enable_warmup; the test suite intercepts Triton KernelInterface.__getitem__ during compile warmup, which intj launch bypasses."
     },
     {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 1105,
-      "target": "block_scale_fp4_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_block_scale_fp4 inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 1326,
-      "target": "mxfp8_mxfp4_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_mxfp8_mxfp4_matmul inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 1442,
-      "target": "batched_mxfp_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_batched_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
-    },
-    {
-      "path": "python/test/unit/language/test_matmul.py",
-      "line": 1567,
-      "target": "nvfp4_ue5m3_matmul",
-      "reason": "exempt_compiled_result",
-      "detail": "test_nvfp4_ue5m3_matmul: nvfp4_ue5m3_matmul[grid] inspects kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
       "path": "python/test/unit/language/test_pipeliner.py",
       "line": 269,
       "target": "matmul_kernel_tma",
-      "reason": "exempt_compiled_result",
-      "detail": "test_pipeline_matmul: matmul_kernel_tma[grid] inspects handler.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 276,
-      "target": "matmul_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_pipeline_matmul: matmul_kernel[grid] inspects handler.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 339,
+      "line": 340,
       "target": "small_tma_load_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_tma_load_unaligned_stage_size: small_tma_load_kernel[(1,)] inspects kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 358,
-      "target": "vecadd_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_pipeline_vecadd: vecadd_kernel[grid] inspects handler.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
-    },
-    {
-      "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 571,
+      "line": 573,
       "target": "matmul_kernel_persistent_scatter",
-      "reason": "exempt_compiled_result",
-      "detail": "test_scatter_pipeline: matmul_kernel_persistent_scatter[(grid_x,)] inspects kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_random.py",
@@ -3484,22 +3141,22 @@
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 306,
       "target": "matmul_tma_ws_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_warp_specialize_tma_matmul: matmul_tma_ws_kernel[grid] inspects kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 349,
       "target": "matmul_tma_ws_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_warp_specialize_tma_matmul_clc: matmul_tma_ws_kernel[grid] inspects _assert_clc_ws_ir(compiled) from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 478,
       "target": "matmul_tma_persistent_ws_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_warp_specialize_tma_matmul_persistent: matmul_tma_persistent_ws_kernel[grid] inspects kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",
@@ -3526,8 +3183,8 @@
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 638,
       "target": "attention_inner_loop_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_warp_specialize_attention_clc_forward: attention_inner_loop_kernel[grid] inspects _assert_clc_ws_ir(compiled) from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",
@@ -3540,8 +3197,8 @@
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 727,
       "target": "attention_clc_aref_phi_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_warp_specialize_attention_clc_aref_phi: attention_clc_aref_phi_kernel[grid] inspects _assert_clc_ws_ir(compiled) from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",
@@ -3561,50 +3218,43 @@
       "path": "python/test/unit/language/test_warp_specialization.py",
       "line": 939,
       "target": "grouped_matmul_tma_kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "group_gemm_tma_fn: grouped_matmul_tma_kernel[grid] inspects out.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/plugins/override_helper.py",
       "line": 47,
       "target": "add_kernel",
       "reason": "plugin_stage_hook",
-      "detail": "Installs Triton's add_stages_inspection_hook and an MLIR plugin before launch; intj does not invoke that JIT runtime hook."
-    },
-    {
-      "path": "python/test/unit/plugins/test_custom_ops.py",
-      "line": 74,
-      "target": "add_kernel",
-      "reason": "compiled_kernel_asm",
-      "detail": "The test reads the launched CompiledKernel.asm['source']; intj launch returns None."
+      "detail": "This plugin helper installs add_stages_inspection_hook and checks its result through Triton's indexed JIT path; intj's separate cache does not key on hook state."
     },
     {
       "path": "python/test/unit/plugins/test_plugin.py",
       "line": 44,
       "target": "kernel1",
-      "reason": "compiled_kernel_asm_and_stage_hook",
-      "detail": "The test toggles add_stages_inspection_hook and compares returned CompiledKernel.asm['ttgir']; intj does not expose either."
+      "reason": "triton_stage_hook_test",
+      "detail": "The plugin test compares Triton JIT TTGIR while toggling add_stages_inspection_hook; intj can invoke the hook on a compile miss, but its separate cache does not key on hook state."
     },
     {
       "path": "python/test/unit/plugins/test_plugin.py",
       "line": 48,
       "target": "kernel2",
-      "reason": "compiled_kernel_asm_and_stage_hook",
-      "detail": "The test toggles add_stages_inspection_hook and compares returned CompiledKernel.asm['ttgir']; intj does not expose either."
+      "reason": "triton_stage_hook_test",
+      "detail": "The plugin test compares Triton JIT TTGIR while toggling add_stages_inspection_hook; intj can invoke the hook on a compile miss, but its separate cache does not key on hook state."
     },
     {
       "path": "python/test/unit/plugins/test_plugin.py",
       "line": 52,
       "target": "kernel2",
-      "reason": "compiled_kernel_asm_and_stage_hook",
-      "detail": "The test toggles add_stages_inspection_hook and compares returned CompiledKernel.asm['ttgir']; intj does not expose either."
+      "reason": "triton_stage_hook_test",
+      "detail": "The plugin test compares Triton JIT TTGIR while toggling add_stages_inspection_hook; intj can invoke the hook on a compile miss, but its separate cache does not key on hook state."
     },
     {
       "path": "python/test/unit/plugins/test_plugin.py",
       "line": 57,
       "target": "kernel3",
-      "reason": "compiled_kernel_asm_and_stage_hook",
-      "detail": "The test toggles add_stages_inspection_hook and compares returned CompiledKernel.asm['ttgir']; intj does not expose either."
+      "reason": "triton_stage_hook_test",
+      "detail": "The plugin test compares Triton JIT TTGIR while toggling add_stages_inspection_hook; intj can invoke the hook on a compile miss, but its separate cache does not key on hook state."
     },
     {
       "path": "python/test/unit/runtime/no_torch_dispatch_example.py",
@@ -4101,49 +3751,49 @@
       "line": 1069,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_higher_order_kernel inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_higher_order_kernel changes a nested JITFunction's source and clears its device cache to check Triton's recompilation and disk-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1077,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_higher_order_kernel inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_higher_order_kernel changes a nested JITFunction's source and clears its device cache to check Triton's recompilation and disk-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1082,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_higher_order_kernel inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_higher_order_kernel changes a nested JITFunction's source and clears its device cache to check Triton's recompilation and disk-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1086,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_higher_order_kernel inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_higher_order_kernel changes a nested JITFunction's source and clears its device cache to check Triton's recompilation and disk-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1121,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_preload_higher_order_kernels inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_preload_higher_order_kernels checks Triton's JIT cache hook, preload, and device-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1143,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_preload_higher_order_kernels inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_preload_higher_order_kernels checks Triton's JIT cache hook, preload, and device-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_cache.py",
       "line": 1149,
       "target": "kernel",
       "reason": "triton_cache_mutation_test",
-      "detail": "test_preload_higher_order_kernels inspects or mutates JITFunction.device_caches, source, hooks, and CompiledKernel return values."
+      "detail": "test_preload_higher_order_kernels checks Triton's JIT cache hook, preload, and device-cache behavior; intj uses a separate cache."
     },
     {
       "path": "python/test/unit/runtime/test_compilation_listener.py",
@@ -4310,8 +3960,8 @@
       "path": "python/test/unit/test_debuginfo.py",
       "line": 64,
       "target": "add_kernel",
-      "reason": "compiled_kernel_asm",
-      "detail": "The test reads CompiledKernel.asm['llir'] after launch; intj returns None."
+      "reason": "triton_cache_mutation_test",
+      "detail": "The test changes compiler environment and cache state before inspecting LLIR; intj's loaded module cache does not follow those mutations."
     },
     {
       "path": "python/test/unit/test_link.py",
@@ -4332,21 +3982,14 @@
       "line": 76,
       "target": "k1",
       "reason": "triton_stage_hook_test",
-      "detail": "The test toggles add_stages_inspection_hook and checks generated repro dumps; intj does not invoke the JIT runtime hook."
+      "detail": "The test verifies stage-hook callbacks and reproducer output through Triton's indexed JIT path; intj's separate launcher cache would change the runtime path under test."
     },
     {
       "path": "python/test/unit/test_stages_inspection.py",
       "line": 84,
       "target": "k2",
       "reason": "triton_stage_hook_test",
-      "detail": "The test toggles add_stages_inspection_hook and checks generated repro dumps; intj does not invoke the JIT runtime hook."
-    },
-    {
-      "path": "python/test/unit/tools/test_disasm.py",
-      "line": 18,
-      "target": "kernel",
-      "reason": "exempt_compiled_result",
-      "detail": "test_disam_cubin: kernel[(1,)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
+      "detail": "The test verifies stage-hook callbacks and reproducer output through Triton's indexed JIT path; intj's separate launcher cache would change the runtime path under test."
     },
     {
       "path": "python/test/unit/tools/test_irsource.py",
@@ -4447,25 +4090,18 @@
       "detail": "The test passes a tuple of destination peer buffers; intj cannot decode tuple kernel arguments."
     },
     {
-      "path": "python/triton_kernels/tests/test_mxfp.py",
-      "line": 45,
-      "target": "_upcast_ue8m0_scale_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads the returned CompiledKernel.asm[\"ptx\"] to assert an instruction; intj launch returns None."
-    },
-    {
       "path": "python/triton_kernels/tests/test_specialize.py",
       "line": 111,
       "target": "specialized_kernel",
-      "reason": "triton_runtime_hook_and_compiled_result",
-      "detail": "The test asserts Triton JIT cache-hook behavior and the returned CompiledKernel.hash; intj does not reproduce either API."
+      "reason": "triton_jit_cache_hook_test",
+      "detail": "The test reads specialization data and function identity from Triton's jit_cache_hook, then checks preload behavior; intj's separate cache does not preserve that JITFunction hook contract."
     },
     {
       "path": "python/triton_kernels/tests/test_specialize.py",
       "line": 149,
       "target": "specialized_kernel",
-      "reason": "triton_runtime_hook_and_compiled_result",
-      "detail": "The test asserts Triton JIT cache-hook behavior and the returned CompiledKernel.hash; intj does not reproduce either API."
+      "reason": "triton_jit_cache_hook_test",
+      "detail": "The test verifies a Triton JITFunction cache hit leaves jit_cache_hook silent after preload; intj's separate cache would bypass the behavior under test."
     },
     {
       "path": "python/triton_kernels/tests/test_tensor_details/test_layout_blackwell.py",
@@ -4723,8 +4359,8 @@
       "path": "python/tutorials/gluon/02-layouts.py",
       "line": 187,
       "target": "memcpy_1d_kernel",
-      "reason": "needs_compiled_kernel_asm_and_layout",
-      "detail": "The tutorial returns the CompiledKernel for a later SASS inspection and passes a Gluon layout constexpr; intj supports neither."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "memcpy_1d_impl passes a Gluon layout constexpr argument, which intj cannot encode in its launch key."
     },
     {
       "path": "python/tutorials/gluon/02-layouts.py",
@@ -5000,27 +4636,6 @@
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
-      "path": "third_party/amd/python/examples/gluon/f16_fa_cdna5.py",
-      "line": 936,
-      "target": "attn_decode_fwd_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The helper returns both CompiledKernel objects to its caller for static profiling; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/examples/gluon/f16_fa_cdna5.py",
-      "line": 942,
-      "target": "attn_decode_reduce_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The helper returns both CompiledKernel objects to its caller for static profiling; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/examples/gluon/f16_fa_cdna5.py",
-      "line": 966,
-      "target": "attn_fn",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The dynamically selected kernel returns a CompiledKernel used for static profiling; intj launch returns None."
-    },
-    {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_cdna5.py",
       "line": 472,
       "target": "gemm_tdm_pipelined_kernel",
@@ -5052,57 +4667,57 @@
       "path": "third_party/amd/python/examples/gluon/f16_gemm_cdna5.py",
       "line": 976,
       "target": "gemm_tdm_warp_specialized_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_cdna5.py",
       "line": 1000,
       "target": "persistent_gemm_tdm_warp_specialized_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_cdna5.py",
       "line": 1058,
       "target": "persistent_gemm_tdm_warp_specialized_subtiled_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_streamk_cdna5.py",
       "line": 1194,
       "target": "kernel_fn",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_warp_pipeline_cdna5.py",
       "line": 319,
       "target": "kernel_fn",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The selected kernel result is passed to static_profile for assembly/metadata inspection; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/f16_gemm_warp_pipeline_cdna5.py",
       "line": 374,
       "target": "gemm_tdm_predicated_pipelined_warp_pipelined_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "Passes WARP_BASES as a tuple constexpr; intj cannot bake tuple constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/moe_cdna5.py",
       "line": 1312,
       "target": "kernels._matmul",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The MoE helper returns this launch's CompiledKernel for static_profile assembly/metadata inspection; intj launch returns None."
+      "reason": "unsupported_tuple_argument",
+      "detail": "Passes activation_fn_args as a tuple kernel argument; intj cannot decode tuple launch arguments."
     },
     {
       "path": "third_party/amd/python/examples/gluon/mxfp_fa_cdna5.py",
       "line": 2960,
       "target": "mxfp_attn_fwd_kernel",
-      "reason": "needs_compiled_kernel_result",
-      "detail": "The returned CompiledKernel is passed to static_profile, which reads generated assembly and metadata; intj launch returns None."
+      "reason": "unsupported_num_ctas",
+      "detail": "CTA-split mode requests num_ctas=4 or 8 and passes an aggregate config; intj supports one CTA and scalar constexprs."
     },
     {
       "path": "third_party/amd/python/examples/gluon/mxfp_gemm_cdna5.py",
@@ -5122,8 +4737,8 @@
       "path": "third_party/amd/python/test/address_sanitizer_helper.py",
       "line": 31,
       "target": "add_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
+      "reason": "triton_runtime_diagnostic_test",
+      "detail": "This subprocess intentionally launches out-of-bounds code and checks Triton's sanitizer diagnostic path."
     },
     {
       "path": "third_party/amd/python/test/cdna5_consan_helper.py",
@@ -5336,340 +4951,249 @@
       "detail": "This call passes a host TensorDescriptor; intj only decodes pointer and scalar launch arguments."
     },
     {
-      "path": "third_party/amd/python/test/test_gluon_cdna4.py",
-      "line": 73,
-      "target": "scaled_downcast_fp4_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 186,
-      "target": "scaled_upcast_fp4_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 244,
-      "target": "scaled_upcast_fp4_bf16_gemm_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 297,
-      "target": "scaled_upcast_fp8_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 340,
-      "target": "scaled_upcast_fp8_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 391,
-      "target": "scaled_downcast_fp4_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 443,
-      "target": "scaled_downcast_fp8_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1252,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1351,
+      "line": 1354,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1445,
+      "line": 1448,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_amd_wmma_scaled_batched: the kernel transitively reads the AMDWMMALayout global through get_wmma_scale_layout; intj cannot revalidate that captured layout in its module key."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1604,
-      "target": "scaled_wmma_tdm_gluon_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1815,
+      "line": 1818,
       "target": "tensor_device_tdm_copy_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_runtime_tensor_copy DEVICE_TDM path: the JIT reads imported PartitionedSharedLayout; intj refuses the captured global."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1818,
+      "line": 1821,
       "target": "tensor_device_tdm_copy_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_runtime_tensor_copy DEVICE_TDM_PARTITIONED path: the JIT reads imported PartitionedSharedLayout; intj refuses the captured global."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1824,
+      "line": 1827,
       "target": "tensor_host_tdm_copy_kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "This CDNA5 TDM call passes a host TensorDescriptor; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 1936,
+      "line": 1939,
       "target": "partitioned_tdm_copy_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_runtime_partitioned_tdm_load: the JIT reads imported PartitionedSharedLayout; intj refuses the captured global."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2023,
+      "line": 2026,
       "target": "kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes Gluon layout constexprs; intj cannot bake layout objects."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2135,
+      "line": 2138,
       "target": "tensor_device_tdm_multi_cta_load_and_store_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2253,
+      "line": 2256,
       "target": "tensor_descriptor_load_store_nd_kernel_device_tdm",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
+      "reason": "unsupported_tuple_and_layout_constexpr",
+      "detail": "Passes shape or stride tuples and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2260,
+      "line": 2263,
       "target": "tensor_descriptor_load_store_nd_kernel_host_tdm",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
+      "reason": "unsupported_host_descriptor",
+      "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2331,
+      "line": 2334,
       "target": "tensor_descriptor_load_store_nd_kernel_device_tdm",
       "reason": "unsupported_tuple_layout_and_compile_error_test",
       "detail": "The test passes shape/stride tuples and a shared-layout object, then asserts Triton parser error text; intj cannot decode these launch arguments."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2438,
+      "line": 2441,
       "target": "tensor_descriptor_prefetch_nd_kernel_device_tdm",
       "reason": "unsupported_tuple_and_layout_constexpr",
       "detail": "The call passes shape, stride, block-shape tuples and a shared-layout constexpr; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2443,
+      "line": 2446,
       "target": "tensor_descriptor_prefetch_nd_kernel_host_tdm",
       "reason": "unsupported_host_descriptor",
       "detail": "This CDNA5 TDM call passes a host TensorDescriptor; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2533,
+      "line": 2536,
       "target": "tdm_prefetch_store_back_offsets_kernel",
       "reason": "unsupported_tuple_and_layout_constexpr",
       "detail": "The call passes shape, stride, block-shape tuples and a shared-layout constexpr; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2735,
+      "line": 2738,
       "target": "mxgemm_kernel",
       "reason": "captured_global_amdwmmalayout",
       "detail": "Preflight rejected mxgemm_kernel because it reads the AMDWMMALayout global, which intj cannot revalidate."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2798,
+      "line": 2801,
       "target": "cluster_load_and_write_back_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2869,
+      "line": 2872,
       "target": "async_load_and_write_back_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "This benchmark/error-check closure passes blocked or shared layout constexpr objects; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2872,
+      "line": 2875,
       "target": "async_copy_mbarrier_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "This benchmark/error-check closure passes blocked or shared layout constexpr objects; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 2919,
+      "line": 2922,
       "target": "async_load_and_write_back_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3245,
+      "line": 3248,
       "target": "tensor_async_copy_mbarrier_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3380,
+      "line": 3383,
       "target": "ws_kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_ws_store_wait_load installs a profile allocator in ConSan mode; the instrumented warp-specialized kernel needs profile scratch, which intj rejects."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3468,
+      "line": 3471,
       "target": "ws_kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_ws_store_wait_load_loop installs a profile allocator in ConSan mode; the instrumented loop kernel needs profile scratch, which intj rejects."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3555,
+      "line": 3558,
       "target": "ws_tensor_async_load_store_mbarrier_kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_runtime_ws_tensor_async_load_store_mbarrier installs a profile allocator in ConSan mode; the instrumented TDM kernel needs profile scratch, which intj rejects."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3653,
+      "line": 3656,
       "target": "ws_tensor_async_copy_mbarrier_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3758,
+      "line": 3761,
       "target": "ws_async_copy_mbarrier_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3850,
+      "line": 3853,
       "target": "async_store_and_write_back_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "This benchmark/error-check closure passes blocked or shared layout constexpr objects; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3887,
+      "line": 3890,
       "target": "async_copy_shared_to_global_multi_cta_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 3929,
+      "line": 3932,
       "target": "cluster_barrier_arrive_and_wait_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "This launch explicitly requests multiple CTAs; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4066,
-      "target": "tdm_scatter_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4311,
+      "line": 4314,
       "target": "_tdm_scatter_padded_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4520,
+      "line": 4523,
       "target": "tdm_gather_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
+      "reason": "unsupported_layout_constexpr",
+      "detail": "Passes Gluon layout constexprs; intj cannot bake layout objects."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4575,
+      "line": 4578,
       "target": "tdm_gather_multi_cta_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4681,
+      "line": 4684,
       "target": "tdm_gather_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4836,
+      "line": 4839,
       "target": "_tdm_gather_layout_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 4906,
+      "line": 4909,
       "target": "_tdm_scatter_layout_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "The call passes Gluon blocked, shared, or index layout objects as constexpr arguments; intj cannot decode them."
     },
     {
       "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 5010,
-      "target": "test_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads the returned CompiledKernel.asm[\"amdgcn\"]; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_cdna5.py",
-      "line": 5107,
+      "line": 5111,
       "target": "gemm_3d_cga_split_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch passes a runtime/configured num_ctas value that can exceed one; intj rejects compiled kernels with num_ctas != 1."
-    },
-    {
-      "path": "third_party/amd/python/test/test_gluon_scaled_upcast.py",
-      "line": 58,
-      "target": "_compact_scaled_upcast_fp4_kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
-    },
-    {
-      "path": "third_party/amd/python/test/test_pointer_optimization.py",
-      "line": 79,
-      "target": "kernel",
-      "reason": "needs_compiled_kernel_asm",
-      "detail": "The test reads assembly/IR from the returned CompiledKernel; intj launch returns None."
     },
     {
       "path": "third_party/proton/test/override_helper.py",
@@ -5697,7 +5221,7 @@
       "line": 134,
       "target": "add_kernel",
       "reason": "proton_instrumentation",
-      "detail": "Proton instrumentation requires Triton's profile scratch allocation and kernel-load/launch hooks; intj rejects profile scratch and bypasses those hooks. The caller also reads the returned CompiledKernel, while intj.compat.launch returns None."
+      "detail": "Proton instrumentation requires Triton's profile scratch allocation and kernel-load/launch hooks; intj rejects profile scratch and bypasses those hooks."
     },
     {
       "path": "third_party/proton/test/test_instrumentation.py",

@@ -2,6 +2,8 @@
 This file implements a BSHD Flash Attention and tests against torch reference.
 """
 
+from intj.compat import launch as _intj_launch
+
 import torch
 from triton.experimental import gluon
 import triton.experimental.gluon.language as gl
@@ -933,16 +935,15 @@ def run_decode_attention(config, q, k, v, o, sm_scale):
     mid_m = torch.full((BATCH, NUM_Q_HEADS, split_factor, BLOCK_M), float("-inf"), dtype=torch.float32).cuda()
 
     print(f"Launching Decode FWD: Split Factor {split_factor}, Chunk Size {chunk_size}")
-    attn_stage1 = attn_decode_fwd_kernel[(BATCH, NUM_Q_HEADS,
-                                          split_factor)](q, k, v, mid_o, mid_l, mid_m, *q.stride(), *k.stride(),
-                                                         *v.stride(), *mid_o.stride(), *mid_l.stride(), *mid_m.stride(),
-                                                         sm_scale, SEQLEN_Q, SEQLEN_K, BLOCK_M, BLOCK_N, HEAD_SZ,
-                                                         split_factor, chunk_size, num_warps=4, waves_per_eu=1)
+    attn_stage1 = _intj_launch(
+        attn_decode_fwd_kernel, (BATCH, NUM_Q_HEADS, split_factor), q, k, v, mid_o, mid_l, mid_m, *q.stride(),
+        *k.stride(), *v.stride(), *mid_o.stride(), *mid_l.stride(), *mid_m.stride(), sm_scale, SEQLEN_Q, SEQLEN_K,
+        BLOCK_M, BLOCK_N, HEAD_SZ, split_factor, chunk_size, num_warps=4, waves_per_eu=1, return_compiled=True)
 
-    attn_stage2 = attn_decode_reduce_kernel[(BATCH, NUM_Q_HEADS, 1)](mid_o, mid_l, mid_m, o, *mid_o.stride(),
-                                                                     *mid_l.stride(), *mid_m.stride(), *o.stride(),
-                                                                     sm_scale, split_factor, 16, HEAD_SZ, SEQLEN_Q,
-                                                                     SEQLEN_K, BLOCK_N, num_warps=4, waves_per_eu=1)
+    attn_stage2 = _intj_launch(
+        attn_decode_reduce_kernel, (BATCH, NUM_Q_HEADS, 1), mid_o, mid_l, mid_m, o, *mid_o.stride(), *mid_l.stride(),
+        *mid_m.stride(), *o.stride(), sm_scale, split_factor, 16, HEAD_SZ, SEQLEN_Q, SEQLEN_K, BLOCK_N, num_warps=4,
+        waves_per_eu=1, return_compiled=True)
     return (attn_stage1, attn_stage2)
 
 
@@ -963,7 +964,8 @@ def run_prefill_attention(config, q, k, v, o, sm_scale):
         NUM_Q_HEADS,
         ((SEQLEN_Q + BLOCK_M - 1) // BLOCK_M),
     )
-    attn_kernel = attn_fn[grid](
+    attn_kernel = _intj_launch(
+        attn_fn, grid,
         q, k, v, o,  #
         q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
         k.stride(0), k.stride(1), k.stride(2), k.stride(3),  #
@@ -971,7 +973,7 @@ def run_prefill_attention(config, q, k, v, o, sm_scale):
         o.stride(0), o.stride(1), o.stride(2), o.stride(3),  #
         sm_scale, SEQLEN_Q, SEQLEN_K,  #
         BLOCK_M, BLOCK_N,  #
-        HEAD_SZ, num_warps=num_warps, waves_per_eu=1)
+        HEAD_SZ, num_warps=num_warps, waves_per_eu=1, return_compiled=True)
     return (attn_kernel, )
 
 

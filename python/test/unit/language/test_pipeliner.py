@@ -273,9 +273,10 @@ def test_pipeline_matmul(scale, device):
         if scale:
             K = scale_a.shape[-1]
         stride_sm, stride_sk = scale_a.stride() if scale else (0, 0)
-        handler = matmul_kernel[grid](a, scale_a, b, output, M, N, K, a.stride(0), a.stride(1), stride_sm, stride_sk,
-                                      b.stride(0), b.stride(1), output.stride(0), output.stride(1), BLOCK_M, BLOCK_N,
-                                      BLOCK_K, NUM_STAGES=NUM_STAGES, a_type=a_type, b_type=b_type)
+        handler = _intj_launch(matmul_kernel, grid, a, scale_a, b, output, M, N, K, a.stride(0), a.stride(1),
+                               stride_sm, stride_sk, b.stride(0), b.stride(1), output.stride(0), output.stride(1),
+                               BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES=NUM_STAGES, a_type=a_type, b_type=b_type,
+                               return_compiled=True)
     if scale:
         ref_out = dot_scale_ref(a, scale_a, b, a_type, b_type)
     else:
@@ -355,7 +356,8 @@ def test_pipeline_vecadd(device):
     b = torch.randn(SIZE, dtype=torch.float16, device=device)
     output = torch.empty(SIZE, dtype=torch.float16, device=device)
     grid = (triton.cdiv(SIZE, NUM_BLOCKS * BLOCK_SIZE), 1)
-    handler = vecadd_kernel[grid](a, b, output, SIZE, NUM_BLOCKS, BLOCK_SIZE, NUM_STAGES)
+    handler = _intj_launch(vecadd_kernel, grid, a, b, output, SIZE, NUM_BLOCKS, BLOCK_SIZE, NUM_STAGES,
+                           return_compiled=True)
     ref_out = a + b
     torch.testing.assert_close(ref_out, output)
     if is_cuda():

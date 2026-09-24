@@ -1,3 +1,5 @@
+from intj.compat import launch as _intj_launch
+
 import pytest
 import torch
 
@@ -70,7 +72,9 @@ def test_runtime_scaled_downcast_fp4(dtype, instruction_suffix, scale_byte):
     scale = torch.full((block_m, block_k // 16), scale_byte, dtype=torch.uint8).cuda()
     output = torch.empty((block_m, block_k), dtype=torch.uint8, device="cuda")
 
-    program = scaled_downcast_fp4_kernel[(1, )](
+    program = _intj_launch(
+        scaled_downcast_fp4_kernel,
+        (1, ),
         input,
         scale,
         output,
@@ -78,6 +82,7 @@ def test_runtime_scaled_downcast_fp4(dtype, instruction_suffix, scale_byte):
         block_k,
         num_warps=1,
         allow_flush_denorm=False,
+        return_compiled=True,
     )
 
     # The smallest scaled inputs already underflow in FP16.

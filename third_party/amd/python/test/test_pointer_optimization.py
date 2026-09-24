@@ -1,3 +1,5 @@
+from intj.compat import launch as _intj_launch
+
 import pytest
 import torch
 import triton
@@ -76,7 +78,8 @@ def test_buffer_op_ptr_optimization(input_size, input_offset, block_size, num_bl
 
     grid = (1, )
 
-    pgm = kernel[grid](X[input_offset:], Y, block_size, num_blocks, increment, initial_offset, num_warps=1)
+    pgm = _intj_launch(kernel, grid, X[input_offset:], Y, block_size, num_blocks, increment, initial_offset, num_warps=1,
+                       return_compiled=True)
 
     check_ir(pgm.asm["ttgir"], expect_optimization)
 

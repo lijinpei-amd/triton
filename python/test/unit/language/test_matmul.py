@@ -1,4 +1,4 @@
-from intj.compat import launch as _intj_launch
+from intj.compat import launch as _intj_launch, launch_or_interpret as _intj_launch_or_interpret
 import math
 import pytest
 import torch
@@ -25,7 +25,7 @@ def f8_to_f16(x, dtype):
     block_size = 1024
     grid = (triton.cdiv(ret.numel(), block_size), )
     dtype = getattr(tl, dtype)
-    _intj_launch(kernel, grid, ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=block_size)
+    _intj_launch_or_interpret(kernel, grid, ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=block_size)
     return ret
 
 
@@ -314,7 +314,7 @@ def test_simple_persistent_matmul(BLOCK_M, BLOCK_N, BLOCK_K, NUM_WARPS, DISALLOW
     NUM_SMS = 8
 
     grid = (min(NUM_SMS, triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N)), )
-    k = simple_persistent_kernel[grid](
+    k = _intj_launch(simple_persistent_kernel, grid,
         a, b, output,  #
         M, N, K,  #
         a.stride(0), a.stride(1),  #
@@ -322,7 +322,7 @@ def test_simple_persistent_matmul(BLOCK_M, BLOCK_N, BLOCK_K, NUM_WARPS, DISALLOW
         output.stride(0), output.stride(1),  #
         BLOCK_SIZE_M=BLOCK_M, BLOCK_SIZE_N=BLOCK_N, BLOCK_SIZE_K=BLOCK_K,  #
         GROUP_SIZE_M=8, NUM_SMS=NUM_SMS, DISALLOW_ACC_MULTI_BUFFER=DISALLOW_ACC_MULTI_BUFFER, num_stages=NUM_STAGES,
-        num_warps=NUM_WARPS)
+        num_warps=NUM_WARPS, return_compiled=True)
     if is_compile_warmup():
         return
     ref_out = torch.matmul(a.to(torch.float32), b.to(torch.float32)).to(torch.float16)
@@ -422,9 +422,11 @@ def test_mxfp(BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES, nonKDim, NUM_WARPS, device)
     if is_hip():
         kernel_kwargs["matrix_instr_nonkdim"] = nonKDim
 
-    out = mxfp_matmul[grid](a, b, output, a_scale, b_scale, M, N, K, a_scale.stride(0), a.stride(0), a.stride(1),
-                            b.stride(0), b.stride(1), output.stride(0), output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K,
-                            NUM_STAGES=NUM_STAGES, **kernel_kwargs, num_warps=NUM_WARPS)
+    out = _intj_launch_or_interpret(mxfp_matmul, grid, a, b, output, a_scale, b_scale, M, N, K,
+                                    a_scale.stride(0), a.stride(0), a.stride(1), b.stride(0), b.stride(1),
+                                    output.stride(0), output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K,
+                                    NUM_STAGES=NUM_STAGES, **kernel_kwargs, num_warps=NUM_WARPS,
+                                    return_compiled=True)
     a_scale_f32 = fp8e8m0_to_float32(a_scale)
     b_scale_f32 = fp8e8m0_to_float32(b_scale)
     a_scale_f32 = a_scale_f32.repeat_interleave(32, dim=1)
@@ -757,13 +759,13 @@ def test_preshuffle_scale_mxfp_cdna4(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, DTYPE_A
         kernel_kwargs["matrix_instr_nonkdim"] = mfma_nonkdim
 
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    k = _gemm_kernel_preshuffled_scales_cdna4[grid](x, w, triton_out, x_scales_triton, w_scales_triton, M, N, K,
-                                                    x.stride(0), x.stride(1), w.stride(0), w.stride(1),
-                                                    triton_out.stride(0), triton_out.stride(1), *x_scales_strides,
-                                                    *w_scales_strides, dtype_to_triton_type[DTYPE_A],
-                                                    dtype_to_triton_type[DTYPE_B], BLOCK_M, BLOCK_N, BLOCK_K,
-                                                    mfma_nonkdim, preshuffle, fast_math=FAST_MATH, num_warps=8,
-                                                    num_stages=1, **kernel_kwargs)
+    k = _intj_launch_or_interpret(_gemm_kernel_preshuffled_scales_cdna4, grid, x, w, triton_out,
+                                  x_scales_triton, w_scales_triton, M, N, K, x.stride(0), x.stride(1),
+                                  w.stride(0), w.stride(1), triton_out.stride(0), triton_out.stride(1),
+                                  *x_scales_strides, *w_scales_strides, dtype_to_triton_type[DTYPE_A],
+                                  dtype_to_triton_type[DTYPE_B], BLOCK_M, BLOCK_N, BLOCK_K,
+                                  mfma_nonkdim, preshuffle, fast_math=FAST_MATH, num_warps=8,
+                                  num_stages=1, return_compiled=True, **kernel_kwargs)
     triton_out = triton_out.to(torch.float32)
     torch.testing.assert_close(torch_out, triton_out, atol=2e-5, rtol=1e-4)
     if is_hip_cdna4() and preshuffle and not is_compile_warmup():
@@ -803,10 +805,12 @@ def test_blocked_scale_mxfp(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES, USE_
     dtype_dst = getattr(torch, dtype_dst_str)
     output = torch.empty((M, N), dtype=dtype_dst, device=device)
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    out = block_scale_mxfp_matmul[grid](a, b, output, a_scale, b_scale, M, N, K, a_scale.stride(0), a_scale.stride(1),
-                                        a_scale.stride(2), a_scale.stride(3), a.stride(0), a.stride(1), b.stride(0),
-                                        b.stride(1), output.stride(0), output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K,
-                                        NUM_STAGES=NUM_STAGES, USE_2D_SCALE_LOAD=USE_2D_SCALE_LOAD, num_warps=num_warps)
+    out = _intj_launch_or_interpret(block_scale_mxfp_matmul, grid, a, b, output, a_scale, b_scale, M, N, K,
+                                    a_scale.stride(0), a_scale.stride(1), a_scale.stride(2), a_scale.stride(3),
+                                    a.stride(0), a.stride(1), b.stride(0), b.stride(1), output.stride(0),
+                                    output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES=NUM_STAGES,
+                                    USE_2D_SCALE_LOAD=USE_2D_SCALE_LOAD, num_warps=num_warps,
+                                    return_compiled=True)
     if is_compile_warmup():
         return
     ttgir = out.asm["ttgir"]
@@ -881,9 +885,10 @@ def test_lhs_in_tmem(BLOCK_M, BLOCK_N, BLOCK_K, a_trans, dtype_src_str, device, 
         B = b
     output = torch.empty((M, N), dtype=torch.float32, device=device)
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    k = matmul_kernel[grid](a, b, output, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), output.stride(0),
-                            output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES=1, SCALE_A=None, PRECISION="tf32",
-                            A_TRANS=a_trans)
+    k = _intj_launch(matmul_kernel, grid, a, b, output, M, N, K, a.stride(0), a.stride(1),
+                     b.stride(0), b.stride(1), output.stride(0), output.stride(1), BLOCK_M, BLOCK_N,
+                     BLOCK_K, NUM_STAGES=1, SCALE_A=None, PRECISION="tf32", A_TRANS=a_trans,
+                     return_compiled=True)
     if is_compile_warmup():
         return
     ref_out = torch.matmul(A, B).to(torch.float32)
@@ -1102,10 +1107,11 @@ def test_block_scale_fp4(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, VEC_SIZE, with_a_sc
     kernel_kwargs = {}
     if is_hip():
         kernel_kwargs["matrix_instr_nonkdim"] = nonKDim
-    k = block_scale_fp4_matmul[grid](a, b, output, a_scale, b_scale, M, N, K, stride_scale, a.stride(0), a.stride(1),
-                                     b.stride(0), b.stride(1), output.stride(0), output.stride(1), VEC_SIZE, BLOCK_M,
-                                     BLOCK_N, BLOCK_K, NUM_STAGES=NUM_STAGES, PACK_ALONG_K=pack_along_k,
-                                     **kernel_kwargs)
+    k = _intj_launch_or_interpret(block_scale_fp4_matmul, grid, a, b, output, a_scale, b_scale, M, N, K,
+                                  stride_scale, a.stride(0), a.stride(1), b.stride(0), b.stride(1),
+                                  output.stride(0), output.stride(1), VEC_SIZE, BLOCK_M, BLOCK_N, BLOCK_K,
+                                  NUM_STAGES=NUM_STAGES, PACK_ALONG_K=pack_along_k,
+                                  return_compiled=True, **kernel_kwargs)
     if is_compile_warmup():
         return
     if is_hip_gfx1250() and not pack_along_k:
@@ -1323,10 +1329,12 @@ def test_mxfp8_mxfp4_matmul(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES, B_TR
     kernel_kwargs = {}
     if is_hip():
         kernel_kwargs["matrix_instr_nonkdim"] = nonKDim
-    out = mxfp8_mxfp4_matmul[grid](a, b, output, a_scale, b_scale, M, N, K, stride_scale, a.stride(0), a.stride(1),
-                                   b.stride(0), b.stride(1), output.stride(0), output.stride(1), not CONST_SCALE,
-                                   dtype_converter[A_DATA_TYPE], dtype_converter[B_DATA_TYPE], BLOCK_M, BLOCK_N,
-                                   BLOCK_K, PACK_B_ALONG_K=PACK_B_ALONG_K, NUM_STAGES=NUM_STAGES, **kernel_kwargs)
+    out = _intj_launch_or_interpret(mxfp8_mxfp4_matmul, grid, a, b, output, a_scale, b_scale, M, N, K,
+                                    stride_scale, a.stride(0), a.stride(1), b.stride(0), b.stride(1),
+                                    output.stride(0), output.stride(1), not CONST_SCALE,
+                                    dtype_converter[A_DATA_TYPE], dtype_converter[B_DATA_TYPE], BLOCK_M, BLOCK_N,
+                                    BLOCK_K, PACK_B_ALONG_K=PACK_B_ALONG_K, NUM_STAGES=NUM_STAGES,
+                                    return_compiled=True, **kernel_kwargs)
     if is_compile_warmup():
         return
     if is_hip_gfx1250() and B_DATA_TYPE == "float4" and not PACK_B_ALONG_K:
@@ -1439,7 +1447,7 @@ def test_batched_mxfp(BATCH_SIZE, BLOCK_BATCH_SIZE, BLOCK_M, BLOCK_N, BLOCK_K, N
     if is_hip():
         kernel_kwargs["matrix_instr_nonkdim"] = nonKDim
 
-    out = batched_mxfp_matmul[grid](
+    out = _intj_launch_or_interpret(batched_mxfp_matmul, grid,
         a,
         b,
         output,
@@ -1468,6 +1476,7 @@ def test_batched_mxfp(BATCH_SIZE, BLOCK_BATCH_SIZE, BLOCK_M, BLOCK_N, BLOCK_K, N
         BLOCK_K,
         NUM_STAGES=NUM_STAGES,
         num_warps=NUM_WARPS,
+        return_compiled=True,
         **kernel_kwargs,
     )
 
@@ -1564,7 +1573,7 @@ def test_nvfp4_ue5m3_matmul():
 
     out = torch.empty((m, n), dtype=torch.float32, device="cuda")
     grid = (triton.cdiv(m, block_m) * triton.cdiv(n, block_n), 1)
-    kernel = nvfp4_ue5m3_matmul[grid](
+    kernel = _intj_launch(nvfp4_ue5m3_matmul, grid,
         a,
         b,
         out,
@@ -1585,6 +1594,7 @@ def test_nvfp4_ue5m3_matmul():
         block_n,
         block_k,
         num_warps=num_warps,
+        return_compiled=True,
     )
 
     ref = torch.matmul(a_ref * a_scale_ref, b_ref * b_scale_ref)

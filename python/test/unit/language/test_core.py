@@ -1637,7 +1637,7 @@ def test_atomic_load_store(dtype, scalar, ordered, device):
     else:
         expected[1::2] = src[1::2]
 
-    compiled = kernel[(1, )](src, dst, src.numel(), scalar, ordered)
+    compiled = _intj_launch_or_interpret(kernel, (1, ), src, dst, src.numel(), scalar, ordered, return_compiled=True)
 
     torch.testing.assert_close(dst, expected)
     if dtype == torch.bool:
@@ -1675,7 +1675,7 @@ def test_atomic_load_store_coalesced(dtype, mask_group, device):
     mask = offsets // mask_group % 2 == 0 if mask_group else torch.ones_like(offsets, dtype=torch.bool)
     expected = torch.where(mask, src, dst)
 
-    compiled = kernel[(1, )](src, dst, mask_group)
+    compiled = _intj_launch(kernel, (1, ), src, dst, mask_group, return_compiled=True)
 
     assert torch.equal(dst, expected)
     bit_width = dtype.itemsize * 8
@@ -1702,7 +1702,8 @@ def test_atomic_poll(dtype, bit_width, sem, scope, device):
 
     flag = torch.ones(1, dtype=dtype, device=device)
     out = torch.zeros_like(flag)
-    compiled = kernel[(1, )](flag, out, 1, SEM=sem, SCOPE=scope, num_warps=4)
+    compiled = _intj_launch_or_interpret(kernel, (1, ), flag, out, 1, SEM=sem, SCOPE=scope, num_warps=4,
+                                         return_compiled=True)
 
     assert out.item() == 1
     if is_cuda():
@@ -1743,7 +1744,7 @@ def test_atomic_poll_no_timeout_uses_no_shared_memory(device):
 
     flag = torch.ones(1, dtype=torch.int32, device=device)
     out = torch.empty(1, dtype=torch.bool, device=device)
-    compiled = kernel[(1, )](flag, out, num_warps=4)
+    compiled = _intj_launch(kernel, (1, ), flag, out, num_warps=4, return_compiled=True)
 
     assert out.item()
     assert compiled.metadata.shared == 0
@@ -1760,7 +1761,7 @@ def test_atomic_poll_timeout(initial_value, expected, device):
 
     flag = torch.full((1, ), initial_value, dtype=torch.int32, device=device)
     out = torch.empty(1, dtype=torch.bool, device=device)
-    compiled = kernel[(1, )](flag, out, 0, num_warps=4)
+    compiled = _intj_launch_or_interpret(kernel, (1, ), flag, out, 0, num_warps=4, return_compiled=True)
 
     assert out.item() == expected
     if is_cuda():
@@ -1865,7 +1866,7 @@ def test_atomic_rmw(op, dtype_x_str, mode, sem, device):
 
     z_tri = to_triton(np.array([neutral], dtype=getattr(np, dtype_x_str)), device=device, dst_type=dst_type)
     old_tri = to_triton(np.empty_like(x), device=device, dst_type=dst_type)
-    h = kernel[(n_programs, )](x_tri, z_tri, old_tri)
+    h = _intj_launch_or_interpret(kernel, (n_programs, ), x_tri, z_tri, old_tri, return_compiled=True)
     # torch result
     if dst_type == 'bfloat16':
         z_ref = numpy_op(x).astype(getattr(np, dtype_x_str))
@@ -2164,7 +2165,8 @@ def test_atomic_cas(sem, num_ctas, dtype_str, device):
     Lock = torch.zeros((1, ), device=device, dtype=torch_dtype)
     data = torch.zeros((128, ), device=device, dtype=torch.float32)
     ref = torch.full((128, ), 2000.0)
-    h = serialized_add[(2000, )](data, Lock, triton_dtype=triton_dtype, SEM=sem, num_ctas=num_ctas)
+    h = _intj_launch_or_interpret(serialized_add, (2000, ), data, Lock, triton_dtype=triton_dtype, SEM=sem,
+                                  num_ctas=num_ctas, return_compiled=True)
     sem_str = "acq_rel" if sem is None else sem
     np.testing.assert_allclose(to_numpy(data), to_numpy(ref))
     if not is_cuda():
@@ -2615,7 +2617,7 @@ def test_umulhi(dtype_str, device):
     x_tri = to_triton(x, device=device, dst_type=dtype_str)
     y_tri = to_triton(y, device=device, dst_type=dtype_str)
     z_tri = to_triton(np.zeros_like(x), device=device, dst_type=dtype_str)
-    compiled = kernel[(1, )](x_tri, y_tri, z_tri, N=N)
+    compiled = _intj_launch_or_interpret(kernel, (1, ), x_tri, y_tri, z_tri, N=N, return_compiled=True)
 
     np.testing.assert_equal(umulhi_ref(x, y), to_numpy(z_tri))
     if not is_interpreter() and is_cuda():
@@ -2645,7 +2647,7 @@ def test_umulhi_known_bits(masked, dtype_str, device):
     x = torch.tensor([0, 1, -1, -2**(bits - 1), 2**(bits - 1) - 1, half - 1, half, -half] * 4,
                      dtype=getattr(torch, dtype_str), device=device)
     output = torch.empty_like(x)
-    compiled = kernel[(1, )](x, output, masked, getattr(tl, f"uint{bits}"))
+    compiled = _intj_launch(kernel, (1, ), x, output, masked, getattr(tl, f"uint{bits}"), return_compiled=True)
     expected = torch.zeros_like(x) if masked else (x >> (bits - 8)) & 255
     torch.testing.assert_close(output, expected)
     if is_cuda():
@@ -3149,7 +3151,8 @@ def test_reduce64_integer(op, dtype_str, num_warps, device):
         x &= np.uint64(0x87654321FEDCBA98)
     x = x.view(dtype_str)
     output = to_triton(np.zeros(1, dtype=dtype_str), device=device)
-    compiled = kernel[(1, )](to_triton(x, device=device), output, num_warps=num_warps)
+    compiled = _intj_launch(kernel, (1, ), to_triton(x, device=device), output, num_warps=num_warps,
+                            return_compiled=True)
     expected = np.sum(x, dtype=x.dtype) if op == "add" else getattr(np, f"bitwise_{op}").reduce(x)
     np.testing.assert_equal(to_numpy(output)[0], expected)
     if torch.cuda.get_device_capability()[0] >= 8:
@@ -3581,7 +3584,7 @@ def test_histogram(M, N, device):
     # https://github.com/pytorch/pytorch/issues/74236
     # This is a workload by converting the input to float
     z_torch = torch.histc(x.float(), bins=N, min=0, max=N - 1)
-    h = histogram_kernel[(1, )](x, z, M=M, N=N)
+    h = _intj_launch_or_interpret(histogram_kernel, (1, ), x, z, M=M, N=N, return_compiled=True)
     assert (z_torch == z).all()
     if is_cuda() and not is_interpreter():
         assert "ATOMS.POPC.INC" in h.asm["sass"]
@@ -3733,7 +3736,7 @@ def test_optimize_thread_locality(op, BLOCK_N, N, num_pid_n, device):
     BLOCK_M = 32
     x = torch.randn((BLOCK_M, N), dtype=torch.float32, device=device)
     y = torch.randn((BLOCK_M, num_pid_n), dtype=torch.float32, device=device)
-    h = kernel[(1, num_pid_n, 1)](x, y, N, BLOCK_M, BLOCK_N)
+    h = _intj_launch_or_interpret(kernel, (1, num_pid_n, 1), x, y, N, BLOCK_M, BLOCK_N, return_compiled=True)
     if not is_interpreter():
         assert h.asm['ttgir'].count(
             '"tt.reduce"') == 2, "tt.reduce should be called twice, otherwise the optimization didn't work"
@@ -3891,11 +3894,12 @@ def test_permute(dtype_str, shape, perm, num_ctas, device):
     z_tri = to_triton(np.empty_like(x), device=device, dst_type=dtype_str)
     z_tri_contiguous = to_triton(np.empty_like(x), device=device, dst_type=dtype_str)
     x_tri = to_triton(x, device=device, dst_type=dtype_str)
-    pgm = kernel[(1, 1)](x_tri, x_tri.stride(0), x_tri.stride(1), z_tri, z_tri.stride(1), z_tri.stride(0),
-                         BLOCK_M=shape[0], BLOCK_N=shape[1], num_ctas=num_ctas)
-    pgm_contiguous = kernel[(1, 1)](x_tri, x_tri.stride(1),
-                                    x_tri.stride(0), z_tri_contiguous, z_tri_contiguous.stride(0),
-                                    z_tri_contiguous.stride(1), BLOCK_M=shape[0], BLOCK_N=shape[1], num_ctas=num_ctas)
+    pgm = _intj_launch_or_interpret(kernel, (1, 1), x_tri, x_tri.stride(0), x_tri.stride(1), z_tri, z_tri.stride(1),
+                                    z_tri.stride(0), BLOCK_M=shape[0], BLOCK_N=shape[1], num_ctas=num_ctas,
+                                    return_compiled=True)
+    pgm_contiguous = _intj_launch_or_interpret(kernel, (1, 1), x_tri, x_tri.stride(1), x_tri.stride(0), z_tri_contiguous,
+                                               z_tri_contiguous.stride(0), z_tri_contiguous.stride(1), BLOCK_M=shape[0],
+                                               BLOCK_N=shape[1], num_ctas=num_ctas, return_compiled=True)
     if dtype_str == 'float8e4b15':
         z_tri = z_tri.base
         z_tri_contiguous = z_tri_contiguous.base
@@ -4308,8 +4312,9 @@ def test_dot(M, N, K, num_warps, col_a, col_b, epilogue, input_precision, in_dty
         if mma_nonk_size is not None:
             kern_kwargs['matrix_instr_nonkdim'] = mma_nonk_size
 
-    pgm = kernel[(1, 1)](x_tri, x_tri.stride(0), x_tri.stride(1), y_tri, y_tri.stride(0), y_tri.stride(1), w_tri,
-                         w_tri.stride(0), w_tri.stride(1), z_tri, z_tri.stride(0), z_tri.stride(1), **kern_kwargs)
+    pgm = _intj_launch_or_interpret(kernel, (1, 1), x_tri, x_tri.stride(0), x_tri.stride(1), y_tri, y_tri.stride(0),
+                                    y_tri.stride(1), w_tri, w_tri.stride(0), w_tri.stride(1), z_tri, z_tri.stride(0),
+                                    z_tri.stride(1), return_compiled=True, **kern_kwargs)
     if is_compile_warmup():
         return
 
@@ -4697,8 +4702,8 @@ def test_scaled_dot(M, N, K, col_a, col_b, rhs_scale, mxfp_type, normal_type, nu
         kernel_kwargs["kpack"] = kpack
         kernel_kwargs["matrix_instr_nonkdim"] = mma
     z = x.new_empty((M, N), dtype=comp_dtype)
-    pgm = dot_scale_kernel[(1, )](x, *x.stride(), scale_x, y, *y.stride(), scale_y, z, M, N, K, type_a, type_b,
-                                  **kernel_kwargs)
+    pgm = _intj_launch_or_interpret(dot_scale_kernel, (1, ), x, *x.stride(), scale_x, y, *y.stride(), scale_y, z, M, N,
+                                    K, type_a, type_b, return_compiled=True, **kernel_kwargs)
     z_ref = dot_scale_ref(x, scale_x, y, scale_y, type_a, type_b)
     if is_compile_warmup():
         return
@@ -4975,7 +4980,7 @@ def test_dot_mulbroadcasted(in_dtype, device):
     y_tri = to_triton(y, device=device)
     z_tri = to_triton(z, device=device)
     grid = M // BM, N // BN
-    h = kernel[grid](z_tri, x_tri, y_tri, M, N, K, BM, BN, BK)
+    h = _intj_launch(kernel, grid, z_tri, x_tri, y_tri, M, N, K, BM, BN, BK, return_compiled=True)
     z_ref = np.matmul(x, y)
     np.testing.assert_allclose(z_ref, to_numpy(z_tri), atol=0.01)
 
@@ -5286,7 +5291,7 @@ def test_load_cache_modifier(cache, device):
         x = tl.load(src + offsets, cache_modifier=CACHE)
         tl.store(dst + offsets, x)
 
-    pgm = _kernel[(1, )](dst, src, CACHE=cache)
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), dst, src, CACHE=cache, return_compiled=True)
 
     if is_hip():
         amdgcn = pgm.asm['amdgcn']
@@ -5376,7 +5381,7 @@ def test_vectorization(N, num_ctas, device):
         x = tl.load(src + offsets, mask=offsets < N)
         tl.store(dst + offsets, x, mask=offsets < N)
 
-    pgm = _kernel[(1, )](dst, src, N=N, BLOCK_SIZE=block_size)
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), dst, src, N=N, BLOCK_SIZE=block_size, return_compiled=True)
 
     if not is_cuda():
         return
@@ -5405,7 +5410,8 @@ def test_vectorization_hints(has_hints, device):
         x = tl.load(src + offsets, mask=offsets < N)
         tl.store(dst + offsets, x, mask=offsets < N)
 
-    pgm = _kernel[(1, )](dst, src, off, N=1024, BLOCK_SIZE=src.shape[0], HINT=has_hints)
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), dst, src, off, N=1024, BLOCK_SIZE=src.shape[0], HINT=has_hints,
+                                    return_compiled=True)
     if not is_cuda():
         return
 
@@ -5429,7 +5435,7 @@ def test_assume(device):
             tl.store(out_ptr + tl.program_id(0), current_size + 101024)
 
     output = torch.zeros(1024 // 128, device=device)
-    pgm = _kernel[(1024 // 128, )](output, N=1024, BLOCK_N=128)
+    pgm = _intj_launch_or_interpret(_kernel, (1024 // 128, ), output, N=1024, BLOCK_N=128, return_compiled=True)
 
     if is_interpreter():
         return
@@ -5457,7 +5463,7 @@ def test_store_cache_modifier(cache, device):
         x = tl.load(src + offsets)
         tl.store(dst + offsets, x, cache_modifier=CACHE)
 
-    pgm = _kernel[(1, )](dst, src, CACHE=cache)
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), dst, src, CACHE=cache, return_compiled=True)
 
     if is_hip():
         amdgcn = pgm.asm['amdgcn']
@@ -5549,7 +5555,7 @@ def test_store_eviction_policy(eviction_policy, device):
         x = tl.load(src + offsets)
         tl.store(dst + offsets, x, eviction_policy=POLICY)
 
-    pgm = _kernel[(1, )](dst, src, POLICY=eviction_policy)
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), dst, src, POLICY=eviction_policy, return_compiled=True)
 
     if not is_cuda():
         return
@@ -6859,9 +6865,10 @@ def test_dot_max_num_imprecise_acc(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, in_type_s
     b = to_triton(B, device=device, dst_type=in_type_str)
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
     max_num_impressive_acc = low_precision_acc if low_precision_acc <= BLOCK_K else None
-    h = matmul_kernel[grid](a, b, C, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), C.stride(0),
-                            C.stride(1), BLOCK_M, BLOCK_N, BLOCK_K, max_num_impressive_acc, num_warps=num_warps,
-                            num_stages=num_stages)
+    h = _intj_launch_or_interpret(matmul_kernel, grid, a, b, C, M, N, K, a.stride(0), a.stride(1), b.stride(0),
+                                  b.stride(1), C.stride(0), C.stride(1), BLOCK_M, BLOCK_N, BLOCK_K,
+                                  max_num_impressive_acc, num_warps=num_warps, num_stages=num_stages,
+                                  return_compiled=True)
     torch_a = torch.from_numpy(A).to(device=device)
     th_a = f8_to_f16(torch_a, in_type_str)
     torch_b = torch.from_numpy(B).to(device=device)
@@ -7143,10 +7150,9 @@ def test_tl_range_num_stages(device):
     a = torch.randn((M, K), device=device, dtype=torch.float16)
     b = torch.randn((K, N), device=device, dtype=torch.float16)
     c = torch.empty((M, N), dtype=torch.float32, device=device)
-    pgm = matmul_kernel[
-        1,
-    ](a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0), b.stride(1), c.stride(0), c.stride(1), BLOCK_M, BLOCK_N,
-      BLOCK_K, 0, num_stages=5)
+    pgm = _intj_launch_or_interpret(matmul_kernel, (1, ), a, b, c, M, N, K, a.stride(0), a.stride(1), b.stride(0),
+                                    b.stride(1), c.stride(0), c.stride(1), BLOCK_M, BLOCK_N, BLOCK_K, 0, num_stages=5,
+                                    return_compiled=True)
     ref_out = torch.matmul(a, b).to(torch.float32)
     if is_interpreter():
         # GPU invokes tensor core for float16 matmul, which is not supported in interpreter.
@@ -7174,7 +7180,7 @@ def test_tl_range_fuse(device):
 
     ub = 10
     out = torch.zeros((32, 32), dtype=torch.int32, device=device)
-    compiled_kernel = kernel[(1, )](ub, out)
+    compiled_kernel = _intj_launch(kernel, (1, ), ub, out, return_compiled=True)
     assert "tt.flatten" in compiled_kernel.asm["ttir"]
     assert compiled_kernel.asm["ttgir"].count("scf.for") == 1
 
@@ -7227,7 +7233,7 @@ def test_tl_range_fuse_dependent(device):
     ub = 10
     out_i = torch.zeros(1024, dtype=torch.int32, device=device)
     out_j = torch.zeros(1024, dtype=torch.int32, device=device)
-    compiled_kernel = kernel[(1, )](ub, out_i, out_j)
+    compiled_kernel = _intj_launch(kernel, (1, ), ub, out_i, out_j, return_compiled=True)
     assert "tt.flatten" in compiled_kernel.asm["ttir"]
     ttgir = compiled_kernel.asm["ttgir"]
     ttgir = ttgir[ttgir.find("scf.for"):]
@@ -7316,7 +7322,7 @@ def test_maxnreg(device):
         maxnreg_noinline2(X)
 
     X = torch.empty(1, dtype=torch.int32, device=device)
-    k = kernel[(1, )](X, maxnreg=42)
+    k = _intj_launch_or_interpret(kernel, (1, ), X, maxnreg=42, return_compiled=True)
 
     if not is_interpreter():
         # Ensure that .maxnreg is set on the kernel function (marked with .entry)

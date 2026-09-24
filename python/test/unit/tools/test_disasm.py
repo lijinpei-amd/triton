@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import torch
 
 import triton
@@ -15,7 +16,7 @@ def test_disam_cubin():
         tl.store(X, i)
 
     x = torch.empty(1, dtype=torch.int32, device='cuda')
-    h = kernel[(1, )](x, i=12)
+    h = _intj_launch(kernel, (1, ), x, i=12, return_compiled=True)
     assert x[0] == 12
     sass = h.asm["sass"]
     # check that the sass has a store instruction.
