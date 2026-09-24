@@ -1,4 +1,4 @@
-from intj.compat import launch as _intj_launch
+from intj.compat import launch as _intj_launch, launch_or_interpret as _intj_launch_or_interpret
 import numpy as np
 import pytest
 import scipy.stats
@@ -269,7 +269,7 @@ def test_rand_limits(dtype, device):
         torch.iinfo(torch_dtype).max,
     ], dtype=torch_dtype, device=device)
     output = torch.empty(2, dtype=torch.float32, device=device)
-    kernel[(1, )](min_max_int, output, 2)
+    _intj_launch_or_interpret(kernel, (1, ), min_max_int, output, 2)
 
     assert output[0] == output[1]
     assert 1.0 - torch.finfo(torch.float32).eps <= output[0].item() < 1.0

@@ -2495,115 +2495,10 @@
     },
     {
       "path": "python/test/unit/language/print_helper.py",
-      "line": 117,
-      "target": "kernel_device_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 120,
-      "target": "kernel_device_print_scalar",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_scalar[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 123,
-      "target": "kernel_device_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 126,
-      "target": "kernel_device_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 128,
-      "target": "kernel_device_print_cast",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_cast[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 130,
-      "target": "kernel_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 132,
-      "target": "kernel_device_print_large",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_large[(1, 2)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 134,
-      "target": "kernel_print_multiple_args",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_print_multiple_args[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 136,
-      "target": "kernel_device_print_multiple_args",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_multiple_args[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 138,
-      "target": "kernel_static_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_static_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1. PLACEHOLDER=uuid.uuid4() is also a non-scalar constexpr."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
       "line": 140,
-      "target": "kernel_no_arg_print",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_no_arg_print[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 142,
-      "target": "kernel_print_no_arg",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_print_no_arg[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 144,
-      "target": "kernel_device_print_hex",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_hex[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 150,
-      "target": "kernel_device_print_hex",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_device_print_hex[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 152,
-      "target": "kernel_print_pointer",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_print_pointer[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
-    },
-    {
-      "path": "python/test/unit/language/print_helper.py",
-      "line": 157,
-      "target": "kernel_print_2d_tensor",
-      "reason": "exempt_interpreter_helper",
-      "detail": "test_print: kernel_print_2d_tensor[(1,)] is called by test_subprocess.py::test_print, which is @pytest.mark.interpreter; intj rejects TRITON_INTERPRET=1."
+      "target": "kernel_static_print",
+      "reason": "unsupported_non_scalar_constexpr",
+      "detail": "kernel_static_print receives uuid.uuid4() as PLACEHOLDER: tl.constexpr to force every compile; intj cannot represent a UUID constexpr in its spec key."
     },
     {
       "path": "python/test/unit/language/test_annotations.py",
@@ -2677,1235 +2572,395 @@
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 162,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scalar_overflow: kernel[(1,)] belongs to @pytest.mark.interpreter test test_scalar_overflow; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 189,
-      "target": "kernel",
-      "reason": "exempt_interpreter_shared_helper",
-      "detail": "_test_unary: kernel[(1,)] is inside a shared generated-kernel helper called by interpreter-marked tests and passes dynamic num_ctas=num_ctas; intj rejects interpreter mode and multi-CTA variants."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 304,
+      "line": 305,
       "target": "kernel_fn",
-      "reason": "exempt_interpreter_shared_helper",
-      "detail": "do_test: kernel_fn[(1,)] is inside a shared generated-kernel helper called by interpreter-marked tests and passes dynamic num_ctas=num_ctas; intj rejects interpreter mode and multi-CTA variants."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 506,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_int1_bin_op_wraparound: kernel[(1,)] belongs to @pytest.mark.interpreter test test_int1_bin_op_wraparound; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 530,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_addptr: kernel[(1,)] belongs to @pytest.mark.interpreter test test_addptr; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 653,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_interpreter_ashr_does_not_mutate_uint64_rhs: kernel[(1,)] belongs to @pytest.mark.interpreter test test_interpreter_ashr_does_not_mutate_uint64_rhs; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 713,
-      "target": "broadcast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_broadcast: broadcast_kernel[(1,)] belongs to @pytest.mark.interpreter test test_broadcast; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 763,
-      "target": "slice_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_slice: slice_kernel[(1,)] belongs to @pytest.mark.interpreter test test_slice; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 780,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_invalid_slice: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_invalid_slice; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 831,
-      "target": "expand_dims_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims: expand_dims_kernel[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 874,
-      "target": "dim_out_of_range1",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims_error_cases: dim_out_of_range1[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims_error_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 878,
-      "target": "dim_out_of_range2",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims_error_cases: dim_out_of_range2[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims_error_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 882,
-      "target": "dim_out_of_range3",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims_error_cases: dim_out_of_range3[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims_error_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 886,
-      "target": "duplicate_dim1",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims_error_cases: duplicate_dim1[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims_error_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 890,
-      "target": "duplicate_dim2",
-      "reason": "exempt_interpreter",
-      "detail": "test_expand_dims_error_cases: duplicate_dim2[(1,)] belongs to @pytest.mark.interpreter test test_expand_dims_error_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 918,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_squeeze_unsqueeze_negative_dim: kernel[(1,)] belongs to @pytest.mark.interpreter test test_squeeze_unsqueeze_negative_dim; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 930,
-      "target": "bad",
-      "reason": "exempt_interpreter",
-      "detail": "test_squeeze_unsqueeze_negative_dim: bad[(1,)] belongs to @pytest.mark.interpreter test test_squeeze_unsqueeze_negative_dim; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 945,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_invalid_pid_axis: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_invalid_pid_axis; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 994,
-      "target": "where_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_where: where_kernel[grid] belongs to @pytest.mark.interpreter test test_where; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 998,
-      "target": "where_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_where: where_kernel[grid] belongs to @pytest.mark.interpreter test test_where; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1036,
-      "target": "where_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_where_broadcast: where_kernel[(1,)] belongs to @pytest.mark.interpreter test test_where_broadcast; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1038,
-      "target": "where_scalar_condition",
-      "reason": "exempt_interpreter",
-      "detail": "test_where_broadcast: where_scalar_condition[(1,)] belongs to @pytest.mark.interpreter test test_where_broadcast; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1072,
-      "target": "_neg_signed_zero_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_neg_preserves_signed_zero: _neg_signed_zero_kernel[(1,)] belongs to @pytest.mark.interpreter test test_neg_preserves_signed_zero; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1115,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_math_member_fn_rejects_fp16: kernel[(1,)] belongs to @pytest.mark.interpreter test test_math_member_fn_rejects_fp16; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1136,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_math_erf_op: kernel[(1,)] belongs to @pytest.mark.interpreter test test_math_erf_op; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1172,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_math_fma_op: kernel[(1,)] belongs to @pytest.mark.interpreter test test_math_fma_op; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1234,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_math_fma_op_edge_cases: kernel[(1,)] belongs to @pytest.mark.interpreter test test_math_fma_op_edge_cases; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1286,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_precise_math: kernel[(1,)] belongs to @pytest.mark.interpreter test test_precise_math; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1309,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_fdiv_ieee_rounding: kernel[(1,)] belongs to @pytest.mark.interpreter test test_fdiv_ieee_rounding; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1352,
-      "target": "abs_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_abs_fp8: abs_kernel[(1,)] belongs to @pytest.mark.interpreter test test_abs_fp8; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1391,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_shapes_as_params: kernel[(1,)] belongs to @pytest.mark.interpreter test test_shapes_as_params; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1417,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_transpose: kernel[(1,)] belongs to @pytest.mark.interpreter test test_transpose; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1484,
+      "line": 1483,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_index1d: kernel[(1,)] is the generated mismatched-shape kernel in catch_compilation_error; it passes dynamic num_ctas=num_ctas and asserts Triton CompilationError specifically."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1570,
+      "line": 1640,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_noinline: kernel[(1,)] belongs to @pytest.mark.interpreter test test_noinline; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1641,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_load_store: kernel[(1,)] belongs to @pytest.mark.interpreter test test_atomic_load_store; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1679,
+      "line": 1678,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_atomic_load_store_coalesced: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1706,
+      "line": 1705,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_poll: kernel[(1,)] belongs to @pytest.mark.interpreter test test_atomic_poll; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1734,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_poll_tensor_results: kernel[(1,)] belongs to @pytest.mark.interpreter test test_atomic_poll_tensor_results; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1747,
+      "line": 1746,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_atomic_poll_no_timeout_uses_no_shared_memory: kernel[(1,)] inspects compiled.metadata from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1764,
+      "line": 1763,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_poll_timeout: kernel[(1,)] belongs to @pytest.mark.interpreter test test_atomic_poll_timeout; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1869,
+      "line": 1868,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_rmw: kernel[(n_programs,)] belongs to @pytest.mark.interpreter test test_atomic_rmw; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1909,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_rmw_predicate: kernel[(4096,)] belongs to @pytest.mark.interpreter test test_atomic_rmw_predicate; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 1976,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_rmw: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_rmw; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2014,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_add_non_exclusive_offset: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_add_non_exclusive_offset; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2042,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_add_shift_1: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_add_shift_1; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2097,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_add_access_patterns: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_add_access_patterns; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2121,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_rmw_block: kernel[(2,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_rmw_block; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2142,
-      "target": "change_value",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_cas: change_value[(1,)] belongs to @pytest.mark.interpreter test test_atomic_cas; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2168,
+      "line": 2167,
       "target": "serialized_add",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_cas: serialized_add[(2000,)] belongs to @pytest.mark.interpreter test test_atomic_cas; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2190,
+      "line": 2189,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_scalar_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2211,
+      "line": 2210,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tensor_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2241,
-      "target": "change_value",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_cas: change_value[(2,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_cas; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "line": 2261,
+      "target": "kernel_r",
+      "reason": "unsupported_num_ctas",
+      "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
       "line": 2262,
       "target": "kernel_r",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_scope_sem_coop_grid_cta_not_one: kernel_r[(2,)] belongs to @pytest.mark.interpreter test test_load_scope_sem_coop_grid_cta_not_one; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_num_ctas",
+      "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2263,
+      "line": 2281,
       "target": "kernel_r",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_scope_sem_coop_grid_cta_not_one: kernel_r[(2,)] belongs to @pytest.mark.interpreter test test_load_scope_sem_coop_grid_cta_not_one; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_cooperative_grid",
+      "detail": "The launch enables launch_cooperative_grid; intj does not support cooperative-grid launch metadata."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2282,
-      "target": "kernel_r",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_scope_sem_coop_grid_cta_one: kernel_r[(2,)] belongs to @pytest.mark.interpreter test test_load_scope_sem_coop_grid_cta_one; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2283,
-      "target": "kernel_r",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_scope_sem_coop_grid_cta_one: kernel_r[(2,)] belongs to @pytest.mark.interpreter test test_load_scope_sem_coop_grid_cta_one; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2301,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_min_max_neg_zero: kernel[(N_PROG,)] belongs to @pytest.mark.interpreter test test_atomic_min_max_neg_zero; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2318,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_atomic_unsupported_type: kernel[(1,)] belongs to @pytest.mark.interpreter test test_atomic_unsupported_type; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2343,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_atomic_use_result: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_atomic_use_result; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2441,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_cast: kernel[(1,)] belongs to @pytest.mark.interpreter test test_cast; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2480,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_cat: kernel[(1,)] belongs to @pytest.mark.interpreter test test_cat; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2512,
+      "line": 2511,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_cat_nd: kernel[(1,)] passes TensorDescriptor object(s) x_desc, y_desc, z_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2559,
+      "line": 2618,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_store_constant: kernel[(1,)] belongs to @pytest.mark.interpreter test test_store_constant; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2619,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_umulhi: kernel[(1,)] belongs to @pytest.mark.interpreter test test_umulhi; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2649,
+      "line": 2648,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_umulhi_known_bits: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2673,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_join: kernel[(1,)] belongs to @pytest.mark.interpreter test test_join; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2692,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_join_scalars: kernel[(1,)] belongs to @pytest.mark.interpreter test test_join_scalars; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2712,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_join_with_mma: kernel[(1,)] belongs to @pytest.mark.interpreter test test_join_with_mma; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2730,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_interleave: kernel[(1,)] belongs to @pytest.mark.interpreter test test_interleave; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2745,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_interleave_scalars: kernel[(1,)] belongs to @pytest.mark.interpreter test test_interleave_scalars; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2766,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_split: kernel[(1,)] belongs to @pytest.mark.interpreter test test_split; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2792,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_split_to_scalar: kernel[(1,)] belongs to @pytest.mark.interpreter test test_split_to_scalar; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2867,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_max_returns_zero: kernel[(1,)] belongs to @pytest.mark.interpreter test test_max_returns_zero; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2907,
-      "target": "max_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_max_min_with_nan: max_kernel[(1,)] belongs to @pytest.mark.interpreter test test_max_min_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2910,
-      "target": "min_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_max_min_with_nan: min_kernel[(1,)] belongs to @pytest.mark.interpreter test test_max_min_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2945,
-      "target": "argmax_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_with_nan: argmax_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2952,
-      "target": "argmin_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_with_nan: argmin_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2960,
-      "target": "argmax_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_with_nan: argmax_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 2998,
-      "target": "argmax_fast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_tie_break_fast_with_nan: argmax_fast_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_tie_break_fast_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3005,
-      "target": "argmin_fast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_tie_break_fast_with_nan: argmin_fast_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_tie_break_fast_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3013,
-      "target": "argmax_fast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_tie_break_fast_with_nan: argmax_fast_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_tie_break_fast_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3021,
-      "target": "argmin_fast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_argmax_argmin_tie_break_fast_with_nan: argmin_fast_kernel[(1,)] belongs to @pytest.mark.interpreter test test_argmax_argmin_tie_break_fast_with_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3108,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_reduce1d: kernel[(1,)] belongs to @pytest.mark.interpreter test test_reduce1d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3153,
+      "line": 3152,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_reduce64_integer: kernel[(1,)] inspects compiled.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3276,
+      "line": 3513,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_reduce: kernel[(1,)] belongs to @pytest.mark.interpreter test test_reduce; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3280,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_reduce: kernel[(1,)] belongs to @pytest.mark.interpreter test test_reduce; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3514,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scan2d: kernel[(1,)] belongs to @pytest.mark.interpreter test test_scan2d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3585,
+      "line": 3584,
       "target": "histogram_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_histogram: histogram_kernel[(1,)] belongs to @pytest.mark.interpreter test test_histogram; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3604,
-      "target": "histogram_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_histogram_silent_data_corruption: histogram_kernel[(1,)] belongs to @pytest.mark.interpreter test test_histogram_silent_data_corruption; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3622,
-      "target": "histogram_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_histogram_out_of_range: histogram_kernel[(1,)] belongs to @pytest.mark.interpreter test test_histogram_out_of_range; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3653,
-      "target": "histogram_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_histogram_mask: histogram_kernel[(1,)] belongs to @pytest.mark.interpreter test test_histogram_mask; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3674,
-      "target": "histogram_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_histogram_compare_mask: histogram_kernel[(1,)] belongs to @pytest.mark.interpreter test test_histogram_compare_mask; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3737,
+      "line": 3736,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_optimize_thread_locality: kernel[(1, num_pid_n, 1)] belongs to @pytest.mark.interpreter test test_optimize_thread_locality; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3760,
+      "line": 3894,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_optimize_thread_locality_preserves_rows: kernel[(1,)] belongs to @pytest.mark.interpreter test test_optimize_thread_locality_preserves_rows; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3853,
-      "target": "var_mean_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_generic_reduction: var_mean_kernel[(1,)] belongs to @pytest.mark.interpreter test test_generic_reduction; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3895,
+      "line": 3896,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_permute: kernel[(1, 1)] belongs to @pytest.mark.interpreter test test_permute; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3897,
+      "line": 4311,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_permute: kernel[(1, 1)] belongs to @pytest.mark.interpreter test test_permute; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3939,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_trans_2d: kernel[(1,)] belongs to @pytest.mark.interpreter test test_trans_2d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 3975,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_trans_4d: kernel[(1,)] belongs to @pytest.mark.interpreter test test_trans_4d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 4312,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dot: kernel[(1, 1)] belongs to @pytest.mark.interpreter test test_dot; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 4612,
+      "line": 4611,
       "target": "mxfp_upcast_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scaled_dot: mxfp_upcast_kernel[grid] belongs to @pytest.mark.interpreter test test_scaled_dot; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4701,
+      "line": 4700,
       "target": "dot_scale_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scaled_dot: dot_scale_kernel[(1,)] belongs to @pytest.mark.interpreter test test_scaled_dot; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4793,
+      "line": 4792,
       "target": "_scaled_dot_scale_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scaled_dot_zero_scale: _scaled_dot_scale_kernel[(1,)] belongs to @pytest.mark.interpreter test test_scaled_dot_zero_scale; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4910,
+      "line": 4909,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dot3d: kernel[grid] belongs to @pytest.mark.interpreter test test_dot3d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4979,
+      "line": 4978,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_dot_mulbroadcasted: kernel[grid] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5019,
-      "target": "kernel_static_patched",
-      "reason": "exempt_interpreter",
-      "detail": "test_full: kernel_static_patched[(1,)] belongs to @pytest.mark.interpreter test test_full; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5024,
-      "target": "kernel_dynamic_patched",
-      "reason": "exempt_interpreter",
-      "detail": "test_full: kernel_dynamic_patched[(1,)] belongs to @pytest.mark.interpreter test test_full; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5115,
+      "line": 5114,
       "target": "patched_kernel",
       "reason": "unsupported_annotation",
       "detail": "test_const: patched_kernel[(1,)] uses tl.const pointer annotations; a focused intj probe raised ValueError: parameter 'in_ptr' has unsupported annotation <class 'triton.language.core.const'>."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5136,
+      "line": 5289,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5379,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5408,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5432,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5460,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5552,
+      "target": "_kernel",
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
+    },
+    {
+      "path": "python/test/unit/language/test_core.py",
+      "line": 5622,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dot_without_load: kernel[(1,)] belongs to @pytest.mark.interpreter test test_dot_without_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_keyword_only_parameters",
+      "detail": "The JIT kernel declares keyword-only parameters, which make_launcher currently rejects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5158,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_arange: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_arange; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5200,
+      "line": 5634,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_masked_load: kernel[(1,)] belongs to @pytest.mark.interpreter test test_masked_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "triton_runtime_diagnostic_test",
+      "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5223,
+      "line": 5636,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_masked_load_scalar: kernel[(1,)] belongs to @pytest.mark.interpreter test test_masked_load_scalar; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "triton_runtime_diagnostic_test",
+      "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5271,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_masked_load_shared_memory: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_masked_load_shared_memory; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5290,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_cache_modifier: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_load_cache_modifier; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5380,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_vectorization: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_vectorization; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5409,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_vectorization_hints: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_vectorization_hints; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5433,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_assume: _kernel[(1024 // 128,)] belongs to @pytest.mark.interpreter test test_assume; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5461,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_store_cache_modifier: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_store_cache_modifier; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5553,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_store_eviction_policy: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_store_eviction_policy; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5601,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_default: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_default; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5605,
-      "target": "_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_default: _kernel[(1,)] belongs to @pytest.mark.interpreter test test_default; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5623,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_keyword_only_arguments: kernel[(1,)] belongs to @pytest.mark.interpreter test test_keyword_only_arguments; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5635,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_keyword_only_launch_errors: kernel[(1,)] belongs to @pytest.mark.interpreter test test_keyword_only_launch_errors; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5637,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_keyword_only_launch_errors: kernel[(1,)] belongs to @pytest.mark.interpreter test test_keyword_only_launch_errors; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5740,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_bin_op_constexpr: kernel[(1,)] belongs to @pytest.mark.interpreter test test_bin_op_constexpr; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5753,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_shape: kernel[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_shape; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5767,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_scalar_shape: kernel[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_scalar_shape; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5797,
+      "line": 5796,
       "target": "patched_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_reshape: patched_kernel[(1,)] belongs to @pytest.mark.interpreter test test_reshape; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_reshape passes out_format as a tuple constexpr; intj rejects the tuple launch argument with TypeError: unsupported argument out_tuple of type tuple."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5825,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tma_load_block_shape_err: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tma_load_block_shape_err; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5841,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tma_store_block_shape_err: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tma_store_block_shape_err; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5890,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_call: kernel[(size // 128,)] belongs to @pytest.mark.interpreter test test_call; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5948,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 5993,
+      "line": 5992,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6020,
+      "line": 6019,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_packed: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6046,
+      "line": 6045,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_with_pointers: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6201,
+      "line": 6200,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_map_elementwise: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6313,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if_else: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if_else; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6317,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if_else: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if_else; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6341,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if_return: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if_return; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6345,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if_return: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if_return; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6445,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_if_call: kernel[(1,)] belongs to @pytest.mark.interpreter test test_if_call; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6477,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_nested_if_else_return: kernel[(1,)] belongs to @pytest.mark.interpreter test test_nested_if_else_return; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6513,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_while: kernel[(1,)] belongs to @pytest.mark.interpreter test test_while; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6531,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_while_condition: kernel[(1,)] belongs to @pytest.mark.interpreter test test_while_condition; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6549,
-      "target": "nested_while",
-      "reason": "exempt_interpreter",
-      "detail": "test_nested_while: nested_while[(1,)] belongs to @pytest.mark.interpreter test test_nested_while; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6608,
+      "line": 6607,
       "target": "kernel_patched",
       "reason": "unsupported_captured_global",
       "detail": "test_constexpr_assignment: kernel_patched[(1,)] reads global constexpr_type in the patched JIT body; a focused intj probe raised UnsupportedKernel for used_global_vals=['constexpr_type']."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6664,
+      "line": 6663,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "test_num_threads: kernel[(1,)] passes get_num_threads as a backend-specific Python function constexpr; intj cannot serialize that function as a kernel argument."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6689,
+      "line": 6688,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_globaltimer: kernel[(1,)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6713,
+      "line": 6712,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_smid: kernel[(out.shape[0],)] inspects h.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6733,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_load_scalar_with_mask: kernel[(1,)] belongs to @pytest.mark.interpreter test test_load_scalar_with_mask; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 6863,
+      "line": 6862,
       "target": "matmul_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dot_max_num_imprecise_acc: matmul_kernel[grid] belongs to @pytest.mark.interpreter test test_dot_max_num_imprecise_acc; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7033,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_propagate_nan: kernel[(1,)] belongs to @pytest.mark.interpreter test test_propagate_nan; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7075,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_clamp: kernel[(size,)] belongs to @pytest.mark.interpreter test test_clamp; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7108,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_clamp_symmetric: kernel[(size,)] belongs to @pytest.mark.interpreter test test_clamp_symmetric; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7131,
-      "target": "loop_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_static_range: loop_kernel[(1,)] belongs to @pytest.mark.interpreter test test_static_range; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7147,
+      "line": 7146,
       "target": "matmul_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tl_range_num_stages: matmul_kernel[(1,)] belongs to @pytest.mark.interpreter test test_tl_range_num_stages; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7178,
+      "line": 7177,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_tl_range_fuse: kernel[(1,)] inspects compiled_kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7231,
+      "line": 7230,
       "target": "kernel",
       "reason": "exempt_compiled_result",
       "detail": "test_tl_range_fuse_dependent: kernel[(1,)] inspects compiled_kernel.asm from Triton's returned CompiledKernel; intj.compat.launch returns no compiled object."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7320,
+      "line": 7319,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_maxnreg: kernel[(1,)] belongs to @pytest.mark.interpreter test test_maxnreg; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "needs_compiled_kernel_result",
+      "detail": "The test reads the returned CompiledKernel assembly; intj.compat.launch_or_interpret returns no CompiledKernel in compiled mode."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7354,
-      "target": "temp_in_loop",
-      "reason": "exempt_interpreter",
-      "detail": "test_temp_var_in_loop: temp_in_loop[(1,)] belongs to @pytest.mark.interpreter test test_temp_var_in_loop; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7382,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_num_programs: kernel[grid] belongs to @pytest.mark.interpreter test test_num_programs; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7477,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dtype: kernel[(1,)] belongs to @pytest.mark.interpreter test test_dtype; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7583,
+      "line": 7582,
       "target": "gather_test_kernel_1d",
-      "reason": "exempt_interpreter",
-      "detail": "test_gather: gather_test_kernel_1d[(1,)] belongs to @pytest.mark.interpreter test test_gather; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7585,
+      "line": 7584,
       "target": "gather_test_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_gather: gather_test_kernel[(1,)] belongs to @pytest.mark.interpreter test test_gather; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7652,
-      "target": "_simple_add",
-      "reason": "exempt_interpreter",
-      "detail": "test_zero_strided_tensors: _simple_add[grid] belongs to @pytest.mark.interpreter test test_zero_strided_tensors; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7665,
-      "target": "aliasing_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_aliasing: aliasing_kernel[(1,)] belongs to @pytest.mark.interpreter test test_aliasing; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7687,
-      "target": "take_every_second_element",
-      "reason": "exempt_interpreter",
-      "detail": "test_strided_load: take_every_second_element[(1, 1)] belongs to @pytest.mark.interpreter test test_strided_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7711,
-      "target": "store_into_every_second",
-      "reason": "exempt_interpreter",
-      "detail": "test_strided_store: store_into_every_second[(1, 1)] belongs to @pytest.mark.interpreter test test_strided_store; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7736,
-      "target": "indirect_load",
-      "reason": "exempt_interpreter",
-      "detail": "test_indirect_load: indirect_load[(1, 1)] belongs to @pytest.mark.interpreter test test_indirect_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7758,
-      "target": "indirect_store",
-      "reason": "exempt_interpreter",
-      "detail": "test_indirect_store: indirect_store[(1, 1)] belongs to @pytest.mark.interpreter test test_indirect_store; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7772,
-      "target": "dtype_tensor_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dtype_tensor: dtype_tensor_kernel[(1,)] belongs to @pytest.mark.interpreter test test_dtype_tensor; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7785,
-      "target": "short_circuiting_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_short_circuiting: short_circuiting_kernel[(1,)] belongs to @pytest.mark.interpreter test test_short_circuiting; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7821,
-      "target": "unsplat_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_unsplat: unsplat_kernel[(1,)] belongs to @pytest.mark.interpreter test test_unsplat; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7857,
+      "line": 7903,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_scan_dtype: kernel[(1,)] belongs to @pytest.mark.interpreter test test_scan_dtype; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7873,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_member: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_member; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_core.py",
-      "line": 7904,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_dot_multidim: kernel[(1,)] belongs to @pytest.mark.interpreter test test_dot_multidim; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_num_ctas",
+      "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_decorator.py",
@@ -3932,22 +2987,22 @@
       "path": "python/test/unit/language/test_matmul.py",
       "line": 425,
       "target": "mxfp_matmul",
-      "reason": "exempt_interpreter",
-      "detail": "test_mxfp: mxfp_matmul[grid] belongs to @pytest.mark.interpreter test test_mxfp; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 760,
       "target": "_gemm_kernel_preshuffled_scales_cdna4",
-      "reason": "exempt_interpreter",
-      "detail": "test_preshuffle_scale_mxfp_cdna4: _gemm_kernel_preshuffled_scales_cdna4[grid] belongs to @pytest.mark.interpreter test test_preshuffle_scale_mxfp_cdna4; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_preshuffle_scale_mxfp_cdna4 inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 806,
       "target": "block_scale_mxfp_matmul",
-      "reason": "exempt_interpreter",
-      "detail": "test_blocked_scale_mxfp: block_scale_mxfp_matmul[grid] belongs to @pytest.mark.interpreter test test_blocked_scale_mxfp; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_blocked_scale_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
@@ -3960,29 +3015,29 @@
       "path": "python/test/unit/language/test_matmul.py",
       "line": 940,
       "target": "lhs_in_tmem_kernel_mxfp",
-      "reason": "exempt_interpreter",
-      "detail": "test_lhs_in_tmem_mxfp: lhs_in_tmem_kernel_mxfp[grid] belongs to @pytest.mark.interpreter test test_lhs_in_tmem_mxfp; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "test_matmul has module-level pytest.mark.enable_warmup; the test suite intercepts Triton KernelInterface.__getitem__ during compile warmup, which intj launch bypasses."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 1105,
       "target": "block_scale_fp4_matmul",
-      "reason": "exempt_interpreter",
-      "detail": "test_block_scale_fp4: block_scale_fp4_matmul[grid] belongs to @pytest.mark.interpreter test test_block_scale_fp4; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_block_scale_fp4 inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 1326,
       "target": "mxfp8_mxfp4_matmul",
-      "reason": "exempt_interpreter",
-      "detail": "test_mxfp8_mxfp4_matmul: mxfp8_mxfp4_matmul[grid] belongs to @pytest.mark.interpreter test test_mxfp8_mxfp4_matmul; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_mxfp8_mxfp4_matmul inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 1442,
       "target": "batched_mxfp_matmul",
-      "reason": "exempt_interpreter",
-      "detail": "test_batched_mxfp: batched_mxfp_matmul[grid] belongs to @pytest.mark.interpreter test test_batched_mxfp; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "exempt_compiled_result",
+      "detail": "test_batched_mxfp inspects the returned CompiledKernel's asm on at least one supported target; intj's launcher returns None."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
@@ -4030,50 +3085,43 @@
       "path": "python/test/unit/language/test_random.py",
       "line": 150,
       "target": "const_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_randint: const_kernel[grid] belongs to @pytest.mark.interpreter test test_randint; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
       "line": 152,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_randint: kernel[grid] belongs to @pytest.mark.interpreter test test_randint; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
       "line": 190,
       "target": "const_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_rand: const_kernel[grid] belongs to @pytest.mark.interpreter test test_rand; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
       "line": 192,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_rand: kernel[grid] belongs to @pytest.mark.interpreter test test_rand; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
       "line": 244,
       "target": "const_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_randn: const_kernel[grid] belongs to @pytest.mark.interpreter test test_randn; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
       "line": 246,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_randn: kernel[grid] belongs to @pytest.mark.interpreter test test_randn; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_random.py",
-      "line": 272,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_rand_limits: kernel[(1,)] belongs to @pytest.mark.interpreter test test_rand_limits; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_reproducer.py",
@@ -4084,108 +3132,59 @@
     },
     {
       "path": "python/test/unit/language/test_standard.py",
-      "line": 63,
+      "line": 65,
       "target": "sort_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_sort: sort_kernel[(1,)] belongs to @pytest.mark.interpreter test test_sort; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "compile_warmup_interception",
+      "detail": "test_sort has pytest.mark.enable_warmup; the test suite intercepts Triton KernelInterface.__getitem__ during compile warmup, which intj launch bypasses."
     },
     {
       "path": "python/test/unit/language/test_standard.py",
-      "line": 92,
-      "target": "flip_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_flip: flip_kernel[(1,)] belongs to @pytest.mark.interpreter test test_flip; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 114,
-      "target": "triton_flip_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_flip_inf: triton_flip_kernel[(x.shape[0],)] belongs to @pytest.mark.interpreter test test_flip_inf; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 130,
-      "target": "triton_ravel",
-      "reason": "exempt_interpreter",
-      "detail": "test_ravel: triton_ravel[(1,)] belongs to @pytest.mark.interpreter test test_ravel; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 147,
-      "target": "swizzle2d_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_swizzle2d: swizzle2d_kernel[(1,)] belongs to @pytest.mark.interpreter test test_swizzle2d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 181,
+      "line": 183,
       "target": "softmax_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_softmax: softmax_kernel[(1,)] belongs to @pytest.mark.interpreter test test_softmax; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_softmax passes shape as a tuple-valued tl.constexpr argument; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_standard.py",
-      "line": 199,
+      "line": 201,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_softmax_rejects_positional_keep_dims: kernel[(1,)] belongs to @pytest.mark.interpreter test test_softmax_rejects_positional_keep_dims; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 222,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_softmax_keep_dims_deprecated: kernel[(1,)] belongs to @pytest.mark.interpreter test test_softmax_keep_dims_deprecated; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 245,
-      "target": "triton_squeeze",
-      "reason": "exempt_interpreter",
-      "detail": "test_squeeze: triton_squeeze[(1,)] belongs to @pytest.mark.interpreter test test_squeeze; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_standard.py",
-      "line": 265,
-      "target": "triton_unsqueeze",
-      "reason": "exempt_interpreter",
-      "detail": "test_unsqueeze: triton_unsqueeze[(1,)] belongs to @pytest.mark.interpreter test test_unsqueeze; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "triton_compiler_diagnostic_test",
+      "detail": "test_softmax_rejects_positional_keep_dims asserts Triton CompilationError versus InterpreterError and the diagnostic text; keep the original runtime for this error-contract test."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 54,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_load: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects. The test also permits num_ctas=2."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 108,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_store: kernel[(grid_m, grid_n)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_store; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects. The test also permits num_ctas=2."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 156,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_functional_interface: kernel[(grid_m, grid_n)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_functional_interface; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 202,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_load3d: kernel[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_load3d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 250,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_store3d: kernel[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_store3d; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
@@ -4205,64 +3204,64 @@
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 437,
       "target": "device_tma_load",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_padding: device_tma_load[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_padding; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 438,
       "target": "host_tma_load",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_padding: host_tma_load[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_padding; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 494,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_in_function: kernel[(grid_m, grid_n)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_in_function; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 534,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_return_value: kernel[(M // M_BLOCK, N // N_BLOCK)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_return_value; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 569,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_argument: kernel[(M // M_BLOCK, N // N_BLOCK)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_argument; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 649,
       "target": "matmul_kernel_make_tensor_descriptor",
-      "reason": "exempt_interpreter",
-      "detail": "test_make_tensor_descriptor_matmul: matmul_kernel_make_tensor_descriptor[grid] belongs to @pytest.mark.interpreter test test_make_tensor_descriptor_matmul; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects. The test also permits num_ctas=2. The test also inspects the returned CompiledKernel."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 741,
       "target": "kernel_make_tensor_descriptor_loop_carried",
-      "reason": "exempt_interpreter",
-      "detail": "test_make_tensor_descriptor_loop_carried: kernel_make_tensor_descriptor_loop_carried[grid] belongs to @pytest.mark.interpreter test test_make_tensor_descriptor_loop_carried; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects. The test also inspects the returned CompiledKernel."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 851,
       "target": "batched_gemm_2d_tma_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_batched_gemm_2d_tma: batched_gemm_2d_tma_kernel[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_batched_gemm_2d_tma; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 955,
       "target": "batched_gemm_3d_tma_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_batched_gemm_3d_tma: batched_gemm_3d_tma_kernel[grid] belongs to @pytest.mark.interpreter test test_tensor_descriptor_batched_gemm_3d_tma; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects. The test also inspects the returned CompiledKernel."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
@@ -4289,29 +3288,29 @@
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1356,
       "target": "mxfp8_mxfp4_matmul_tma",
-      "reason": "exempt_interpreter",
-      "detail": "test_mxfp8_mxfp4_matmul_tma: mxfp8_mxfp4_matmul_tma[grid] belongs to @pytest.mark.interpreter test test_mxfp8_mxfp4_matmul_tma; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1407,
       "target": "tma_gather_rows_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tma_gather: tma_gather_rows_kernel[(1,)] belongs to @pytest.mark.interpreter test test_tma_gather; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1460,
       "target": "tma_gather_dot_pipeline",
-      "reason": "exempt_interpreter",
-      "detail": "test_tma_gather_dot_pipeline: tma_gather_dot_pipeline[(1, 1, 1)] belongs to @pytest.mark.interpreter test test_tma_gather_dot_pipeline; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1505,
       "target": "tma_scatter_rows_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tma_scatter: tma_scatter_rows_kernel[(1,)] belongs to @pytest.mark.interpreter test test_tma_scatter; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_scratch_allocator",
+      "detail": "The kernel creates a device-side TMA tensor descriptor and the test supplies triton.set_allocator; its launch needs global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
@@ -4331,36 +3330,36 @@
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1673,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_host_tensor_descriptor_round_f32_to_tf32: kernel[(1,)] belongs to @pytest.mark.interpreter test test_host_tensor_descriptor_round_f32_to_tf32; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1701,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_host_tensor_descriptor_load: kernel[(1,)] belongs to @pytest.mark.interpreter test test_host_tensor_descriptor_load; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments. The test also permits num_ctas=2."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1748,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_host_tensor_descriptor_in_tuple: kernel[(1,)] belongs to @pytest.mark.interpreter test test_host_tensor_descriptor_in_tuple; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments. The descriptor is nested in a tuple."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1811,
       "target": "matmul_kernel_host_tensor_descriptor",
-      "reason": "exempt_interpreter",
-      "detail": "test_host_tensor_descriptor_matmul: matmul_kernel_host_tensor_descriptor[grid] belongs to @pytest.mark.interpreter test test_host_tensor_descriptor_matmul; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments. The test also permits num_ctas=2. The test also inspects the returned CompiledKernel."
     },
     {
       "path": "python/test/unit/language/test_tensor_descriptor.py",
       "line": 1851,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tensor_descriptor_store_downcast: kernel[(grid_m, grid_n)] belongs to @pytest.mark.interpreter test test_tensor_descriptor_store_downcast; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_host_descriptor",
+      "detail": "The launch passes a host TensorDescriptor; intj cannot decode descriptor arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
@@ -4373,43 +3372,22 @@
       "path": "python/test/unit/language/test_tuple.py",
       "line": 58,
       "target": "_tuple_assign",
-      "reason": "exempt_interpreter",
-      "detail": "test_assign: _tuple_assign[(1,)] belongs to @pytest.mark.interpreter test test_assign; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_tuple.py",
-      "line": 100,
-      "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_assign_return: kernel[(1,)] belongs to @pytest.mark.interpreter test test_assign_return; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_argument",
+      "detail": "test_assign passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 142,
       "target": "_tuple_serialize",
-      "reason": "exempt_interpreter",
-      "detail": "test_serialize: _tuple_serialize[(1,)] belongs to @pytest.mark.interpreter test test_serialize; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_argument",
+      "detail": "test_serialize passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 203,
       "target": "_namedtuple_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_namedtuple: _namedtuple_kernel[(1,)] belongs to @pytest.mark.interpreter test test_namedtuple; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_tuple.py",
-      "line": 218,
-      "target": "fn",
-      "reason": "exempt_interpreter",
-      "detail": "test_eq: fn[(1,)] belongs to @pytest.mark.interpreter test test_eq; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_tuple.py",
-      "line": 238,
-      "target": "fn",
-      "reason": "exempt_interpreter",
-      "detail": "test_add: fn[(1,)] belongs to @pytest.mark.interpreter test test_add; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_argument",
+      "detail": "test_namedtuple passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
@@ -4441,52 +3419,38 @@
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 370,
-      "target": "tuple_logic_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tuple_logic: tuple_logic_kernel[(1,)] belongs to @pytest.mark.interpreter test test_tuple_logic; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_tuple.py",
-      "line": 380,
-      "target": "_namedtuple_float_tuple_kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tuple_float: _namedtuple_float_tuple_kernel[(1,)] belongs to @pytest.mark.interpreter test test_tuple_float; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
-    },
-    {
-      "path": "python/test/unit/language/test_tuple.py",
       "line": 399,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_tuple_constexpr_function: kernel[(1,)] belongs to @pytest.mark.interpreter test test_tuple_constexpr_function; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_captured_global",
+      "detail": "The JIT kernel reads module-global TrivialTuple; intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 427,
       "target": "kernel_value",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_tuple_arg_unpack: kernel_value[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_tuple_arg_unpack; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_constexpr_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 431,
       "target": "kernel_shape",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_tuple_arg_unpack: kernel_shape[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_tuple_arg_unpack; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_constexpr_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 450,
       "target": "kernel_nested",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_nested_tuple_arg_unpack: kernel_nested[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_nested_tuple_arg_unpack; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_constexpr_nested_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
       "line": 469,
       "target": "kernel",
-      "reason": "exempt_interpreter",
-      "detail": "test_constexpr_tuple_arg_subscript: kernel[(1,)] belongs to @pytest.mark.interpreter test test_constexpr_tuple_arg_subscript; interpreter runs execute this launch with TRITON_INTERPRET=1, which intj rejects."
+      "reason": "unsupported_tuple_constexpr",
+      "detail": "test_constexpr_tuple_arg_subscript passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_warp_specialization.py",

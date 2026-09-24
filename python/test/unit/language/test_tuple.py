@@ -1,4 +1,4 @@
-from intj.compat import launch as _intj_launch
+from intj.compat import launch as _intj_launch, launch_or_interpret as _intj_launch_or_interpret
 import pytest
 import triton
 import triton.language as tl
@@ -97,7 +97,7 @@ def test_assign_return(device):
     b_tri = torch.tensor([0], device=device, dtype=torch.float32)
     c_tri = torch.tensor([0], device=device, dtype=torch.float32)
     for kernel in [with_fn, without_fn]:
-        kernel[(1, )](x, y, a_tri, b_tri, c_tri, num_warps=1)
+        _intj_launch_or_interpret(kernel, (1, ), x, y, a_tri, b_tri, c_tri, num_warps=1)
         a_ref, b_ref, c_ref = x + y, x - y, x * y
         assert a_tri == a_ref
         assert b_tri == b_ref
@@ -215,7 +215,7 @@ def test_eq(device):
         tl.store(ret_ptrs + 3, tl.tuple((1, 2)) == (1, 3))
 
     rets = torch.zeros((4, ), dtype=torch.int32, device=device)
-    fn[(1, )](rets)
+    _intj_launch_or_interpret(fn, (1, ), rets)
     assert rets[0].item() == 1
     assert rets[1].item() == 0
     assert rets[2].item() == 1
@@ -235,7 +235,7 @@ def test_add(device):
             tl.store(ret_ptrs + 4 + i, tuple1[i])
 
     rets = torch.zeros((8, ), dtype=torch.int32, device=device)
-    fn[(1, )](rets)
+    _intj_launch_or_interpret(fn, (1, ), rets)
     torch.testing.assert_close(rets.cpu(), torch.arange(8, dtype=torch.int32))
 
 
@@ -367,7 +367,7 @@ def test_tuple_logic():
         # constexpr short-circuiting over dynamic argument:
         tl.static_assert((() and tl.program_id(0)) == ())
 
-    tuple_logic_kernel[(1, )]()
+    _intj_launch_or_interpret(tuple_logic_kernel, (1, ))
 
 
 @pytest.mark.interpreter
@@ -377,7 +377,7 @@ def test_tuple_float():
     def _namedtuple_float_tuple_kernel():
         x, y = float("-inf"), float("inf")  # noqa: F841
 
-    _namedtuple_float_tuple_kernel[(1, )]()
+    _intj_launch_or_interpret(_namedtuple_float_tuple_kernel, (1, ))
 
 
 @triton.constexpr_function

@@ -1,6 +1,8 @@
 import sys
 import uuid
 
+from intj.compat import launch_or_interpret as _intj_launch_or_interpret
+
 import torch
 from torch.testing import assert_close
 
@@ -114,48 +116,48 @@ def test_print(func: str, data_type: str, device: str):
     x = torch.arange(0, N, dtype=torch.int32, device=device).to(getattr(torch, data_type))
     y = torch.zeros((N, ), dtype=x.dtype, device=device)
     if func == "device_print":
-        kernel_device_print[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_scalar":
         scalar = torch.tensor(42, dtype=x.dtype, device=device)
-        kernel_device_print_scalar[(1, )](scalar, num_warps=num_warps)
+        _intj_launch_or_interpret(kernel_device_print_scalar, (1, ), scalar, num_warps=num_warps)
     elif func == "device_print_negative":
         x = -x
-        kernel_device_print[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_uint":
         x = torch.arange((1 << 31), (1 << 31) + N, device=device).to(getattr(torch, data_type))
-        kernel_device_print[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_uint_cast":
-        kernel_device_print_cast[(1, )](num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print_cast, (1, ), num_warps=num_warps, BLOCK=N)
     elif func == "print":
-        kernel_print[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_print, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_large":
-        kernel_device_print_large[(1, 2)](BLOCK_M=64, num_warps=num_warps, BLOCK_N=N)
+        _intj_launch_or_interpret(kernel_device_print_large, (1, 2), BLOCK_M=64, num_warps=num_warps, BLOCK_N=N)
     elif func == "print_multiple_args":
-        kernel_print_multiple_args[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_print_multiple_args, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_multiple_args":
-        kernel_device_print_multiple_args[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print_multiple_args, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "static_print":
         kernel_static_print[(1, )](x, y, num_warps=num_warps, BLOCK=N, PLACEHOLDER=uuid.uuid4())
     elif func == "no_arg_print":
-        kernel_no_arg_print[(1, )](num_warps=num_warps)
+        _intj_launch_or_interpret(kernel_no_arg_print, (1, ), num_warps=num_warps)
     elif func == "print_no_arg":
-        kernel_print_no_arg[(1, )](num_warps=num_warps)
+        _intj_launch_or_interpret(kernel_print_no_arg, (1, ), num_warps=num_warps)
     elif func == "device_print_hex":
-        kernel_device_print_hex[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print_hex, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_hex_fp32_canonical":
         canonical = torch.tensor(
             [1.0, 1.5, 0.1, -1.5, -0.0, float("inf"), float("-inf"), 6.0], dtype=torch.float32, device=device)
         x = canonical.repeat(N // canonical.numel())
         y = torch.zeros_like(x)
-        kernel_device_print_hex[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_device_print_hex, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_pointer":
-        kernel_print_pointer[(1, )](x, y, num_warps=num_warps, BLOCK=N)
+        _intj_launch_or_interpret(kernel_print_pointer, (1, ), x, y, num_warps=num_warps, BLOCK=N)
     elif func == "device_print_2d_tensor":
         BLOCK_SIZE_X = num_warps
         BLOCK_SIZE_Y = get_current_target_warp_size()
         x_2d_tensor = x.reshape((BLOCK_SIZE_X, BLOCK_SIZE_Y))
-        kernel_print_2d_tensor[(1, )](x_2d_tensor, y, num_warps=num_warps, BLOCK_SIZE_X=BLOCK_SIZE_X,
-                                      BLOCK_SIZE_Y=BLOCK_SIZE_Y)
+        _intj_launch_or_interpret(kernel_print_2d_tensor, (1, ), x_2d_tensor, y, num_warps=num_warps,
+                                  BLOCK_SIZE_X=BLOCK_SIZE_X, BLOCK_SIZE_Y=BLOCK_SIZE_Y)
     else:
         assert f"Unknown kernel: {func}"
 

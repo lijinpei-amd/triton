@@ -1,5 +1,7 @@
 import warnings
 
+from intj.compat import launch_or_interpret as _intj_launch_or_interpret
+
 import triton
 import pytest
 import torch
@@ -89,7 +91,7 @@ def test_flip(M, N, K, dtype_str, dim, device):
     x = torch.from_numpy(x).to(device)
     y = torch.flip(x, (dim if dim is not None else -1, ))
     z = torch.empty_like(x, device=device)
-    flip_kernel[(1, )](x, z, M, N, K, dim, num_warps=8)
+    _intj_launch_or_interpret(flip_kernel, (1, ), x, z, M, N, K, dim, num_warps=8)
     assert (y == z).all(), (y, z)
 
 
@@ -111,7 +113,7 @@ def test_flip_inf(device):
 
     expect = x.reshape(-1, 8, 2).flip(-1).reshape(-1, 16)
     actual = torch.empty_like(x)
-    triton_flip_kernel[(x.shape[0], )](actual, x, x.shape[1])
+    _intj_launch_or_interpret(triton_flip_kernel, (x.shape[0], ), actual, x, x.shape[1])
 
     torch.testing.assert_close(expect, actual)
 
@@ -127,7 +129,7 @@ def test_ravel(device):
         tl.store(out_ptr + tl.arange(0, 256), a)
 
     out = torch.empty((256, ), device=device, dtype=torch.int32)
-    triton_ravel[(1, )](out)
+    _intj_launch_or_interpret(triton_ravel, (1, ), out)
 
     assert (out == torch.arange(0, 256, device=device)).all()
 
@@ -144,7 +146,7 @@ def test_swizzle2d(size_i, size_j, size_g, device):
                 tl.store(output + new_i * size_j + new_j, i * size_j + j)
 
     output = torch.zeros(size_i, size_j).to(device)
-    swizzle2d_kernel[(1, )](output, size_i, size_j, size_g)
+    _intj_launch_or_interpret(swizzle2d_kernel, (1, ), output, size_i, size_j, size_g)
     expected_order = torch.tensor([[0, 3, 6, 9, 12, 15, 18], [1, 4, 7, 10, 13, 16, 19], [2, 5, 8, 11, 14, 17, 20],
                                    [21, 23, 25, 27, 29, 31, 33], [22, 24, 26, 28, 30, 32, 34]]).to(device)
     assert (output == expected_order).all(), (output, expected_order)
@@ -219,7 +221,7 @@ def test_softmax_keep_dims_deprecated(keep_dims, member, device, fresh_triton_ca
     z = torch.empty_like(x)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        kernel[(1, )](x, z, keep_dims, member)
+        _intj_launch_or_interpret(kernel, (1, ), x, z, keep_dims, member)
     if keep_dims is None:
         assert not caught
     else:
@@ -242,7 +244,7 @@ def test_squeeze(shape, dim, device):
         tl.store(out_ptr + tl.arange(0, 8), a)
 
     out = torch.empty((8, ), device=device, dtype=torch.int32)
-    triton_squeeze[(1, )](out, dim, shape[0], shape[1], shape[2])
+    _intj_launch_or_interpret(triton_squeeze, (1, ), out, dim, shape[0], shape[1], shape[2])
 
     expected = torch.arange(0, 8, device=device, dtype=torch.int32)
     expected = expected.reshape(shape).squeeze(dim).reshape(-1)
@@ -262,7 +264,7 @@ def test_unsqueeze(dim, device):
         tl.store(out_ptr + tl.arange(0, 8), a)
 
     out = torch.empty((8, ), device=device, dtype=torch.int32)
-    triton_unsqueeze[(1, )](out, dim)
+    _intj_launch_or_interpret(triton_unsqueeze, (1, ), out, dim)
 
     expected = torch.arange(0, 8, device=device, dtype=torch.int32)
     expected = expected.reshape(2, 4).unsqueeze(dim).reshape(-1)

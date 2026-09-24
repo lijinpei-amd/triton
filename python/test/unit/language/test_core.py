@@ -1,5 +1,6 @@
 # ruff: noqa: F821,F841
 from intj.compat import launch as _intj_launch
+from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import contextlib
 import itertools
 import re
@@ -159,7 +160,7 @@ def test_scalar_overflow(device):
         y = x + huge_int
 
     with pytest.raises(triton.TritonError, match="out of range"):
-        kernel[(1, )]()
+        _intj_launch_or_interpret(kernel, (1, ))
 
 
 # generic test functions
@@ -186,7 +187,7 @@ def _test_unary(dtype_x, expr, numpy_expr=None, device='cuda', num_ctas=1):
     # triton result
     x_tri = to_triton(x, device=device, dst_type=dtype_x)
     z_tri = to_triton(np.empty_like(x), device=device, dst_type=dtype_x)
-    kernel[(1, )](Z=z_tri, X=x_tri, SIZE=SIZE, num_warps=4, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), Z=z_tri, X=x_tri, SIZE=SIZE, num_warps=4, num_ctas=num_ctas)
     # compare
     np.testing.assert_allclose(z_ref, to_numpy(z_tri), rtol=0.01)
 
@@ -503,7 +504,7 @@ def test_int1_bin_op_wraparound(op, device):
     x_tri = to_triton(x, device=device)
     y_tri = to_triton(y, device=device)
     z_tri = to_triton(np.empty(SIZE, dtype=bool), device=device)
-    kernel[(1, )](x_tri, y_tri, z_tri, SIZE=SIZE)
+    _intj_launch_or_interpret(kernel, (1, ), x_tri, y_tri, z_tri, SIZE=SIZE)
     np.testing.assert_array_equal(z_ref, to_numpy(z_tri))
 
 
@@ -527,9 +528,7 @@ def test_addptr(dtype, order, device):
     x_tri = to_triton(x, dst_type=dtype, device=device)
     y_tri = to_triton(y, dst_type=dtype, device=device)
     y = x
-    kernel[
-        1,
-    ](x_tri, y_tri, order, SIZE)
+    _intj_launch_or_interpret(kernel, (1, ), x_tri, y_tri, order, SIZE)
     np.testing.assert_allclose(y, to_numpy(y_tri))
 
 
@@ -650,7 +649,7 @@ def test_interpreter_ashr_does_not_mutate_uint64_rhs(device):
     z_tri = to_triton(z, device=device, dst_type="uint64")
     x_tri = to_triton(x, device=device)
     y_tri = to_triton(y, device=device, dst_type="uint64")
-    kernel[(1, )](z_tri, x_tri, y_tri, BLOCK=y.size)
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, y_tri, BLOCK=y.size)
     np.testing.assert_equal(to_numpy(z_tri), y + np.uint64(1 << 63))
 
 
@@ -710,7 +709,7 @@ def test_broadcast(dtype, device):
     y_tri = to_triton(y, device=device, dst_type=dtype)
     y_broadcasted_tri = to_triton(np.empty((M, N), dtype=y_broadcasted_np.dtype), device=device, dst_type=dtype)
 
-    broadcast_kernel[(1, )](x_tri, y_tri, y_broadcasted_tri, M=M, N=N)
+    _intj_launch_or_interpret(broadcast_kernel, (1, ), x_tri, y_tri, y_broadcasted_tri, M=M, N=N)
     assert (y_broadcasted_np == to_numpy(y_broadcasted_tri)).all()
 
 
@@ -760,7 +759,7 @@ def test_slice(device):
         t = scalar[None, None]
         tl.static_assert(t.shape == [1, 1])
 
-    slice_kernel[(1, )](XBLOCK=32)
+    _intj_launch_or_interpret(slice_kernel, (1, ), XBLOCK=32)
 
 
 # ------------------
@@ -777,7 +776,7 @@ def test_invalid_slice(device):
         dst[10:]
 
     with pytest.raises(triton.TritonError, match='unsupported tensor index'):
-        _kernel[(1, )](dst=dst)
+        _intj_launch_or_interpret(_kernel, (1, ), dst=dst)
 
 
 # ----------------
@@ -828,7 +827,7 @@ def test_expand_dims(device):
 
     N = 32
     dummy_tensor = torch.empty((), device=device)
-    expand_dims_kernel[(1, )](dummy_tensor, N)
+    _intj_launch_or_interpret(expand_dims_kernel, (1, ), dummy_tensor, N)
 
 
 @pytest.mark.interpreter
@@ -871,23 +870,23 @@ def test_expand_dims_error_cases(device):
     dummy_tensor = torch.empty((), device=device)
 
     with pytest.raises(triton.TritonError) as exc_info:
-        dim_out_of_range1[(1, )](dummy_tensor, N)
+        _intj_launch_or_interpret(dim_out_of_range1, (1, ), dummy_tensor, N)
     assert "invalid axis -3" in str(exc_info.value.__cause__)
 
     with pytest.raises(triton.TritonError) as exc_info:
-        dim_out_of_range2[(1, )](dummy_tensor, N)
+        _intj_launch_or_interpret(dim_out_of_range2, (1, ), dummy_tensor, N)
     assert "invalid axis 2" in str(exc_info.value.__cause__)
 
     with pytest.raises(triton.TritonError) as exc_info:
-        dim_out_of_range3[(1, )](dummy_tensor, N)
+        _intj_launch_or_interpret(dim_out_of_range3, (1, ), dummy_tensor, N)
     assert "invalid axis 1" in str(exc_info.value.__cause__)
 
     with pytest.raises(triton.TritonError) as exc_info:
-        duplicate_dim1[(1, )](dummy_tensor, N)
+        _intj_launch_or_interpret(duplicate_dim1, (1, ), dummy_tensor, N)
     assert re.search(r"duplicate axes, normalized axes = \[0, 0\]", str(exc_info.value.__cause__))
 
     with pytest.raises(triton.TritonError) as exc_info:
-        duplicate_dim2[(1, )](dummy_tensor, N)
+        _intj_launch_or_interpret(duplicate_dim2, (1, ), dummy_tensor, N)
     assert re.search(r"duplicate axes, normalized axes = \[0, 0\]", str(exc_info.value.__cause__))
 
 
@@ -915,7 +914,7 @@ def test_squeeze_unsqueeze_negative_dim(device):
 
     N = 32
     dummy_tensor = torch.empty((), device=device)
-    kernel[(1, )](dummy_tensor, N)
+    _intj_launch_or_interpret(kernel, (1, ), dummy_tensor, N)
 
     @triton.jit
     def unsqueeze_out_of_range(dummy, N: tl.constexpr):
@@ -927,7 +926,7 @@ def test_squeeze_unsqueeze_negative_dim(device):
 
     for bad in (unsqueeze_out_of_range, squeeze_out_of_range):
         with pytest.raises(triton.TritonError):
-            bad[(1, )](dummy_tensor, N)
+            _intj_launch_or_interpret(bad, (1, ), dummy_tensor, N)
 
 
 # ----------------------------
@@ -942,7 +941,7 @@ def test_invalid_pid_axis(device):
         pid = tl.program_id(20)
 
     with pytest.raises(triton.TritonError) as exc_info:
-        _kernel[(1, )](dst)
+        _intj_launch_or_interpret(_kernel, (1, ), dst)
     assert re.search(r"program_id axis must be 0, 1, or 2 but got 20", str(exc_info.value.__cause__))
 
 
@@ -991,11 +990,11 @@ def test_where(dtype, num_ctas, device):
     z_tri = to_triton(np.empty(SIZE, dtype=z.dtype), device=device, dst_type=dtype)
 
     grid = lambda meta: (triton.cdiv(SIZE, meta['BLOCK_SIZE']), )
-    where_kernel[grid](cond_tri, x_tri, y_tri, z_tri, SIZE, BLOCK_SIZE=1024, TEST_POINTERS=select_ptrs,
+    _intj_launch_or_interpret(where_kernel, grid, cond_tri, x_tri, y_tri, z_tri, SIZE, BLOCK_SIZE=1024, TEST_POINTERS=select_ptrs,
                        TEST_SCALAR_POINTERS=False, num_ctas=num_ctas)
     assert (z == to_numpy(z_tri)).all()
     if select_ptrs:
-        where_kernel[grid](cond_tri, x_tri, y_tri, z_tri, SIZE, BLOCK_SIZE=1024, TEST_POINTERS=select_ptrs,
+        _intj_launch_or_interpret(where_kernel, grid, cond_tri, x_tri, y_tri, z_tri, SIZE, BLOCK_SIZE=1024, TEST_POINTERS=select_ptrs,
                            TEST_SCALAR_POINTERS=True)
         z = np.where(cond[0], x, y)
         assert (z == to_numpy(z_tri)).all()
@@ -1033,9 +1032,9 @@ def test_where_broadcast(num_ctas, device):
     cond_tri = to_triton(mask, device=device)
     x_tri = to_triton(x, device=device, dst_type=dtype)
     z_tri = to_triton(np.empty((SIZE, SIZE), dtype=z.dtype), device=device, dst_type=dtype)
-    where_kernel[(1, )](cond_tri, x_tri, z_tri, SIZE)
+    _intj_launch_or_interpret(where_kernel, (1, ), cond_tri, x_tri, z_tri, SIZE)
     assert (z == to_numpy(z_tri)).all()
-    where_scalar_condition[(1, )](x_tri, z_tri, SIZE, num_ctas=num_ctas)
+    _intj_launch_or_interpret(where_scalar_condition, (1, ), x_tri, z_tri, SIZE, num_ctas=num_ctas)
     z = np.where(0, x, 0)
     assert (z == to_numpy(z_tri)).all()
 
@@ -1069,7 +1068,7 @@ def test_neg_preserves_signed_zero(device):
     x_tri = to_triton(x, device=device)
     y_tri = to_triton(y, device=device)
 
-    _neg_signed_zero_kernel[(1, )](x_tri, y_tri)
+    _intj_launch_or_interpret(_neg_signed_zero_kernel, (1, ), x_tri, y_tri)
 
     np.testing.assert_array_equal(np.signbit(to_numpy(y_tri)), np.array([True, False]))
 
@@ -1112,7 +1111,7 @@ def test_math_member_fn_rejects_fp16(expr, device):
     kernel = patch_kernel(kernel, {'GENERATE_TEST_HERE': expr})
     x = to_triton(numpy_random(4, dtype_str='float16'), device=device, dst_type='float16')
     with pytest.raises(triton.TritonError, match="Expected dtype"):
-        kernel[(1, )](x)
+        _intj_launch_or_interpret(kernel, (1, ), x)
 
 
 @pytest.mark.interpreter
@@ -1133,7 +1132,7 @@ def test_math_erf_op(dtype, member_fn, device):
     x = torch.randn(SIZE, dtype=torch_dtype, device=device)
     z_ref = torch.erf(x)
     z_tri = torch.zeros_like(x)
-    kernel[(1, )](z_tri, x, SIZE=SIZE, MEMBER_FN=member_fn, num_warps=4)
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x, SIZE=SIZE, MEMBER_FN=member_fn, num_warps=4)
     torch.testing.assert_close(z_tri, z_ref)
 
 
@@ -1169,7 +1168,7 @@ def test_math_fma_op(dtype, device):
     y_tri = to_triton(y, device=device, dst_type=dtype)
     w_tri = to_triton(w, device=device, dst_type=dtype)
     z_tri = to_triton(np.zeros_like(x), device=device, dst_type=dtype)
-    kernel[(1, )](z_tri, x_tri, y_tri, w_tri, SIZE=SIZE, num_warps=4)
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, y_tri, w_tri, SIZE=SIZE, num_warps=4)
 
     np.testing.assert_equal(fma_ref(x, y, w), to_numpy(z_tri))
 
@@ -1231,7 +1230,7 @@ def test_math_fma_op_edge_cases(dtype, device):
     y_tri = to_triton(y, device=device, dst_type=dtype)
     w_tri = to_triton(w, device=device, dst_type=dtype)
     z_tri = to_triton(np.zeros_like(x), device=device, dst_type=dtype)
-    kernel[(1, )](z_tri, x_tri, y_tri, w_tri, SIZE=len(cases))
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, y_tri, w_tri, SIZE=len(cases))
 
     z = to_numpy(z_tri)
     np.testing.assert_equal(z, expected)
@@ -1283,7 +1282,7 @@ def test_precise_math(expr_prec, expr_ref, num_ctas, device):
 
     kernel = patch_kernel(kernel, {'PREC_CALC': expr_prec, 'REF_CALC': expr_ref})
 
-    kernel[(1, )](x, y, out, out_ref, BLOCK=shape[0], num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, out, out_ref, BLOCK=shape[0], num_ctas=num_ctas)
     assert torch.all(out == out_ref)  # bitwise exact
 
 
@@ -1306,7 +1305,7 @@ def test_fdiv_ieee_rounding(device):
     out_ieee = torch.zeros(shape, dtype=torch.float32, device=device)
     out_rn = torch.zeros(shape, dtype=torch.float32, device=device)
 
-    kernel[(1, )](x, y, out_ieee, out_rn, BLOCK=shape[0], num_ctas=1)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, out_ieee, out_rn, BLOCK=shape[0], num_ctas=1)
     assert torch.all(out_ieee == out_rn)  # bitwise exact
 
 
@@ -1349,7 +1348,7 @@ def test_abs_fp8(in_dtype, device):
     f8 = triton.reinterpret(f8_tensor, in_dtype)
     n_elements = f8_tensor.numel()
     out_f8 = torch.empty_like(f8_tensor)
-    abs_kernel[(1, )](f8, triton.reinterpret(out_f8, in_dtype), n_elements)
+    _intj_launch_or_interpret(abs_kernel, (1, ), f8, triton.reinterpret(out_f8, in_dtype), n_elements)
 
     f32_tensor = convert_float_to_float32(f8_tensor, in_dtype)
     expect = f32_tensor.abs()
@@ -1388,7 +1387,7 @@ def test_shapes_as_params(device):
         a = tl.reshape(tl.arange(0, 64), 2, 4, 8, can_reorder=True)
         tl.static_assert(a.shape == [tl.constexpr(2), tl.constexpr(4), tl.constexpr(8)])
 
-    kernel[(1, )]()
+    _intj_launch_or_interpret(kernel, (1, ))
 
 
 # ----------------
@@ -1414,7 +1413,7 @@ def test_transpose(dtype_x, device):
     z_ref = x.T
     x_tri = to_triton(x, device=device, dst_type=dtype_x)
     z_tri = to_triton(np.empty_like(z_ref), device=device, dst_type=dtype_x)
-    kernel[(1, )](z_tri, x_tri, SIZE=SIZE)
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, SIZE=SIZE)
     np.testing.assert_allclose(z_ref, to_numpy(z_tri))
 
 
@@ -1567,7 +1566,7 @@ def test_noinline(mode, device):
         z = torch.ones((16, 16), device=device, dtype=torch.float32)
     else:
         z = torch.tensor([0.0], device=device, dtype=torch.float32)
-    kernel[(1, )](x, y, z, num_warps=1)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, z, num_warps=1)
     if mode == "simple":
         assert torch.equal(z, x + y)
     elif mode == "call_graph" or mode == "dynamic" or mode == "multi_values":
@@ -1731,7 +1730,7 @@ def test_atomic_poll_tensor_results(block_size, timeout, device):
     if timeout is not None:
         flags[::2] = 0
     out = torch.empty(block_size, dtype=torch.bool, device=device)
-    kernel[(1, )](flags, out, block_size, timeout, num_warps=4)
+    _intj_launch_or_interpret(kernel, (1, ), flags, out, block_size, timeout, num_warps=4)
     assert torch.equal(out, flags == expected)
 
 
@@ -1906,7 +1905,7 @@ def test_atomic_rmw_predicate(num_ctas, device):
             tl.atomic_max(X, val)
 
     x = torch.zeros((1, ), device=device, dtype=torch.int32)
-    kernel[(4096, )](x, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (4096, ), x, num_ctas=num_ctas)
     assert x.item() == 63
 
 
@@ -1973,7 +1972,7 @@ def test_tensor_atomic_rmw(shape, axis, num_ctas, dtype_x_str, check_return_val,
             return tl.float16
         return None
 
-    kernel[(1, )](z_tri, x_tri, old_tri, axis, shape0, shape1, torch_to_triton_dtype(x_tri.dtype), check_return_val,
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, old_tri, axis, shape0, shape1, torch_to_triton_dtype(x_tri.dtype), check_return_val,
                   num_ctas=num_ctas)
 
     if dtype_x_str == 'bfloat16':
@@ -2011,7 +2010,7 @@ def test_tensor_atomic_add_non_exclusive_offset(size, num_ctas, dtype_x_str, dev
     dtype = getattr(torch, dtype_x_str)
     x = torch.zeros(shape, dtype=dtype, device=device)
     val = torch.randn((size**2), dtype=dtype, device=device)
-    kernel[(1, )](x, val, size, num_warps=1, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), x, val, size, num_warps=1, num_ctas=num_ctas)
     ref = val[0::2] + val[1::2]
     torch.testing.assert_close(ref, x.reshape(math.prod(shape)))
 
@@ -2039,7 +2038,7 @@ def test_tensor_atomic_add_shift_1(size, num_ctas, dtype_x_str, device):
     x = torch.zeros(s, dtype=dtype, device=device)
     ref = torch.flatten(x)
     val = torch.randn(s, dtype=dtype, device=device)
-    kernel[(1, )](x, val, size, num_warps=1, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), x, val, size, num_warps=1, num_ctas=num_ctas)
     val = torch.flatten(val)
     ref[0:size] = val[0:size]
     ref[1:size + 1] += val[size:2 * size]
@@ -2094,7 +2093,7 @@ def test_tensor_atomic_add_access_patterns(shape, idx_order, mask_step, num_ctas
                 dst_ref[i][elem] += val[i][j]
             cnt += 1
 
-    kernel[(1, )](val, idx, dst, shape0, shape1, mask_step, 64, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), val, idx, dst, shape0, shape1, mask_step, 64, num_ctas=num_ctas)
 
     if dtype_x_str == 'bfloat16':
         torch.testing.assert_close(dst_ref, dst, rtol=0.1, atol=0.1)
@@ -2118,7 +2117,7 @@ def test_tensor_atomic_rmw_block(num_ctas, device):
         tl.atomic_min(x, val)
 
     x = torch.ones((8, 8), device=device, dtype=torch.float32)
-    kernel[(2, )](x, shape[0], shape[1], num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (2, ), x, shape[0], shape[1], num_ctas=num_ctas)
     assert torch.min(x).item() == 0.0
 
 
@@ -2139,7 +2138,7 @@ def test_atomic_cas(sem, num_ctas, dtype_str, device):
     torch_dtype = getattr(torch, dtype_str)
     triton_dtype = getattr(tl, dtype_str)
     Lock = torch.zeros((1, ), device=device, dtype=torch_dtype)
-    change_value[(1, )](Lock, triton_dtype)
+    _intj_launch_or_interpret(change_value, (1, ), Lock, triton_dtype)
 
     assert (Lock[0] == 1)
 
@@ -2238,7 +2237,7 @@ def test_tensor_atomic_cas(sem, size, dtype_str, num_ctas, device):
     Y[0::2] = 2
 
     tl_dtype = getattr(tl, dtype_str)
-    change_value[(2, )](X, BLOCK_SIZE=size // 2, sem=sem, dtype=tl_dtype)
+    _intj_launch_or_interpret(change_value, (2, ), X, BLOCK_SIZE=size // 2, sem=sem, dtype=tl_dtype)
     assert torch.equal(X, Y)
 
 
@@ -2280,7 +2279,7 @@ def test_load_scope_sem_coop_grid_cta_one(device):
 
     # Should do nothing different for num_ctas=1 (with coop launch grid)
     kernel_r[(2, )](data, BLOCK_SIZE=block_size, num_ctas=1, launch_cooperative_grid=True)
-    kernel_r[(2, )](data, BLOCK_SIZE=block_size, num_ctas=1, launch_cooperative_grid=False)
+    _intj_launch_or_interpret(kernel_r, (2, ), data, BLOCK_SIZE=block_size, num_ctas=1, launch_cooperative_grid=False)
 
 
 @pytest.mark.interpreter
@@ -2298,7 +2297,7 @@ def test_atomic_min_max_neg_zero(device):
     out_min = torch.full([N_PROG], torch.finfo(torch.float32).max, device=device, dtype=dtype)
     out_max = torch.full([N_PROG], torch.finfo(torch.float32).min, device=device, dtype=dtype)
     inp = torch.full([N_PROG], -0.0, device=device, dtype=dtype)
-    kernel[(N_PROG, )](inp, out_max, out_min)
+    _intj_launch_or_interpret(kernel, (N_PROG, ), inp, out_max, out_min)
     torch.testing.assert_close(out_min, inp, atol=0, rtol=0)
     torch.testing.assert_close(out_max, inp, atol=0, rtol=0)
 
@@ -2315,7 +2314,7 @@ def test_atomic_unsupported_type(dtype_str, device):
     I = torch.zeros((1, ), device=device, dtype=getattr(torch, dtype_str))
     O = torch.zeros((1, ), device=device, dtype=getattr(torch, dtype_str))
     with pytest.raises(triton.TritonError):
-        kernel[(1, )](I, O)
+        _intj_launch_or_interpret(kernel, (1, ), I, O)
 
 
 @pytest.mark.interpreter
@@ -2340,7 +2339,7 @@ def test_tensor_atomic_use_result(dtype_str, size, op, device):
 
     index = torch.arange(0, size, device=device).to(dtype=getattr(torch, dtype_str))
     out = torch.zeros((size, size), device=device, dtype=getattr(torch, dtype_str))
-    kernel[(1, )](index, out, size, op)
+    _intj_launch_or_interpret(kernel, (1, ), index, out, size, op)
     assert (out == 5).all()
 
 
@@ -2438,7 +2437,7 @@ def test_cast(dtype_x, dtype_z, bitcast, size, num_ctas, device):
         z_tri = to_triton(np.empty((size, ), dtype=getattr(np, dtype_z_np)), device=device)
 
     dtype_z_tri = str_to_triton_dtype(dtype_z)
-    kernel[(1, )](x_tri, z_tri, TO_TYPE=dtype_z_tri, BITCAST=bitcast, SIZE=size, ARG_HASH=arg_hash, num_warps=1,
+    _intj_launch_or_interpret(kernel, (1, ), x_tri, z_tri, TO_TYPE=dtype_z_tri, BITCAST=bitcast, SIZE=size, ARG_HASH=arg_hash, num_warps=1,
                   num_ctas=num_ctas)
     # torch result
     if dtype_z.startswith('bfloat') or dtype_x.startswith('bfloat') or dtype_z.startswith(
@@ -2477,7 +2476,7 @@ def test_cat(dtype_str, num_warps, can_reorder, device):
     y = torch.arange(-128, 0, device=device).to(getattr(torch, dtype_str))
     z_ref = torch.cat([x, y], dim=0)
     z = torch.zeros((256, ), dtype=getattr(torch, dtype_str), device=device)
-    kernel[(1, )](x, y, z, N=128, num_warps=num_warps, CAN_REORDER=can_reorder)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, z, N=128, num_warps=num_warps, CAN_REORDER=can_reorder)
     assert z.sum() == z_ref.sum()
     torch.testing.assert_close(z, z_ref, atol=0, rtol=0)
     # check if there's no duplicate value in z
@@ -2556,7 +2555,7 @@ def test_store_constant(num_ctas, dtype_str, constant_field, device):
     ref = torch.ones([block_size], dtype=getattr(torch, dtype_str), device=device)
     output = torch.zeros([block_size], dtype=getattr(torch, dtype_str), device=device)
 
-    kernel[(1, )](output, block_size, BLOCK_SIZE=block_size, num_ctas=num_ctas, CONSTANT_FIELD=constant_field)
+    _intj_launch_or_interpret(kernel, (1, ), output, block_size, BLOCK_SIZE=block_size, num_ctas=num_ctas, CONSTANT_FIELD=constant_field)
 
     if constant_field == "value":
         assert torch.all(output == ref)
@@ -2670,7 +2669,7 @@ def test_join(device):
     y = torch.arange(-128, 0, device=device).to(torch.int32)
     z_ref = torch.stack([x, y], dim=-1)
     z = torch.zeros_like(z_ref)
-    kernel[(1, )](x, y, z, N=128)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, z, N=128)
 
     np.testing.assert_equal(to_numpy(z_ref), to_numpy(z))
 
@@ -2689,7 +2688,7 @@ def test_join_scalars(device):
     x = torch.full([1], 42, device=device).to(torch.int32)
     y = torch.full([1], 100, device=device).to(torch.int32)
     z = torch.zeros([2], device=device)
-    kernel[(1, )](x, y, z)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, z)
 
     np.testing.assert_equal([42, 100], to_numpy(z))
 
@@ -2709,7 +2708,7 @@ def test_join_with_mma(device):
     r = torch.stack([x, 2 * x], dim=-1).reshape((32, 32))
     z_ref = torch.matmul(r, r)
     z = torch.zeros_like(z_ref)
-    kernel[(1, )](x, z)
+    _intj_launch_or_interpret(kernel, (1, ), x, z)
 
     torch.testing.assert_close(z, z_ref)
 
@@ -2727,7 +2726,7 @@ def test_interleave(device, debug):
     y = torch.arange(128, 256, device=device).to(torch.int32)
     z_ref = torch.stack([x, y], dim=-1).reshape(256)
     z = torch.zeros_like(z_ref)
-    kernel[(1, )](z, N=128)
+    _intj_launch_or_interpret(kernel, (1, ), z, N=128)
 
     np.testing.assert_equal(to_numpy(z_ref), to_numpy(z))
 
@@ -2742,7 +2741,7 @@ def test_interleave_scalars(device):
         tl.store(Z + tl.arange(0, 2), z)
 
     z = torch.zeros(2, device=device)
-    kernel[(1, )](10, 20, z)
+    _intj_launch_or_interpret(kernel, (1, ), 10, 20, z)
 
     np.testing.assert_equal([10, 20], to_numpy(z))
 
@@ -2763,7 +2762,7 @@ def test_split(device):
     z1_ref, z2_ref = (x[:, 0], x[:, 1])
     z1 = torch.zeros_like(z1_ref)
     z2 = torch.zeros_like(z2_ref)
-    kernel[(1, )](x, z1, z2, N=256)
+    _intj_launch_or_interpret(kernel, (1, ), x, z1, z2, N=256)
 
     np.testing.assert_equal(to_numpy(z1_ref), to_numpy(z1))
     np.testing.assert_equal(to_numpy(z2_ref), to_numpy(z2))
@@ -2789,7 +2788,7 @@ def test_split_to_scalar(device):
     z1_ref, z2_ref = (x[:, 0], x[:, 1])
     z1 = torch.zeros_like(z1_ref)
     z2 = torch.zeros_like(z2_ref)
-    kernel[(1, )](x, z1, z2)
+    _intj_launch_or_interpret(kernel, (1, ), x, z1, z2)
 
     np.testing.assert_equal(to_numpy(z1_ref), to_numpy(z1))
     np.testing.assert_equal(to_numpy(z2_ref), to_numpy(z2))
@@ -2864,7 +2863,7 @@ def test_max_returns_zero(device):
     x = torch.zeros((BLOCK, ), device=device)
     z = torch.ones((1, ), device=device)
 
-    kernel[(1, )](x, z, BLOCK=BLOCK)
+    _intj_launch_or_interpret(kernel, (1, ), x, z, BLOCK=BLOCK)
     assert z[0] == 0
 
 
@@ -2904,10 +2903,10 @@ def test_max_min_with_nan(device):
 
     y = torch.ones(1, device=device)
 
-    max_kernel[(1, )](x, y, BLOCK_SIZE=BLOCK_SIZE)
+    _intj_launch_or_interpret(max_kernel, (1, ), x, y, BLOCK_SIZE=BLOCK_SIZE)
     assert y[0] == float('inf')
 
-    min_kernel[(1, )](x, y, BLOCK_SIZE=BLOCK_SIZE)
+    _intj_launch_or_interpret(min_kernel, (1, ), x, y, BLOCK_SIZE=BLOCK_SIZE)
     assert y[0] == float('-inf')
 
 
@@ -2942,14 +2941,14 @@ def test_argmax_argmin_with_nan(dtype, device):
     x = torch.tensor([float("nan"), 6.0, 8.0], dtype=dtype, device=device)
     val = torch.empty((), dtype=dtype, device=device)
     idx = torch.empty((), dtype=torch.int32, device=device)
-    argmax_kernel[(1, )](x, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmax_kernel, (1, ), x, val, idx, N=3, BLOCK=4)
     assert val.item() == 8.0, f"expected 8.0, got {val.item()}"
     assert idx.item() == 2, f"expected 2, got {idx.item()}"
 
     # argmin: [nan, 6, 8] -> min=6.0, argmin=1
     val.zero_()
     idx.zero_()
-    argmin_kernel[(1, )](x, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmin_kernel, (1, ), x, val, idx, N=3, BLOCK=4)
     assert val.item() == 6.0, f"expected 6.0, got {val.item()}"
     assert idx.item() == 1, f"expected 1, got {idx.item()}"
 
@@ -2957,7 +2956,7 @@ def test_argmax_argmin_with_nan(dtype, device):
     x_nan_end = torch.tensor([3.0, 5.0, float("nan")], dtype=dtype, device=device)
     val.zero_()
     idx.zero_()
-    argmax_kernel[(1, )](x_nan_end, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmax_kernel, (1, ), x_nan_end, val, idx, N=3, BLOCK=4)
     assert val.item() == 5.0, f"expected 5.0, got {val.item()}"
     assert idx.item() == 1, f"expected 1, got {idx.item()}"
 
@@ -2995,14 +2994,14 @@ def test_argmax_argmin_tie_break_fast_with_nan(dtype, device):
 
     # argmax: [nan, 6, 8] -> max=8.0, argmax=2
     x = torch.tensor([float("nan"), 6.0, 8.0], dtype=dtype, device=device)
-    argmax_fast_kernel[(1, )](x, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmax_fast_kernel, (1, ), x, val, idx, N=3, BLOCK=4)
     assert val.item() == 8.0, f"expected 8.0, got {val.item()}"
     assert idx.item() == 2, f"expected 2, got {idx.item()}"
 
     # argmin: [nan, 6, 8] -> min=6.0, argmin=1
     val.zero_()
     idx.zero_()
-    argmin_fast_kernel[(1, )](x, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmin_fast_kernel, (1, ), x, val, idx, N=3, BLOCK=4)
     assert val.item() == 6.0, f"expected 6.0, got {val.item()}"
     assert idx.item() == 1, f"expected 1, got {idx.item()}"
 
@@ -3010,7 +3009,7 @@ def test_argmax_argmin_tie_break_fast_with_nan(dtype, device):
     x_nan_end = torch.tensor([3.0, 5.0, float("nan")], dtype=dtype, device=device)
     val.zero_()
     idx.zero_()
-    argmax_fast_kernel[(1, )](x_nan_end, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmax_fast_kernel, (1, ), x_nan_end, val, idx, N=3, BLOCK=4)
     assert val.item() == 5.0, f"expected 5.0, got {val.item()}"
     assert idx.item() == 1, f"expected 1, got {idx.item()}"
 
@@ -3018,7 +3017,7 @@ def test_argmax_argmin_tie_break_fast_with_nan(dtype, device):
     x_nan_mid = torch.tensor([3.0, float("nan"), 1.0], dtype=dtype, device=device)
     val.zero_()
     idx.zero_()
-    argmin_fast_kernel[(1, )](x_nan_mid, val, idx, N=3, BLOCK=4)
+    _intj_launch_or_interpret(argmin_fast_kernel, (1, ), x_nan_mid, val, idx, N=3, BLOCK=4)
     assert val.item() == 1.0, f"expected 1.0, got {val.item()}"
     assert idx.item() == 2, f"expected 2, got {idx.item()}"
 
@@ -3105,7 +3104,7 @@ def test_reduce1d(op, dtype_str, shape, num_ctas, device):
         z_ref = numpy_op(x).astype(getattr(np, z_dtype_str))
     # triton result
     z_tri = to_triton(numpy_random((1, ), dtype_str=z_dtype_str), device=device, dst_type=z_tri_dtype_str)
-    kernel[(1, )](x_tri, z_tri, BLOCK=shape, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), x_tri, z_tri, BLOCK=shape, num_ctas=num_ctas)
     z_tri = to_numpy(z_tri)
     # compare
     if op == 'sum' and dtype_str in integral_dtypes:
@@ -3273,11 +3272,11 @@ def test_reduce(op, dtype_str, shape, axis, keep_dims, num_ctas, device):
     USE_I1 = dtype_str == 'bool'
     if axis is not None and axis >= len(shape):
         with pytest.raises(triton.TritonError):
-            kernel[(1, )](x_tri, z_tri, BLOCK_M=shape[0], BLOCK_N=shape[1], BLOCK_K=BLOCK_K, IS_3D=IS_3D, AXIS=axis,
+            _intj_launch_or_interpret(kernel, (1, ), x_tri, z_tri, BLOCK_M=shape[0], BLOCK_N=shape[1], BLOCK_K=BLOCK_K, IS_3D=IS_3D, AXIS=axis,
                           KEEP_DIMS=keep_dims, USE_I1=USE_I1, num_ctas=num_ctas)
         return
     else:
-        kernel[(1, )](x_tri, z_tri, BLOCK_M=shape[0], BLOCK_N=shape[1], BLOCK_K=BLOCK_K, IS_3D=IS_3D, AXIS=axis,
+        _intj_launch_or_interpret(kernel, (1, ), x_tri, z_tri, BLOCK_M=shape[0], BLOCK_N=shape[1], BLOCK_K=BLOCK_K, IS_3D=IS_3D, AXIS=axis,
                       KEEP_DIMS=keep_dims, USE_I1=USE_I1, num_ctas=num_ctas)
 
     z_tri = to_numpy(z_tri)
@@ -3601,7 +3600,7 @@ def test_histogram_silent_data_corruption(device):
     x = torch.ones(1, device=device, dtype=torch.int32)
     z = torch.ones(2, device=device, dtype=torch.int32)
 
-    histogram_kernel[(1, )](x, z)
+    _intj_launch_or_interpret(histogram_kernel, (1, ), x, z)
     assert z[1] == 1, f"Second element shouldn't be affected, expected_buffer=[1, 1], actual_buffer={z}"
 
 
@@ -3619,7 +3618,7 @@ def test_histogram_out_of_range(device):
     x = torch.tensor([0, 1, 2, 3, N, N, N + 1, -1], device=device, dtype=torch.int32)
     z = torch.empty(N, device=device, dtype=torch.int32)
 
-    histogram_kernel[(1, )](x, z, M=x.numel(), N=N)
+    _intj_launch_or_interpret(histogram_kernel, (1, ), x, z, M=x.numel(), N=N)
     expected = torch.tensor([1, 1, 1, 1], device=device, dtype=torch.int32)
     torch.testing.assert_close(z, expected)
 
@@ -3650,7 +3649,7 @@ def test_histogram_mask(M, N, device):
     # https://github.com/pytorch/pytorch/issues/74236
     # This is a workload by converting the input to float
     z_torch = torch.histc(x1.float(), bins=N, min=0, max=N - 1)
-    histogram_kernel[(1, )](x, z, M=M, N=N)
+    _intj_launch_or_interpret(histogram_kernel, (1, ), x, z, M=M, N=N)
     assert (z_torch == z).all()
 
 
@@ -3671,7 +3670,7 @@ def test_histogram_compare_mask(M, N, device):
     x = torch.randint(0, N, (M, ), device=device, dtype=torch.int32)
     out = torch.zeros(N, dtype=torch.int32, device=device)
     ref = torch.histc(x.float(), bins=N, min=0, max=N - 1).to(torch.int32)
-    histogram_kernel[(1, )](x, out, M=M, N=N)
+    _intj_launch_or_interpret(histogram_kernel, (1, ), x, out, M=M, N=N)
     assert (out == ref).all(), f"expected {ref}, got {out}"
 
 
@@ -3757,7 +3756,7 @@ def test_optimize_thread_locality_preserves_rows(device):
 
     x = torch.arange(256, device=device, dtype=torch.float32).repeat(2)
     y = torch.empty(256, device=device)
-    kernel[(1, )](x, y, num_warps=1)
+    _intj_launch_or_interpret(kernel, (1, ), x, y, num_warps=1)
     torch.testing.assert_close(y, 4 * x[:256])
 
 
@@ -3850,7 +3849,7 @@ def test_generic_reduction(device):
     sum0 = torch.empty((), device=device)
     sum1 = torch.empty((), device=device)
 
-    var_mean_kernel[(1, )](x, out_mean, out_var, sum0, sum1, BLOCK=SIZE)
+    _intj_launch_or_interpret(var_mean_kernel, (1, ), x, out_mean, out_var, sum0, sum1, BLOCK=SIZE)
 
     expect_var, expect_mean = torch.var_mean(x, dim=0, correction=0)
     sum_ref = torch.sum(x)
@@ -3936,7 +3935,7 @@ def test_trans_2d(dtype_str, shape, perm, device):
     # Don't do zeros_like -- that copies the layout, which we don't want.
     actual = torch.zeros(expected.shape, dtype=getattr(torch, dtype_str), device=device)
 
-    kernel[(1, )](input, actual, *shape, *[shape[i] for i in perm], *perm)
+    _intj_launch_or_interpret(kernel, (1, ), input, actual, *shape, *[shape[i] for i in perm], *perm)
 
     np.testing.assert_equal(to_numpy(expected), to_numpy(actual))
 
@@ -3972,7 +3971,7 @@ def test_trans_4d(dtype_str, shape, perm, device, with_allocator):
     # Don't do zeros_like -- that copies the layout, which we don't want.
     actual = torch.zeros(expected.shape, dtype=getattr(torch, dtype_str), device=device)
 
-    kernel[(1, )](input, actual, *shape, *[shape[i] for i in perm], *perm, num_warps=8)
+    _intj_launch_or_interpret(kernel, (1, ), input, actual, *shape, *[shape[i] for i in perm], *perm, num_warps=8)
 
     np.testing.assert_equal(to_numpy(expected), to_numpy(actual))
 
@@ -5016,12 +5015,12 @@ def test_full(dtype_str, shape, device):
         'SHAPE': str(list(shape)),
     })
     out_static = torch.zeros((128), dtype=dtype, device=device)
-    kernel_static_patched[(1, )](out_static)
+    _intj_launch_or_interpret(kernel_static_patched, (1, ), out_static)
     assert torch.all(out_static == 2)
 
     kernel_dynamic_patched = patch_kernel(kernel_dynamic, {'SHAPE': str(list(shape))})
     out_dynamic = torch.zeros((128), dtype=dtype, device=device)
-    kernel_dynamic_patched[(1, )](out_dynamic, 2, getattr(triton.language, dtype_str))
+    _intj_launch_or_interpret(kernel_dynamic_patched, (1, ), out_dynamic, 2, getattr(triton.language, dtype_str))
     assert torch.all(out_dynamic == 2)
 
 
@@ -5133,7 +5132,7 @@ def test_dot_without_load(dtype_str, device):
     b = torch.ones((32, 32), dtype=getattr(torch, dtype_str), device=device)
     out_ref = torch.matmul(a, b)
     out = torch.zeros((32, 32), dtype=getattr(torch, dtype_str), device=device)
-    kernel[(1, )](out)
+    _intj_launch_or_interpret(kernel, (1, ), out)
     assert torch.all(out == out_ref)
 
 
@@ -5155,7 +5154,7 @@ def test_arange(start, num_ctas, device):
         val = tl.arange(START, END)
         tl.store(z + off, val)
 
-    _kernel[(1, )](z_tri, START=start, END=start + BLOCK, BLOCK=BLOCK, num_ctas=num_ctas)
+    _intj_launch_or_interpret(_kernel, (1, ), z_tri, START=start, END=start + BLOCK, BLOCK=BLOCK, num_ctas=num_ctas)
     z_ref = torch.arange(start, BLOCK + start, dtype=torch.int32, device=device)
     np.testing.assert_allclose(to_numpy(z_tri), to_numpy(z_ref))
 
@@ -5197,7 +5196,7 @@ def test_masked_load(dtype_str, size, size_diff, other, num_ctas, device):
 
     mask_str = f"mask=in_offsets < in_size, other={other}" if size_diff > 0 else "None"
     kernel = patch_kernel(_kernel, {'GENERATE_TEST_HERE': f"tl.load(in_ptr + in_offsets, {mask_str})"})
-    kernel[(1, )](input, output, input_size, output_size, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), input, output, input_size, output_size, num_ctas=num_ctas)
 
     reference_out = torch.cat((input, torch.full((size_diff, ), other, dtype=dtype, device=device)))
     torch.testing.assert_close(output, reference_out)
@@ -5220,7 +5219,7 @@ def test_masked_load_scalar(num_ctas, mask_val, other_val, device):
         x = tl.load(in_ptr + offsets, mask=mask, other=other)
         tl.store(out_ptr + offsets, x)
 
-    kernel[(1, )](input, output, size, mask_val, other_val, num_ctas=num_ctas)
+    _intj_launch_or_interpret(kernel, (1, ), input, output, size, mask_val, other_val, num_ctas=num_ctas)
 
     if mask_val:
         reference_out = torch.full((size, ), input_val, dtype=dtype, device=device)
@@ -5268,7 +5267,7 @@ def test_masked_load_shared_memory(dtype, device):
         output_offsets = M_offsets[:, None] * out_stride + N_offsets[None, :]
         tl.store(output_ptr + output_offsets, o, mask=output_offsets < M * N)
 
-    pgm = _kernel[(1, )](in1, in2, out, in1.stride()[0], in2.stride()[0], out.stride()[0], in1.numel(), in2.numel(),
+    pgm = _intj_launch_or_interpret(_kernel, (1, ), in1, in2, out, in1.stride()[0], in2.stride()[0], out.stride()[0], in1.numel(), in2.numel(),
                          out.numel(), M=M, N=N, K=K)
 
     reference_out = torch.matmul(in1, in2)
@@ -5598,11 +5597,11 @@ def test_default(device):
         tl.store(ret0, _impl())
         tl.store(ret1, _impl(value))
 
-    _kernel[(1, )](ret0, ret1, value)
+    _intj_launch_or_interpret(_kernel, (1, ), ret0, ret1, value)
     assert ret0.item() == 10
     assert ret1.item() == value
 
-    _kernel[(1, )](ret0, ret1)
+    _intj_launch_or_interpret(_kernel, (1, ), ret0, ret1)
     assert ret0.item() == 10
     assert ret1.item() == 3
 
@@ -5737,7 +5736,7 @@ def test_bin_op_constexpr(op, is_lhs_constexpr, is_rhs_constexpr, device):
     x_tri = to_triton(x, device=device)
     y_tri = to_triton(y, device=device)
     z_tri = to_triton(np.empty((1, ), dtype=z.dtype), device=device)
-    kernel[(1, )](z_tri, x_tri, y_tri)
+    _intj_launch_or_interpret(kernel, (1, ), z_tri, x_tri, y_tri)
     np.testing.assert_allclose(z, to_numpy(z_tri), rtol=1e-3)
 
 
@@ -5750,7 +5749,7 @@ def test_constexpr_shape(device):
         tl.store(X + off, off)
 
     x_tri = to_triton(np.empty((256, ), dtype=np.int32), device=device)
-    kernel[(1, )](x_tri)
+    _intj_launch_or_interpret(kernel, (1, ), x_tri)
     np.testing.assert_equal(to_numpy(x_tri), np.arange(0, 256))
 
 
@@ -5764,7 +5763,7 @@ def test_constexpr_scalar_shape(device):
         tl.store(X + off, val)
 
     x_tri = to_triton(np.empty((256, ), dtype=np.int32), device=device)
-    kernel[(1, )](x_tri, 32)
+    _intj_launch_or_interpret(kernel, (1, ), x_tri, 32)
     np.testing.assert_equal(to_numpy(x_tri), np.arange(0, 256) % 8)
 
 
@@ -5822,7 +5821,7 @@ def test_tma_load_block_shape_err(device):
     input = torch.empty((128, 128), dtype=torch.int32, device=device)
     errc = triton.CompilationError if not is_interpreter() else InterpreterError
     with pytest.raises(errc) as e:
-        kernel[(1, )](input)
+        _intj_launch_or_interpret(kernel, (1, ), input)
 
     assert "Descriptor block shape must have at least 16 bytes" in str(e.value.__cause__)
 
@@ -5838,7 +5837,7 @@ def test_tma_store_block_shape_err(device):
     input = torch.empty((128, 128), dtype=torch.int16, device=device)
     errc = triton.CompilationError if not is_interpreter() else InterpreterError
     with pytest.raises(errc) as e:
-        kernel[(1, )](input)
+        _intj_launch_or_interpret(kernel, (1, ), input)
 
     assert "Descriptor block shape must have at least 16 bytes" in str(e.value.__cause__)
 
@@ -5887,7 +5886,7 @@ def test_call(type, num_ctas, device):
     rand_val_tri = to_triton(rand_val, device=device)
     err_msg = ""
     try:
-        kernel[(size // 128, )](rand_val_tri, size, 3, 5, type, num_ctas=num_ctas)
+        _intj_launch_or_interpret(kernel, (size // 128, ), rand_val_tri, size, 3, 5, type, num_ctas=num_ctas)
     except Exception as e:
         err_msg = str(e)
 
@@ -5945,7 +5944,7 @@ def test_if(if_type, device):
     x_false = torch.tensor([1.51], dtype=torch.float32, device=device)
     ret = torch.zeros(1, dtype=torch.float32, device=device)
 
-    kernel[(1, )](cond, x_true, x_false, ret, if_type, True, 1)
+    _intj_launch_or_interpret(kernel, (1, ), cond, x_true, x_false, ret, if_type, True, 1)
     assert torch.equal(ret, x_true)
 
 
@@ -6310,11 +6309,11 @@ def test_if_else(device):
     cond = to_triton(np.zeros((1, ), dtype=np.int32), device=device)
     # True
     cond[0] = True
-    kernel[(1, )](cond, true_val, false_val, out)
+    _intj_launch_or_interpret(kernel, (1, ), cond, true_val, false_val, out)
     assert to_numpy(out)[0] == true_val[0]
     # False
     cond[0] = False
-    kernel[(1, )](cond, true_val, false_val, out)
+    _intj_launch_or_interpret(kernel, (1, ), cond, true_val, false_val, out)
     assert to_numpy(out)[0] == false_val[0]
 
 
@@ -6338,11 +6337,11 @@ def test_if_return(mode, device):
     exit_early = to_triton(np.zeros((1, ), dtype=np.int32), device=device)
     # exit early path taken
     exit_early[0] = 1
-    kernel[(1, )](exit_early, out, True, mode)
+    _intj_launch_or_interpret(kernel, (1, ), exit_early, out, True, mode)
     assert to_numpy(out)[0] == 0
     # exit early path not taken
     exit_early[0] = 0
-    kernel[(1, )](exit_early, out, False, mode)
+    _intj_launch_or_interpret(kernel, (1, ), exit_early, out, False, mode)
     assert to_numpy(out)[0] == 1
 
 
@@ -6442,7 +6441,7 @@ def test_if_call(call_type, device):
         tl.store(Out, o)
 
     out = to_triton(np.zeros((1, ), dtype=np.int32), device=device)
-    kernel[(1, )](out, call_type)
+    _intj_launch_or_interpret(kernel, (1, ), out, call_type)
     assert to_numpy(out)[0] == 1
 
 
@@ -6474,7 +6473,7 @@ def test_nested_if_else_return(_cond1, _cond2, _cond3, device):
     val1 = to_triton(np.full((1, ), 1, dtype=np.int32), device=device)
     val2 = to_triton(np.full((1, ), 2, dtype=np.int32), device=device)
     val3 = to_triton(np.full((1, ), 3, dtype=np.int32), device=device)
-    kernel[(1, )](cond1, cond2, cond3, val1, val2, val3, out)
+    _intj_launch_or_interpret(kernel, (1, ), cond1, cond2, cond3, val1, val2, val3, out)
     targets = {
         (True, True, True): val1[0],
         (True, True, False): val1[0],
@@ -6510,7 +6509,7 @@ def test_while(device):
     out_init_i = to_triton(np.full((1, ), 0, dtype=np.int32), device=device)
     bound = to_triton(np.full((1, ), 10, dtype=np.int32), device=device)
     cut_off = to_triton(np.full((1, ), 5, dtype=np.int32), device=device)
-    kernel[(1, )](init_i, bound, cut_off, out_i, out_init_i, out_j)
+    _intj_launch_or_interpret(kernel, (1, ), init_i, bound, cut_off, out_i, out_init_i, out_j)
     assert out_init_i[0] == init_i[0]
     assert out_i[0] == init_i[0] + 1
     assert out_j[0] == bound[0]
@@ -6528,7 +6527,7 @@ def test_while_condition(n, device):
         tl.store(Out, i)
 
     out = torch.full((1, ), -1, dtype=torch.int32, device=device)
-    kernel[(1, )](out, n)
+    _intj_launch_or_interpret(kernel, (1, ), out, n)
     assert out.item() == n
     assert "__bool__" not in tl.condition.__dict__
 
@@ -6546,7 +6545,7 @@ def test_nested_while(device):
 
     counter = torch.tensor([8], dtype=torch.int32, device=device)
     data = torch.zeros((1, ), device=device, dtype=torch.float32)
-    nested_while[(1, )](data, counter)
+    _intj_launch_or_interpret(nested_while, (1, ), data, counter)
     assert data[0] == 40
 
 
@@ -6730,7 +6729,7 @@ def test_load_scalar_with_mask(device):
     Index = torch.tensor([0], dtype=torch.int32, device=device)
     Input = torch.tensor([0], dtype=torch.int32, device=device)
     Out = torch.empty_like(Index, device=device)
-    kernel[(1, )](Input, Index, Out, Index.numel())
+    _intj_launch_or_interpret(kernel, (1, ), Input, Index, Out, Index.numel())
     assert Out.data[0] == 0
 
 
@@ -7030,7 +7029,7 @@ def test_propagate_nan(dtype, propagate_nan, func, device):
         B = torch.randn((1, ), device=device, dtype=getattr(torch, dtype))
         if mode == 'B' or mode == 'both': B[0] = torch.nan
         C = torch.zeros_like(A, device=device, dtype=getattr(torch, dtype))
-        kernel[(1, )](A, B, C, propagate_nan, func)
+        _intj_launch_or_interpret(kernel, (1, ), A, B, C, propagate_nan, func)
 
         if mode == 'both' or propagate_nan == 'ALL':
             assert torch.isnan(C[0])
@@ -7072,7 +7071,7 @@ def test_clamp(dtype, device):
     out = torch.zeros_like(x, device=device, dtype=getattr(torch, dtype))
     ref = torch.zeros_like(x, device=device, dtype=getattr(torch, dtype))
 
-    kernel[(size, )](x, _min, _max, out, ref, x.numel(), BLOCK_SIZE=size)
+    _intj_launch_or_interpret(kernel, (size, ), x, _min, _max, out, ref, x.numel(), BLOCK_SIZE=size)
 
     torch.testing.assert_close(out, ref)
 
@@ -7105,7 +7104,7 @@ def test_clamp_symmetric(dtype, device):
     out = torch.zeros_like(x, device=device, dtype=getattr(torch, dtype))
     ref = torch.zeros_like(x, device=device, dtype=getattr(torch, dtype))
 
-    kernel[(size, )](x, limit, out, ref, x.numel(), BLOCK_SIZE=size)
+    _intj_launch_or_interpret(kernel, (size, ), x, limit, out, ref, x.numel(), BLOCK_SIZE=size)
 
     torch.testing.assert_close(out, ref)
 
@@ -7128,7 +7127,7 @@ def test_static_range(device):
     N = 100
     step = 7
     Out = torch.empty(1, dtype=torch.int32, device=device)
-    loop_kernel[(1, )](Out, N, step)
+    _intj_launch_or_interpret(loop_kernel, (1, ), Out, N, step)
     Acc = torch.tensor([0], dtype=torch.int32, device=device)
     for i in range(0, N, step):
         Acc += i
@@ -7351,7 +7350,7 @@ def test_temp_var_in_loop(device):
     N = 10
     BLOCK = 32
     out = torch.empty((BLOCK, ), dtype=torch.int32, device=device)
-    temp_in_loop[(1, )](out, N, BLOCK)
+    _intj_launch_or_interpret(temp_in_loop, (1, ), out, N, BLOCK)
     acc = torch.full((BLOCK, ), 0, dtype=torch.int32, device=device)
     for i in range(N):
         if i == 0:
@@ -7379,7 +7378,7 @@ def test_num_programs(device):
         tl.store(input + 1, num_programs_1)
         tl.store(input + 2, num_programs_2)
 
-    kernel[grid](input)
+    _intj_launch_or_interpret(kernel, grid, input)
     assert torch.all(input == torch.tensor(grid, device=device))
 
 
@@ -7474,7 +7473,7 @@ def test_dtype(device):
         tl.static_assert(dtype_x == tl.int8 or (dtype_x == tl.int16 or dtype_x == tl.int32))
 
     X = torch.empty(1, dtype=torch.int32, device=device)
-    kernel[(1, )](X)
+    _intj_launch_or_interpret(kernel, (1, ), X)
 
 
 def test_side_effectful_scan(device):
@@ -7649,7 +7648,7 @@ def test_zero_strided_tensors(device):
     a, b, c = x.shape
     grid = (a, b, c)
     with torch.cuda.device(x.device.index):
-        _simple_add[grid](x, x.stride(0), x.stride(1))
+        _intj_launch_or_interpret(_simple_add, grid, x, x.stride(0), x.stride(1))
 
     assert torch.allclose(x, torch.ones_like(x) * c_dim)
 
@@ -7662,7 +7661,7 @@ def test_aliasing(device):
         triton.language.store(buffer, 1)
 
     buffer = torch.zeros(1, device=device)
-    aliasing_kernel[(1, )](buffer, buffer)
+    _intj_launch_or_interpret(aliasing_kernel, (1, ), buffer, buffer)
     assert buffer[0] == 1
 
 
@@ -7684,7 +7683,7 @@ def test_strided_load(dtype, device):
     x = numpy_random(SIZE, dtype_str=dtype)
     x_tri = to_triton(x, device)
     out_tri = torch.empty(OUT_SIZE, device=device)
-    take_every_second_element[(1, 1)](x_tri, out_tri, OUT_SIZE)
+    _intj_launch_or_interpret(take_every_second_element, (1, 1), x_tri, out_tri, OUT_SIZE)
 
     # Test that every second element (starting from [0]) from x is stored in out_tri
     np.testing.assert_allclose(x[::2], to_numpy(out_tri))
@@ -7708,7 +7707,7 @@ def test_strided_store(dtype, device):
     x = numpy_random(SIZE, dtype_str=dtype)
     x_tri = to_triton(x, device)
     out_tri = torch.zeros(OUT_SIZE, device=device)
-    store_into_every_second[(1, 1)](x_tri, out_tri, SIZE)
+    _intj_launch_or_interpret(store_into_every_second, (1, 1), x_tri, out_tri, SIZE)
 
     # Test that every second element (starting from [0]) is the same as in x
     np.testing.assert_allclose(x, to_numpy(out_tri)[::2])
@@ -7733,7 +7732,7 @@ def test_indirect_load(dtype, device):
     # Flip the range to load the tensor in reverse order
     ptr = torch.arange(SIZE, device=device, dtype=torch.int32).flip(0)
     out_tri = torch.empty(SIZE, device=device)
-    indirect_load[(1, 1)](ptr, x_tri, out_tri, SIZE)
+    _intj_launch_or_interpret(indirect_load, (1, 1), ptr, x_tri, out_tri, SIZE)
 
     np.testing.assert_allclose(np.flip(x), to_numpy(out_tri))
 
@@ -7755,7 +7754,7 @@ def test_indirect_store(dtype, device):
     # Flip the range to store the tensor in reverse order
     ptr = torch.arange(SIZE, device=device, dtype=torch.int32).flip(0)
     out_tri = torch.empty(SIZE, device=device)
-    indirect_store[(1, 1)](ptr, x_tri, out_tri, SIZE)
+    _intj_launch_or_interpret(indirect_store, (1, 1), ptr, x_tri, out_tri, SIZE)
 
     np.testing.assert_allclose(np.flip(x), to_numpy(out_tri))
 
@@ -7769,7 +7768,7 @@ def test_dtype_tensor(device, dtype):
     def dtype_tensor_kernel(dtype: tl.constexpr):
         tensor = tl.zeros((1, ), dtype)
 
-    dtype_tensor_kernel[(1, )](dtype)
+    _intj_launch_or_interpret(dtype_tensor_kernel, (1, ), dtype)
 
 
 @pytest.mark.interpreter
@@ -7782,7 +7781,7 @@ def test_short_circuiting(device):
             tl.store(x, 42)
 
     def f(x):
-        short_circuiting_kernel[(1, )](x, num_warps=1)
+        _intj_launch_or_interpret(short_circuiting_kernel, (1, ), x, num_warps=1)
 
     f(None)  # should succeed with NoneType
     f(1)  # should succeed with tl.constexpr type
@@ -7818,7 +7817,7 @@ def test_unsplat(device):
 
     def g(y, explicit):
         x = torch.full((1, ), y, device=device, dtype=torch.int32)
-        unsplat_kernel[(1, )](x, explicit, num_warps=1)
+        _intj_launch_or_interpret(unsplat_kernel, (1, ), x, explicit, num_warps=1)
         return x.item()
 
     assert g(41, False) == 41
@@ -7854,7 +7853,7 @@ def test_scan_dtype(op, in_dtype, dtype, member, device):
     torch_dtype = torch.bool if in_dtype == tl.int1 else getattr(torch, in_dtype.name)
     x = torch.full((4, ), value, dtype=torch_dtype, device=device)
     z = torch.empty(4, dtype=torch.int64, device=device)
-    kernel[(1, )](x, z, op, dtype, member, expected_dtype)
+    _intj_launch_or_interpret(kernel, (1, ), x, z, op, dtype, member, expected_dtype)
     expected = getattr(np, op)(np.full(4, value, dtype=np.int64))
     if expected_dtype == tl.int8:
         expected = expected.astype(np.int8).astype(np.int64)
@@ -7870,7 +7869,7 @@ def test_tensor_member(device):
         tl.device_assert(tl.abs(x) == x.abs())
         tl.device_assert(tl.sum(x) == x.sum())
 
-    kernel[(1, )]()
+    _intj_launch_or_interpret(kernel, (1, ))
 
 
 @pytest.mark.interpreter
