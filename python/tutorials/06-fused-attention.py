@@ -19,6 +19,7 @@ import os
 
 import triton
 import triton.language as tl
+from intj import make_launcher
 from triton.tools.tensor_descriptor import TensorDescriptor
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
@@ -264,6 +265,9 @@ def _attn_bwd_preprocess(O, DO,  #
     tl.store(Delta + off_hz * N_CTX + off_m, delta)
 
 
+_attn_bwd_preprocess_launcher = make_launcher(_attn_bwd_preprocess, grid_arg=2)
+
+
 # The main inner-loop logic for computing dK and dV.
 @triton.jit
 def _attn_bwd_dkdv(dk, dv,  #
@@ -502,6 +506,9 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     tl.store(dq_ptrs, dq)
 
 
+_attn_bwd_launcher = make_launcher(_attn_bwd, grid_arg=3, options={"num_warps": 4, "num_stages": 5})
+
+
 class _attention(torch.autograd.Function):
 
     @staticmethod
@@ -584,7 +591,6 @@ class _attention(torch.autograd.Function):
         dv = torch.empty_like(v)
         BATCH, N_HEAD, N_CTX = q.shape[:3]
         PRE_BLOCK = 128
-        NUM_WARPS, NUM_STAGES = 4, 5
         BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2 = 32, 128, 128, 32
         BLK_SLICE_FACTOR = 2
         RCP_LN2 = 1.4426950408889634  # = 1.0 / ln(2)
@@ -594,25 +600,22 @@ class _attention(torch.autograd.Function):
         assert N_CTX % PRE_BLOCK == 0
         pre_grid = (N_CTX // PRE_BLOCK, BATCH * N_HEAD)
         delta = torch.empty_like(M)
-        _attn_bwd_preprocess[pre_grid](
+        device = torch.cuda.current_device()
+        stream = torch.cuda.current_stream().cuda_stream
+        _attn_bwd_preprocess_launcher(device, stream, *pre_grid,
             o, do,  #
             delta,  #
             BATCH, N_HEAD, N_CTX,  #
-            BLOCK_M=PRE_BLOCK, HEAD_DIM=ctx.HEAD_DIM  #
+            PRE_BLOCK, ctx.HEAD_DIM  #
         )
         grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
-        _attn_bwd[grid](
+        _attn_bwd_launcher(device, stream, *grid,
             q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
             M, delta,  #
             q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
             N_HEAD, N_CTX,  #
-            BLOCK_M1=BLOCK_M1, BLOCK_N1=BLOCK_N1,  #
-            BLOCK_M2=BLOCK_M2, BLOCK_N2=BLOCK_N2,  #
-            BLK_SLICE_FACTOR=BLK_SLICE_FACTOR,  #
-            HEAD_DIM=ctx.HEAD_DIM,  #
-            num_warps=NUM_WARPS,  #
-            num_stages=NUM_STAGES,  #
-            CAUSAL=ctx.causal,  #
+            BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2,  #
+            BLK_SLICE_FACTOR, ctx.HEAD_DIM, ctx.causal,  #
         )
 
         return dq, dk, dv, None, None, None, None

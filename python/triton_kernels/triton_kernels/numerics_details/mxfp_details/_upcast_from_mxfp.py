@@ -82,16 +82,17 @@ def _upcast_mxfp4_values(tensor, dst_dtype: tl.constexpr):
 
 @triton.jit
 def upcast_mxfp4_tile(tensor, scale, dst_dtype: tl.constexpr):
+    BLOCK_SIZE: tl.constexpr = 32  # OCP MXFP block size.
     tl.static_assert(len(tensor.shape) == 2)
     tl.static_assert(len(scale.shape) == 2)
     tl.static_assert(tensor.dtype == tl.uint8)
     tl.static_assert(scale.dtype == tl.uint8)
     tl.static_assert(tensor.shape[0] == scale.shape[0])
-    tl.static_assert(tensor.shape[1] * 2 == scale.shape[1] * MXFP_BLOCK_SIZE)
+    tl.static_assert(tensor.shape[1] * 2 == scale.shape[1] * BLOCK_SIZE)
 
     dst_scale = upcast_ue8m0_scale(scale, dst_dtype, handle_nan=False)
     dst_tensor = _upcast_mxfp4_values(tensor, dst_dtype)
-    dst_tensor = dst_tensor.reshape([tensor.shape[0], scale.shape[1], MXFP_BLOCK_SIZE])
+    dst_tensor = dst_tensor.reshape([tensor.shape[0], scale.shape[1], BLOCK_SIZE])
     dst_scale = dst_scale.reshape([scale.shape[0], scale.shape[1], 1])
     scale = scale.reshape(dst_scale.shape)
     out_tensor = dst_tensor * dst_scale

@@ -1,5 +1,6 @@
 # fmt: off
 
+from intj.compat import launch as _intj_launch
 import numpy as np
 import pytest
 import torch
@@ -50,7 +51,7 @@ def test_math_extern(dtype_str, direct_import):
     x = torch.randn((100,), dtype=getattr(torch, dtype_str), device="cuda")
 
     y_tri = torch.empty_like(x)
-    tanh_kernel[(1, )](x, y_tri, x.shape[0], direct_import, BLOCK_SIZE=128)
+    _intj_launch(tanh_kernel, (1, ), x, y_tri, x.shape[0], direct_import, BLOCK_SIZE=128)
 
     y_ref = torch.tanh(x)
     np.testing.assert_allclose(y_ref.cpu().numpy(), y_tri.cpu().numpy(), rtol=0, atol=1.0e-6)
@@ -180,7 +181,7 @@ def test_fpsan_libdevice_unary_equivalence(op, fresh_knobs):
     builtin = torch.empty_like(x)
     external = torch.empty_like(x)
 
-    builtin_libdevice_unary_kernel[(triton.cdiv(n_elements, block_size),)](
+    _intj_launch(builtin_libdevice_unary_kernel, (triton.cdiv(n_elements, block_size),),
         triton.TensorWrapper(x, dtype=torch.float32),
         triton.TensorWrapper(builtin, dtype=torch.float32),
         triton.TensorWrapper(external, dtype=torch.float32),
@@ -205,7 +206,7 @@ def test_fpsan_libdevice_div_rn_equivalence(fresh_knobs):
     builtin = torch.empty_like(inputs[0])
     external = torch.empty_like(inputs[0])
 
-    builtin_libdevice_div_rn_kernel[(triton.cdiv(n_elements, block_size),)](
+    _intj_launch(builtin_libdevice_div_rn_kernel, (triton.cdiv(n_elements, block_size),),
         *(triton.TensorWrapper(value, dtype=torch.float32) for value in inputs),
         triton.TensorWrapper(builtin, dtype=torch.float32),
         triton.TensorWrapper(external, dtype=torch.float32),
@@ -229,7 +230,7 @@ def test_fpsan_libdevice_fma_equivalence(fresh_knobs):
     builtin = torch.empty_like(inputs[0])
     external = torch.empty_like(inputs[0])
 
-    builtin_libdevice_fma_kernel[(triton.cdiv(n_elements, block_size),)](
+    _intj_launch(builtin_libdevice_fma_kernel, (triton.cdiv(n_elements, block_size),),
         *(triton.TensorWrapper(value, dtype=torch.float32) for value in inputs),
         triton.TensorWrapper(builtin, dtype=torch.float32),
         triton.TensorWrapper(external, dtype=torch.float32),
@@ -254,7 +255,7 @@ def test_fpsan_distinguishes_approximate_libdevice(op, fresh_knobs):
     builtin = torch.empty_like(x)
     external = torch.empty_like(x)
 
-    builtin_libdevice_unary_kernel[(triton.cdiv(n_elements, block_size),)](
+    _intj_launch(builtin_libdevice_unary_kernel, (triton.cdiv(n_elements, block_size),),
         triton.TensorWrapper(x, dtype=torch.float32),
         triton.TensorWrapper(builtin, dtype=torch.float32),
         triton.TensorWrapper(external, dtype=torch.float32),

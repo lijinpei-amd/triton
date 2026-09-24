@@ -103,6 +103,7 @@ fused-copy reference.  Hinted and unhinted `async_load`s stay as separate
 copies; explicit fused copies are covered below.
 """
 
+from intj.compat import launch as _intj_launch
 import re
 
 import pytest
@@ -731,7 +732,7 @@ def test_runtime_vector_add_tdm(BLOCK_M, BLOCK_N, HINT_A, HINT_B):
     c = torch.empty((M, N), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N))
-    vector_add_tdm_kernel[grid](
+    _intj_launch(vector_add_tdm_kernel, grid,
         a,
         b,
         c,
@@ -763,7 +764,7 @@ def test_runtime_vector_add_tdm_explicit_fused(BLOCK_M, BLOCK_N):
     c = torch.empty((M, N), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N))
-    vector_add_tdm_explicit_fused_kernel[grid](
+    _intj_launch(vector_add_tdm_explicit_fused_kernel, grid,
         a,
         b,
         c,
@@ -836,7 +837,7 @@ def test_runtime_update_clamp_bounds(BLOCK_M, BLOCK_N):
     src = src_cpu.cuda()
     c = torch.empty((BLOCK_M, BLOCK_N), dtype=torch.int32, device="cuda")
 
-    update_clamp_bounds_kernel[(1, )](src, c, LOG_M, N, OFF_M, BLOCK_M, BLOCK_N, num_warps=NUM_WARPS)
+    _intj_launch(update_clamp_bounds_kernel, (1, ), src, c, LOG_M, N, OFF_M, BLOCK_M, BLOCK_N, num_warps=NUM_WARPS)
 
     valid = LOG_M - OFF_M
     expected = torch.zeros((BLOCK_M, BLOCK_N), dtype=torch.int32)

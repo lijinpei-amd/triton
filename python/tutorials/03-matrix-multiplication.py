@@ -149,6 +149,7 @@ You will specifically learn about:
 # Final Result
 # ------------
 
+from intj.compat import launch as _intj_launch
 import torch
 
 import triton
@@ -341,7 +342,7 @@ def matmul(a, b, activation=""):
     c = torch.empty((M, N), device=a.device, dtype=torch.float16)
     # 1D launch kernel where each block gets its own program.
     grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), )
-    matmul_kernel[grid](
+    _intj_launch(matmul_kernel, grid,
         a, b, c,  #
         M, N, K,  #
         a.stride(0), a.stride(1),  #

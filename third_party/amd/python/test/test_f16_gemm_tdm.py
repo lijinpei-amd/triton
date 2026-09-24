@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 
@@ -77,7 +78,7 @@ def _run_kernel(x, y, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, use_tdm='device'):
         c_desc = TensorDescriptor.from_tensor(z, (BLOCK_M, BLOCK_N))
         gemm_host_tdm_kernel[grid](a_desc, b_desc, c_desc, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K)
     else:  # use_tdm == 'device'
-        gemm_device_tdm_kernel[grid](x, y, z, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K)
+        _intj_launch(gemm_device_tdm_kernel, grid, x, y, z, M, N, K, BLOCK_M, BLOCK_N, BLOCK_K)
     return z
 
 

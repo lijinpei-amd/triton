@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import torch
 from .compaction_details._masked_compaction import _masked_compaction
 from .tensor import Tensor
@@ -35,7 +36,7 @@ def compaction(yv, yi, bitmask, sentinel=-1):
     if isinstance(bitmask, Tensor):
         bitmask = bitmask.storage.data
 
-    _masked_compaction[(n_rows, )](
+    _intj_launch(_masked_compaction, (n_rows, ),
         yv, yi, bitmask, bitmask.stride(0), bitmask.stride(1),  # inputs
         ret_yv, ret_yi,  # outputs
         sentinel,  # sentinel

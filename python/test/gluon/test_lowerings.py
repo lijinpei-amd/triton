@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 import torch
 import pytest
@@ -217,7 +218,7 @@ def test_atomic_poll_two_ctas(warp_specialize, device):
     flag = torch.zeros((1, ), device=device, dtype=torch.int32)
     out = torch.full((1, ), -1, device=device, dtype=torch.int32)
 
-    kernel[(2, )](payload, flag, out, warp_specialize, num_warps=4)
+    _intj_launch(kernel, (2, ), payload, flag, out, warp_specialize, num_warps=4)
 
     assert out.item() == 42
 
@@ -317,7 +318,7 @@ def test_convert_layout_overlapping_identity_dims(src_warp, dst_warp, device):
 
     x = torch.arange(256, dtype=torch.int32, device=device)
     y = torch.empty_like(x)
-    kernel[(1, )](x, y, src_warp, dst_warp, num_warps=4)
+    _intj_launch(kernel, (1, ), x, y, src_warp, dst_warp, num_warps=4)
     torch.testing.assert_close(y, x, rtol=0, atol=0)
 
 

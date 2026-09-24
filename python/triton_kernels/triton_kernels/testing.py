@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import enum
 import functools
 import os
@@ -237,7 +238,7 @@ def _make_random_block_signs(x, batch_size, rows, cols, row_blocks, col_blocks, 
         generator = torch.cuda.default_generators[index]
         seed, offset = generator.initial_seed(), generator.get_offset()
 
-    _random_block_signs[(triton.cdiv(signs.numel(), 512), )](signs, seed, offset, rows, cols, row_blocks, col_blocks,
+    _intj_launch(_random_block_signs, (triton.cdiv(signs.numel(), 512), ), signs, seed, offset, rows, cols, row_blocks, col_blocks,
                                                              block_size, signs.numel(), TILE_SIZE=512)
     if not warming:
         generator.set_offset(offset + 4 * batch_size * row_blocks * col_blocks)

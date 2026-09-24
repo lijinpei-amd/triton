@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import numpy as np
 import pytest
 import scipy.stats
@@ -204,10 +205,10 @@ def test_seed_is_int(device):
     x = torch.empty(1, dtype=torch.float32, device=device)
     with pytest.raises(triton.compiler.errors.CompilationError):
         seed0 = torch.zeros(1, dtype=torch.int32, device=device)
-        kernel[(1, )](x, seed0)
+        _intj_launch(kernel, (1, ), x, seed0)
     with pytest.raises(triton.compiler.errors.CompilationError):
         seed1 = 2.3
-        kernel[(1, )](x, seed1)
+        _intj_launch(kernel, (1, ), x, seed1)
 
 
 # test normal PRNG

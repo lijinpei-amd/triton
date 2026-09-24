@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 from types import SimpleNamespace
 
 import pytest
@@ -130,7 +131,7 @@ def test_matmul_hopper_mxfp4_rhs_packed_n_padding(device, n):
     # packed space. The generic kernel must ceil-divide before padding and wrap
     # using that padded packed width.
     packed_n = torch.empty((1, ), dtype=torch.int32, device=device)
-    _hopper_rhs_packed_n_extent[(1, )](packed_n, n)
+    _intj_launch(_hopper_rhs_packed_n_extent, (1, ), packed_n, n)
     assert packed_n.item() == 128
 
     m, k = 64, 2048

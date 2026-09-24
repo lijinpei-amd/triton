@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 import pytest
 from triton_kernels.tensor import wrap_torch_tensor, convert_layout, empty, FP4
@@ -353,11 +354,11 @@ def test_mxfp4_scale_zero_sized_roundtrip(shape, mx_axis, num_warps, device):
 
 
 @triton.jit
-def _gather_scale(S, Rows, Cols, Out, STRIDES: tl.constexpr):
+def _gather_scale(S, Rows, Cols, Out, STRIDE0: tl.constexpr, STRIDE1: tl.constexpr):
     i = tl.arange(0, 4)
     rows = tl.load(Rows + i)
     cols = tl.load(Cols + i)
-    ptrs = hopper_scale.swizzle_mx_scale_hopper_ptr(S, rows, cols, *STRIDES, 4)
+    ptrs = hopper_scale.swizzle_mx_scale_hopper_ptr(S, rows, cols, STRIDE0, STRIDE1, 4)
     tl.store(Out + i, tl.load(ptrs))
 
 
@@ -367,7 +368,7 @@ def test_scale_ptr_gather(device):
     rows, cols = torch.tensor([[130, 0, 65, 31], [8, 1, 5, 0]], device=device)
     gathered = torch.empty(4, dtype=torch.uint8, device=device)
 
-    _gather_scale[(1, )](packed, rows, cols, gathered, packed.stride())
+    _intj_launch(_gather_scale, (1, ), packed, rows, cols, gathered, packed.stride(0), packed.stride(1))
 
     assert torch.equal(gathered, data[rows, cols])
 

@@ -25,6 +25,7 @@ import torch
 
 import triton
 import triton.language as tl
+from intj import make_launcher
 from triton.runtime import driver
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
@@ -119,6 +120,10 @@ SIZE_SMEM = properties["max_shared_mem"]
 WARP_SIZE = properties["warpSize"]
 target = triton.runtime.driver.active.get_current_target()
 kernels = {}
+SOFTMAX_NUM_WARPS = 8
+SOFTMAX_NUM_STAGES = 4 if SIZE_SMEM > 200000 else 2
+_softmax_launcher = make_launcher(softmax_kernel, grid_arg=3,
+                                  options={"num_warps": SOFTMAX_NUM_WARPS, "num_stages": SOFTMAX_NUM_STAGES})
 
 
 def softmax(x):
@@ -131,10 +136,10 @@ def softmax(x):
     # increasing the number of warps (`num_warps`) over which each row is distributed.
     # You will see in the next tutorial how to auto-tune this value in a more natural
     # way so you don't have to come up with manual heuristics yourself.
-    num_warps = 8
+    num_warps = SOFTMAX_NUM_WARPS
 
     # Number of software pipelining stages.
-    num_stages = 4 if SIZE_SMEM > 200000 else 2
+    num_stages = SOFTMAX_NUM_STAGES
 
     # Allocate output
     y = torch.empty_like(x)
@@ -171,7 +176,8 @@ def softmax(x):
     num_programs = min(num_programs, n_rows)
 
     # Create a number of persistent programs.
-    kernel[(num_programs, 1, 1)](y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE, num_stages)
+    _softmax_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, num_programs, 1, 1,
+                      y, x, x.stride(0), y.stride(0), n_rows, n_cols, BLOCK_SIZE, num_stages)
     return y
 
 

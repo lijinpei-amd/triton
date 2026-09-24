@@ -6,6 +6,7 @@ issue: https://github.com/triton-lang/triton/issues/2523
 TODO: float8 types
 """
 
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 
@@ -135,7 +136,7 @@ def test_cast_matmul(M, K, N, BLOCK_K, BLOCK_M, BLOCK_N, w_dtype, x_dtype, out_d
     block_m, block_n, block_k = BLOCK_M, BLOCK_N, BLOCK_K
     grid = ((triton.cdiv(M, block_m) * triton.cdiv(N, block_n)), 1)
 
-    matmul_kernel[grid](
+    _intj_launch(matmul_kernel, grid,
         a, b, out_triton, M, N, K,  #
         a.stride(0), a.stride(1),  #
         b.stride(0), b.stride(1),  #

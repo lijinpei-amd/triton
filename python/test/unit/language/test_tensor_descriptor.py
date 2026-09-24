@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import numpy as np
@@ -1253,9 +1254,10 @@ def f8_to_f16(x, dtype):
         tl.store(Y + offs, x, mask=mask)
 
     ret = torch.empty(x.shape, dtype=torch.float16, device=x.device)
-    grid = lambda META: (triton.cdiv(x.numel(), META['BLOCK_SIZE']), )
+    block_size = 1024
+    grid = (triton.cdiv(ret.numel(), block_size), )
     dtype = getattr(tl, dtype)
-    kernel[grid](ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=1024)
+    _intj_launch(kernel, grid, ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=block_size)
     return ret
 
 

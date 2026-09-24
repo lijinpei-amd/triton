@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import cloudpickle
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 
@@ -499,8 +500,7 @@ def test_kernel_in_thread(device):
 
     def call_triton():
         N = buf.numel()
-        grid = lambda meta: (triton.cdiv(N, meta["BLOCK"]), )
-        _kernel[grid](buf, BLOCK=1024)
+        _intj_launch(_kernel, (triton.cdiv(N, 1024),), buf, BLOCK=1024)
         getattr(torch, device).synchronize()
 
     call_triton()

@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 import pytest
 import torch
@@ -21,9 +22,10 @@ def f8_to_f16(x, dtype):
         tl.store(Y + offs, x, mask=mask)
 
     ret = torch.empty(x.shape, dtype=torch.float16, device=x.device)
-    grid = lambda META: (triton.cdiv(x.numel(), META['BLOCK_SIZE']), )
+    block_size = 1024
+    grid = (triton.cdiv(ret.numel(), block_size), )
     dtype = getattr(tl, dtype)
-    kernel[grid](ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=1024)
+    _intj_launch(kernel, grid, ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=block_size)
     return ret
 
 
@@ -213,7 +215,7 @@ def test_i4_m_minor_join_bk16_matmul(device):
     rhs = torch.randn((K, N), device=device, dtype=torch.float32).bfloat16()
     output = torch.empty((M, N), device=device, dtype=torch.float32)
 
-    matmul_i4_m_minor_kernel[(1, )](w4, rhs, output, BLOCK_M=M, BLOCK_N=N, BLOCK_K=K, num_warps=2, num_stages=1)
+    _intj_launch(matmul_i4_m_minor_kernel, (1, ), w4, rhs, output, BLOCK_M=M, BLOCK_N=N, BLOCK_K=K, num_warps=2, num_stages=1)
 
     ref_lhs = w_i4.float().bfloat16()
     ref = torch.matmul(ref_lhs.float(), rhs.float())
@@ -1142,7 +1144,7 @@ def test_dot_scaled_unscaled_lhs_fp4_rhs(device):
     b_scale = MXScaleTensor(size=(N, K // 32), device=device).random(low=0.5, high=2.0)
     output = torch.empty((M, N), dtype=torch.float32, device=device)
 
-    rhs_scaled_n_packed_fp4_matmul[(1, )](a, b, b_scale.data, output)
+    _intj_launch(rhs_scaled_n_packed_fp4_matmul, (1, ), a, b, b_scale.data, output)
     if is_compile_warmup():
         return
 

@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import re
 import math
 import itertools
@@ -476,7 +477,7 @@ def test_runtime_gemm(a_dtype, b_dtype, k_dim, BLOCK_M, BLOCK_N, BLOCK_K, M, N, 
     b_device = b.cuda()
     c_device = c.cuda()
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    gemm_kernel[grid](
+    _intj_launch(gemm_kernel, grid,
         a_device, b_device, c_device,  #
         M, N, K,  #
         stride_am, stride_ak,  #
@@ -609,7 +610,7 @@ def test_runtime_gemm_3d(k_dim, BLOCK_B, BLOCK_M, BLOCK_N, BLOCK_K, B, M, N, K):
     b_device = b.cuda()
     c_device = c.cuda()
     grid = (triton.cdiv(B, BLOCK_B), triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N))
-    gemm_3d_kernel[grid](
+    _intj_launch(gemm_3d_kernel, grid,
         a_device, b_device, c_device,  #
         B, M, N, K,  #
         stride_ab, stride_am, stride_ak,  #
@@ -923,7 +924,7 @@ def test_runtime_gemm_async_pipelined(BLOCK_M, BLOCK_N, BLOCK_K, NUM_BUFFERS, M,
     stride_cm, stride_cn = c_device.stride(0), c_device.stride(1)
 
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    gemm_async_pipelined_kernel[grid](
+    _intj_launch(gemm_async_pipelined_kernel, grid,
         a_device, b_device, c_device,  #
         M, N, K,  #
         stride_am, stride_ak,  #
@@ -1088,7 +1089,7 @@ def test_runtime_gemm_async(M, N, K, BLOCK_M, BLOCK_N, BLOCK_K, a_dtype, b_dtype
     b_device = b.cuda()
     c_device = c.cuda()
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    gemm_async_kernel[grid](
+    _intj_launch(gemm_async_kernel, grid,
         a_device, b_device, c_device,  #
         M, N, K,  #
         stride_am, stride_ak,  #
@@ -1612,8 +1613,8 @@ def test_amd_wmma_scaled_tdm(M, N, K, mxfp_type, hasScale, scale_dtype, scale_fa
         assert re.search(pattern, amdgcn), f"Can't find {pattern} in amdgcn"
 
     z_ref = torch.zeros((M, N), dtype=torch.float32).cuda()
-    scaled_wmma_tdm_triton_kernel[(1, )](x, *x.stride(), scale_x, y, *y.stride(), scale_y, z_ref, M, N, K, type_a,
-                                         type_b, scale_factor)
+    _intj_launch(scaled_wmma_tdm_triton_kernel, (1, ), x, *x.stride(), scale_x, y, *y.stride(), scale_y, z_ref, M, N,
+                 K, type_a, type_b, scale_factor)
 
     torch.testing.assert_close(z.cpu(), z_ref.cpu(), rtol=1e-5, atol=1e-5)
 
@@ -1809,7 +1810,7 @@ def test_runtime_tensor_copy(M, N, BLOCK_M, BLOCK_N, NUM_BUFFERS, ASYNC_LOAD_TYP
     b_device = b.cuda()
     grid = (triton.cdiv(M, BLOCK_M), triton.cdiv(N, BLOCK_N * NUM_BUFFERS))
     if ASYNC_LOAD_TYPE == "ASYNC_COPY":
-        tensor_async_copy_kernel[grid](a_device, b_device, M, N, BLOCK_M, BLOCK_N, NUM_BUFFERS, num_warps=NUM_WARPS)
+        _intj_launch(tensor_async_copy_kernel, grid, a_device, b_device, M, N, BLOCK_M, BLOCK_N, NUM_BUFFERS, num_warps=NUM_WARPS)
     elif ASYNC_LOAD_TYPE == "DEVICE_TDM":
         tensor_device_tdm_copy_kernel[grid](a_device, b_device, M, N, BLOCK_M, BLOCK_N, NUM_BUFFERS,
                                             USE_PARTITIONED=False, num_warps=NUM_WARPS)
@@ -2195,7 +2196,7 @@ def test_runtime_tensor_fill(M, N, BLOCK_M, BLOCK_N, NUM_BUFFERS):
 
     a_device = a.cuda()
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N * NUM_BUFFERS), 1)
-    tensor_fill_kernel[grid](a_device, M, N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, NUM_BUFFERS=NUM_BUFFERS)
+    _intj_launch(tensor_fill_kernel, grid, a_device, M, N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, NUM_BUFFERS=NUM_BUFFERS)
 
     a_triton = a_device.cpu()
     a_ref = torch.arange(M, dtype=torch.int16).unsqueeze(1) * N + \
@@ -3082,8 +3083,8 @@ def test_runtime_wmma_scale_preshuffle(M, N, K, type_a, type_b, TRANSPOSED_WMMA)
     stride_scale = scale_a.stride(0)
 
     c = torch.zeros((M, N), dtype=torch.float32).cuda()
-    scaled_wmma_scale_preshuffle[(1, )](a, *a.stride(), scale_a, b, *b.stride(), scale_b, c, stride_scale, M, N, K,
-                                        type_a, type_b, TRANSPOSED_WMMA)
+    _intj_launch(scaled_wmma_scale_preshuffle, (1, ), a, *a.stride(), scale_a, b, *b.stride(), scale_b, c,
+                 stride_scale, M, N, K, type_a, type_b, TRANSPOSED_WMMA)
 
     torch.testing.assert_close(c.cpu(), c_torch, rtol=1e-5, atol=1e-5)
 
@@ -3279,7 +3280,7 @@ def test_tdm_load_pred():
 
     a_device = a.cuda()
     b_device = b.cuda()
-    kernel[(1, )](a_device, b_device)
+    _intj_launch(kernel, (1, ), a_device, b_device)
 
     b = b_device.cpu()
     assert torch.equal(a[:, 32:], b[:, 32:]) and not torch.equal(a[:, :32], b[:, :32])
@@ -3309,7 +3310,7 @@ def test_tdm_load_negative_offset():
 
     a = torch.randint(0x0, 0xFFFF, (16, 64), dtype=torch.uint16)
     b_device = torch.randint(0x0, 0xFFFF, (16, 64), dtype=torch.uint16).cuda()
-    tdm_load_negative_offset_kernel[(1, )](a.cuda(), b_device)
+    _intj_launch(tdm_load_negative_offset_kernel, (1, ), a.cuda(), b_device)
 
     assert torch.all(b_device.cpu() == 0)
 
@@ -4166,7 +4167,7 @@ def test_runtime_tdm_scatter_multiple_instructions(BLOCK_M, BLOCK_N, dst_col_off
     out_d = out.cuda()
     indices_d = dst_row_indices.cuda()
 
-    tdm_scatter_kernel[(1, )](inp_d, out_d, indices_d, M_out=M_out, N_out=N_out, stride_m=N_out, stride_n=1,
+    _intj_launch(tdm_scatter_kernel, (1, ), inp_d, out_d, indices_d, M_out=M_out, N_out=N_out, stride_m=N_out, stride_n=1,
                               BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N, NUM_INDICES=BLOCK_M, DST_COL_OFFSET=dst_col_offset)
 
     out_result = out_d.cpu()
@@ -4237,7 +4238,7 @@ def test_runtime_tdm_scatter_partial_column_block(N, num_warps, index_dtype):
     grid_n = triton.cdiv(N, BLOCK_N)
     grid = (triton.cdiv(M, BLOCK_M) * grid_n, )
 
-    tdm_scatter_multi_col_kernel[grid](inp_d, out_d, indices_d, M=M, N=N, stride_m=N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
+    _intj_launch(tdm_scatter_multi_col_kernel, grid, inp_d, out_d, indices_d, M=M, N=N, stride_m=N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
                                        num_warps=num_warps)
 
     out_result = out_d.cpu()
@@ -4939,7 +4940,7 @@ def test_runtime_tdm_gather_partial_column_block(N, num_warps, index_dtype):
     grid_n = triton.cdiv(N, BLOCK_N)
     grid = (triton.cdiv(M, BLOCK_M) * grid_n, )
 
-    tdm_gather_multi_col_kernel[grid](inp_d, out_d, indices_d, M=M, N=N, stride_m=N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
+    _intj_launch(tdm_gather_multi_col_kernel, grid, inp_d, out_d, indices_d, M=M, N=N, stride_m=N, BLOCK_M=BLOCK_M, BLOCK_N=BLOCK_N,
                                       num_warps=num_warps)
 
     out_result = out_d.cpu()

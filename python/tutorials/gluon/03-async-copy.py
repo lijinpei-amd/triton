@@ -12,6 +12,7 @@ global memory and shared memory, unlike `gl.load` and `gl.store` which
 directly write to and read from the register file.
 """
 
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import triton
@@ -64,7 +65,7 @@ def memcpy_1d_cpasync_kernel(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
 
 def memcpy_1d_cpasync(input, output, XBLOCK=8192, num_warps=4):
     grid = (triton.cdiv(input.numel(), XBLOCK), )
-    memcpy_1d_cpasync_kernel[grid](input, output, input.numel(), XBLOCK, num_warps=num_warps)
+    _intj_launch(memcpy_1d_cpasync_kernel, grid, input, output, input.numel(), XBLOCK, num_warps=num_warps)
 
 
 @pytest.mark.parametrize("xnumel, XBLOCK", [(200, 128), (1000, 256)])
@@ -119,7 +120,7 @@ def elementwise_add(A, B, C, XBLOCK=32, YBLOCK=64):
     assert A.shape == B.shape == C.shape
     xnumel, ynumel = A.shape
     grid = (triton.cdiv(xnumel, XBLOCK), )
-    return elementwise_add_kernel[grid](
+    _intj_launch(elementwise_add_kernel, grid,
         A, B, C, xnumel, ynumel,  #
         *A.stride(), *B.stride(), *C.stride(),  #
         XBLOCK, YBLOCK)

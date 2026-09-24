@@ -9,6 +9,8 @@ import pathlib
 import subprocess
 import sys
 
+from intj.compat import launch as _intj_launch
+
 import triton
 import triton.profiler as proton
 import torch
@@ -124,9 +126,9 @@ def test_triton(tmp_path: pathlib.Path, device: str):
     proton.start(str(temp_file.with_suffix("")))
     with proton.scope("test0"):
         with proton.scope("test1"):
-            foo[(1, )](x, y)
+            _intj_launch(foo, (1, ), x, y)
     with proton.scope("test2"):
-        foo[(1, )](x, y)
+        _intj_launch(foo, (1, ), x, y)
     proton.finalize()
     with temp_file.open() as f:
         data = json.load(f)
@@ -153,7 +155,7 @@ def test_cudagraph(tmp_path: pathlib.Path, device: str):
         a = torch.ones((2, 2), device=device)
         b = torch.ones((2, 2), device=device)
         c = a + b
-        foo[(1, )](a, b, c)
+        _intj_launch(foo, (1, ), a, b, c)
 
     temp_file = tmp_path / "test_cudagraph.hatchet"
     proton.start(str(temp_file.with_suffix("")), context="shadow")
@@ -299,7 +301,7 @@ def test_cudagraph_not_captured_by_profiler(tmp_path: pathlib.Path, capfd, devic
         a = torch.ones((2, 2), device=device)
         b = torch.ones((2, 2), device=device)
         c = a + b
-        foo[(1, )](a, b, c)
+        _intj_launch(foo, (1, ), a, b, c)
 
     # Build/capture graph before profiler starts.
     fn()
@@ -428,12 +430,12 @@ def test_cudagraph_filters_unlinked_virtual_scopes(tmp_path: pathlib.Path, data_
     proton.start(str(temp_file.with_suffix("")), context="shadow")
 
     # Warmup to avoid one-time setup effects in replay output.
-    foo[(1, )](a, b, c)
+    _intj_launch(foo, (1, ), a, b, c)
 
     g = torch.cuda.CUDAGraph()
     with cuda_graph_without_gc(g):
         with proton.scope("iter_with_kernel"):
-            foo[(1, )](a, b, c)
+            _intj_launch(foo, (1, ), a, b, c)
         with proton.scope("iter_without_kernel"):
             pass
 
@@ -612,7 +614,7 @@ def test_metrics(tmp_path: pathlib.Path, device: str):
     temp_file = tmp_path / "test_metrics.hatchet"
     proton.start(str(temp_file.with_suffix("")))
     with proton.scope("test0", {"foo": 1.0, "bar": [1, 2, 3], "baz": [1.0, 2.0, 3.0]}):
-        foo[(1, )](x, y)
+        _intj_launch(foo, (1, ), x, y)
     proton.finalize()
     with temp_file.open() as f:
         data = json.load(f)
@@ -668,8 +670,8 @@ def test_get_data(tmp_path: pathlib.Path, device: str):
 
     with proton.scope("test"):
         x = torch.ones((2, 2), device=device)
-        foo[(1, )](x, x, 4)
-        foo[(1, )](x, x, 4)
+        _intj_launch(foo, (1, ), x, x, 4)
+        _intj_launch(foo, (1, ), x, x, 4)
 
     proton.deactivate(session, flushing=True)
 
@@ -1242,7 +1244,7 @@ def test_trace(tmp_path: pathlib.Path, device: str):
         y = torch.zeros_like(x)
 
     with proton.scope("test"):
-        foo[(1, )](x, y, x.size()[0], num_warps=4)
+        _intj_launch(foo, (1, ), x, y, x.size()[0], num_warps=4)
         # Wait for the kernel to finish so that the kernel event is captured before the `test` scope ends.
         torch.cuda.synchronize()
 
@@ -1278,14 +1280,14 @@ def test_trace_flexible_metrics_scope_ranges(tmp_path: pathlib.Path, device: str
     with proton.scope("scope_3", metrics={"m3": 3.0}):
         with proton.scope("scope_2", metrics={"m2": 2.0}):
             with proton.scope("scope_1", metrics={"m1": 1.0}):
-                foo[(1, )](x, y, x.size()[0], num_warps=4)
+                _intj_launch(foo, (1, ), x, y, x.size()[0], num_warps=4)
             with proton.scope("scope_4"):
-                foo[(1, )](x, y, x.size()[0], num_warps=4)
+                _intj_launch(foo, (1, ), x, y, x.size()[0], num_warps=4)
             with proton.scope("scope_5"):
-                foo[(1, )](x, y, x.size()[0], num_warps=4)
+                _intj_launch(foo, (1, ), x, y, x.size()[0], num_warps=4)
         with proton.scope("scope_6"):
             with proton.scope("scope_7"):
-                foo[(1, )](x, y, x.size()[0], num_warps=4)
+                _intj_launch(foo, (1, ), x, y, x.size()[0], num_warps=4)
 
     proton.finalize()
     with temp_file.open() as f:
@@ -1369,16 +1371,16 @@ def test_trace_cudagraph_graph_scope_ranges(tmp_path: pathlib.Path, device: str)
     y = torch.zeros_like(x)
     metric_tensor = torch.tensor(1.0, device=device)
 
-    foo[(1, )](x, y, x.numel(), num_warps=4)
+    _intj_launch(foo, (1, ), x, y, x.numel(), num_warps=4)
     torch.cuda.synchronize(torch.device(device))
 
     def fn():
         with proton.scope("a"):
             with proton.scope("b"):
                 with proton.scope("c", metrics={"m1": metric_tensor}):
-                    foo[(1, )](x, y, x.numel(), num_warps=4)
-                foo[(1, )](x, y, x.numel(), num_warps=4)
-            foo[(1, )](x, y, x.numel(), num_warps=4)
+                    _intj_launch(foo, (1, ), x, y, x.numel(), num_warps=4)
+                _intj_launch(foo, (1, ), x, y, x.numel(), num_warps=4)
+            _intj_launch(foo, (1, ), x, y, x.numel(), num_warps=4)
 
     temp_file = tmp_path / "test_trace_cudagraph_graph_scope_ranges.chrome_trace"
     proton.start(str(temp_file.with_suffix("")), data="trace", context="shadow")
@@ -1469,7 +1471,7 @@ def test_multi_stream(profile_kind: str, suffix: str, tmp_path: pathlib.Path, de
     streams = [torch.cuda.Stream(device=device_obj) for _ in range(2)]
     scope_names = [f"stream_scope_{idx}" for idx in range(len(streams))]
 
-    foo[(1, )](x, outputs[0], x.numel(), num_warps=4)
+    _intj_launch(foo, (1, ), x, outputs[0], x.numel(), num_warps=4)
     torch.cuda.synchronize(device_obj)
 
     start_kwargs = {"data": "trace"} if profile_kind == "trace" else {}
@@ -1478,7 +1480,7 @@ def test_multi_stream(profile_kind: str, suffix: str, tmp_path: pathlib.Path, de
     for scope_name, stream, output in zip(scope_names, streams, outputs):
         with torch.cuda.stream(stream):
             with proton.scope(scope_name):
-                foo[(1, )](x, output, x.numel(), num_warps=4)
+                _intj_launch(foo, (1, ), x, output, x.numel(), num_warps=4)
 
     for stream in streams:
         stream.synchronize()

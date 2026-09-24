@@ -1,6 +1,7 @@
 # fmt: off
 
 
+from intj.compat import launch as _intj_launch
 import numpy as np
 import torch
 import pytest
@@ -37,7 +38,7 @@ def type_convert_triton(src, dst, rounding : tl.constexpr, BLOCK_SIZE : tl.const
 def launch_type_convert_triton(src, src_dtype, dst_dtype, device, rounding=None, BLOCK_SIZE=4096):
 
     dst = torch.empty(src.shape, dtype=matching_int(dst_dtype), device=device)
-    type_convert_triton[(src.shape[0] // BLOCK_SIZE,)](triton.reinterpret(src, src_dtype), triton.reinterpret(dst, dst_dtype), rounding, BLOCK_SIZE)
+    _intj_launch(type_convert_triton, (src.shape[0] // BLOCK_SIZE,), triton.reinterpret(src, src_dtype), triton.reinterpret(dst, dst_dtype), rounding, BLOCK_SIZE)
     return dst
 
 
@@ -80,7 +81,7 @@ def launch_exhaustive_populate(dst_dtype, offset, numel, force_odd, output_bits,
 
     assert(numel % BLOCK_SIZE == 0)
     dst = torch.empty((numel,), dtype=matching_int(dst_dtype), device=device)
-    exhaustive_populate[(numel // BLOCK_SIZE,)](triton.reinterpret(dst, dst_dtype), offset, BLOCK_SIZE, force_odd, output_bits, max_repr)
+    _intj_launch(exhaustive_populate, (numel // BLOCK_SIZE,), triton.reinterpret(dst, dst_dtype), offset, BLOCK_SIZE, force_odd, output_bits, max_repr)
     # 0x80 in float8e4b8 or float8e5b16 represents inf/nan. We don't need to have that
     # as input to the conversion kernels.
     if dst_dtype == tl.float8e4b8 or dst_dtype == tl.float8e5b16:
@@ -158,7 +159,7 @@ def downcast_emulated(src, dst, rounding : tl.constexpr, BLOCK_SIZE : tl.constex
 def launch_downcast_emulated(src, src_dtype, dst_dtype, rounding, exponent_bits, mantissa_bits, exponent_bias, device, BLOCK_SIZE=4096):
 
     dst = torch.empty(src.shape, dtype=matching_int(dst_dtype), device=device)
-    downcast_emulated[(src.shape[0] // BLOCK_SIZE,)](
+    _intj_launch(downcast_emulated, (src.shape[0] // BLOCK_SIZE,),
         triton.reinterpret(src, src_dtype), triton.reinterpret(dst, dst_dtype), rounding, BLOCK_SIZE, exponent_bits, mantissa_bits, exponent_bias)
     # 0x80 in float8e4b8 or float8e5b16 represents inf/nan. downcast_emulated kernel will
     # convert -0. in higher precision to 0x80 and thus need to fix the result to 0.
@@ -204,7 +205,7 @@ def upcast_emulated(src, dst, BLOCK_SIZE : tl.constexpr, exponent_bits : tl.cons
 def launch_upcast_emulated(src, exponent_bits, mantissa_bits, exponent_bias, device, BLOCK_SIZE=4096):
 
     dst = torch.empty(src.shape, dtype=torch.int32, device=device)
-    upcast_emulated[(src.shape[0] // BLOCK_SIZE,)](src, triton.reinterpret(dst, tl.float32), BLOCK_SIZE, exponent_bits, mantissa_bits, exponent_bias)
+    _intj_launch(upcast_emulated, (src.shape[0] // BLOCK_SIZE,), src, triton.reinterpret(dst, tl.float32), BLOCK_SIZE, exponent_bits, mantissa_bits, exponent_bias)
     return dst
 
 
@@ -422,7 +423,7 @@ def test_typeconvert_downcast_clamping(src_dtype, dst_dtype, mode, device, round
     src = torch.full(shape, test_value, dtype=torch_src_dtype, device=device)
     dst = torch.empty(shape, dtype=torch_dst_dtype, device=device)
 
-    type_convert_triton[(src.shape[0] // BLOCK_SIZE,)](
+    _intj_launch(type_convert_triton, (src.shape[0] // BLOCK_SIZE,),
         triton.reinterpret(src, torch_src_dtype),
         triton.reinterpret(dst, torch_dst_dtype),
         rounding,

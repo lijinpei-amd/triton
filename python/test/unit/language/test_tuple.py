@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import pytest
 import triton
 import triton.language as tl
@@ -344,7 +345,7 @@ def test_modifying_tuples():
         t[0] = 0
 
     with pytest.raises(triton.CompilationError):
-        set_tuple_value_at_idx[(1, )]()
+        _intj_launch(set_tuple_value_at_idx, (1, ))
 
 
 @pytest.mark.interpreter

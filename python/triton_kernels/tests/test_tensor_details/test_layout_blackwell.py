@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 import pytest
 import torch
@@ -733,5 +734,5 @@ def _scale_ptr_offset(S, Out, outer, inner):
 def test_scale_ptr_large_offset(device):
     base = torch.empty(1, dtype=torch.uint8, device=device)
     offset = torch.empty((), dtype=torch.int64, device=device)
-    _scale_ptr_offset[(1, )](base, offset, 128, 8)
+    _intj_launch(_scale_ptr_offset, (1, ), base, offset, 128, 8)
     assert offset.item() == 2**31

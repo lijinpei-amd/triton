@@ -19,6 +19,7 @@ import torch
 
 import triton
 import triton.language as tl
+from intj import make_launcher
 import inspect
 import os
 from triton.language.extra import libdevice
@@ -44,6 +45,13 @@ def asin_kernel(
     tl.store(y_ptr + offsets, x, mask=mask)
 
 
+def asin_grid(n_elements: int, BLOCK_SIZE: int):
+    return (triton.cdiv(n_elements, BLOCK_SIZE),)
+
+
+asin_launcher = make_launcher(asin_kernel, grid_cpp=asin_grid)
+
+
 # %%
 #  Using the default libdevice library path
 # -----------------------------------------
@@ -56,8 +64,8 @@ output_triton = torch.zeros(size, device=DEVICE)
 output_torch = torch.asin(x)
 assert x.is_cuda and output_triton.is_cuda
 n_elements = output_torch.numel()
-grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-asin_kernel[grid](x, output_triton, n_elements, BLOCK_SIZE=1024)
+asin_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
+              x, output_triton, n_elements, 1024)
 print(output_torch)
 print(output_triton)
 print(f'The maximum difference between torch and triton is '
@@ -92,7 +100,10 @@ else:
     raise RuntimeError('unknown backend')
 
 output_triton = torch.empty_like(x)
-asin_kernel[grid](x, output_triton, n_elements, BLOCK_SIZE=1024, extern_libs=extern_libs)
+asin_custom_launcher = make_launcher(asin_kernel, grid_cpp=asin_grid,
+                                     options={"extern_libs": extern_libs})
+asin_custom_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
+                     x, output_triton, n_elements, 1024)
 print(output_torch)
 print(output_triton)
 print(f'The maximum difference between torch and triton is '

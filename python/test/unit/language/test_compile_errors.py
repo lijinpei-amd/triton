@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import contextlib
 import pytest
 import os
@@ -546,7 +547,7 @@ def test_err_constexpr_and_do_not_specialize():
         triton.compile(triton.compiler.ASTSource(fn=kernel, signature={}, constexprs={"N": 5}))
 
     with pytest.raises(CompilationError, match="N marked as constexpr and listed in do_not_specialize"):
-        kernel[(1, )](5)
+        _intj_launch(kernel, (1, ), 5)
 
 
 def test_dot_scaled_shape_verification(fresh_triton_cache):

@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import triton
@@ -42,5 +43,5 @@ attributes #0 = { cold denormal_fpenv(float: preservesign) "target-cpu"="sm_100"
 ''')
     bits = [1]
     x = torch.tensor(bits, dtype=torch.int32, device="cuda").view(torch.float32)
-    _kernel[(1, )](x, str(lib), extern_libs={"test_denorm": str(lib)})
+    _intj_launch(_kernel, (1, ), x, str(lib), extern_libs={"test_denorm": str(lib)})
     assert x.view(torch.int32).tolist() == bits

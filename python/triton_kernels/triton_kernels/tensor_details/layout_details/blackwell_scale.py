@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 from dataclasses import dataclass
 
@@ -372,7 +373,7 @@ def pad_segments_triton(data, ragged_metadata, block_size_to_align, M_pad, K, K_
     max_grid = triton.cdiv(M_pad, BLOCK_M) * triton.cdiv(K_pad, BLOCK_N)
     num_sms = target_info.num_sms()
     grid = min(num_sms, max_grid)
-    pad_segments_kernel[(grid, )](
+    _intj_launch(pad_segments_kernel, (grid, ),
         data,
         padded_data,
         slice_sizes,
@@ -470,7 +471,7 @@ def unpad_segments_triton(padded_data, ragged_metadata, block_size_to_align, M, 
     num_sms = target_info.num_sms()
     grid = min(num_sms, max_grid)
 
-    unpad_segments_kernel[(grid, )](
+    _intj_launch(unpad_segments_kernel, (grid, ),
         padded_data,
         data,
         slice_sizes,

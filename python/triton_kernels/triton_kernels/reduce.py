@@ -1,4 +1,5 @@
 # fmt: off
+from intj.compat import launch as _intj_launch
 from dataclasses import dataclass
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -806,7 +807,7 @@ def reduce_forward(
         block_k = triton.next_power_of_2(K)
         while (block_m * 2) * block_k <= 128 * (32 * num_warps) and S0 > block_m * 20:
             block_m *= 2
-        _create_row_idxs[(triton.cdiv(S0, block_m),)](
+        _intj_launch(_create_row_idxs, (triton.cdiv(S0, block_m),),
             mask, stride_mr, stride_m0,  #
             active_input_counts, row_idxs,  #
             S0, unpadded_batch_size,  #
@@ -1009,7 +1010,7 @@ def reduce_backward(
     BLOCK_X_S1 = 128
     grid = (triton.cdiv(S0, BLOCK_S0), triton.cdiv(X_S1, BLOCK_X_S1))
 
-    _reduce_backward[grid](
+    _intj_launch(_reduce_backward, grid,
         dy,
         dy.stride(0),
         dy.stride(1),

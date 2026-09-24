@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import numpy as np
 import pytest
 import torch
@@ -61,7 +62,7 @@ def test_chained_matmul(device):
     triton_result = torch.zeros_like(a)
 
     torch_result = chained_matmul_reference(a, b, c)
-    chained_matmul_kernel[grid](
+    _intj_launch(chained_matmul_kernel, grid,
         a, b, c, triton_result, m, n, k,  #
         block_m=block_m, block_n=block_n, block_k=block_k)
 
@@ -122,7 +123,7 @@ def test_vecmat(device):
 
     grid = (M // block_m, N // block_n)
 
-    batched_vecmat[grid](
+    _intj_launch(batched_vecmat, grid,
         A_tri, B_tri, M, N, K, C_tri,  #
         block_m=block_m, block_n=block_n, block_k=block_k,  #
         num_warps=4, num_stages=1)
@@ -221,7 +222,7 @@ def test_iv_dependent_matmul(type, device):
         return (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), )
 
     num_stages = 4 if type == "post_load_three_iters" else 3
-    kernel[grid](
+    _intj_launch(kernel, grid,
         a, b, triton_output, M, N, K,  #
         a.stride(0), a.stride(1), b.stride(0), b.stride(1),  #
         triton_output.stride(0), triton_output.stride(1),  #
@@ -240,7 +241,7 @@ def test_reverse_range(device):
 
     data = torch.randn((516, ), dtype=torch.float32, device=device)
     res = torch.empty((512, ), dtype=torch.float32, device=device)
-    kernel[(1, )](data, res)
+    _intj_launch(kernel, (1, ), data, res)
     ref = torch.flip(data[1:513], [0])
     assert (res == ref).all()
 
@@ -277,7 +278,7 @@ def test_inductor_cummax_bool(device):
     indices = torch.empty((64, ), dtype=torch.int64, device=device)
     ref = torch.cummax(a, dim=0)
 
-    triton_[(1, )](a, values, indices, 64)
+    _intj_launch(triton_, (1, ), a, values, indices, 64)
     torch.testing.assert_close(ref.values, values)
     torch.testing.assert_close(ref.indices, indices)
 
@@ -329,7 +330,7 @@ def test_permutation_ptxas_bug(device):
     W = torch.randn((N, K), device=device).to(dtype).T
     Out = torch.zeros((M, N), device=device, dtype=dtype)
 
-    _matmul[(1, )](
+    _intj_launch(_matmul, (1, ),
         X,
         W,
         Out,

@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import math
 import torch
 import triton
@@ -381,7 +382,7 @@ def _convert_bits(x: torch.Tensor, inverse: bool) -> torch.Tensor:
     out = torch.empty(shape, dtype=torch.int32, device=x.device)
     block_size = 1024
     with torch.cuda.device(x.device):
-        _convert_bits_kernel[(triton.cdiv(out.numel(), block_size), )](x, out, out.numel(), inverse,
+        _intj_launch(_convert_bits_kernel, (triton.cdiv(out.numel(), block_size), ), x, out, out.numel(), inverse,
                                                                        BLOCK_SIZE=block_size)
     return out.view(torch.uint8)
 

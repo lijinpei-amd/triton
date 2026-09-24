@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import importlib.util
 import sys
 from pathlib import Path
@@ -826,7 +827,7 @@ def _reduce_wgrad_split_k_partials(partials, grad_weight_flat, Co, K_GEMM, activ
     BLOCK_M = 64
     BLOCK_N = 64
     grid = (triton.cdiv(Co, BLOCK_M), triton.cdiv(K_GEMM, BLOCK_N))
-    reduce_split_k_partials_kernel[grid](
+    _intj_launch(reduce_split_k_partials_kernel, grid,
         partials,
         grad_weight_flat,
         partials.stride(0),

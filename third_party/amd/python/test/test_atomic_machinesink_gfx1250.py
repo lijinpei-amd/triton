@@ -26,6 +26,7 @@ See https://github.com/llvm/llvm-project/issues/181708 and its fix
 https://github.com/llvm/llvm-project/pull/182000.
 """
 
+from intj.compat import launch as _intj_launch
 import re
 
 import numpy as np
@@ -137,7 +138,7 @@ def test_gpu_correctness_buffer_atomic():
     x = torch.randn((SHAPE0, SHAPE1), device="cuda", dtype=torch.float64)
     z = torch.zeros((SHAPE0, ), device="cuda", dtype=torch.float64)
 
-    kernel[(1, )](z, x, SHAPE0, SHAPE1)
+    _intj_launch(kernel, (1, ), z, x, SHAPE0, SHAPE1)
 
     z_ref = x.sum(axis=1)
     np.testing.assert_allclose(z.cpu().numpy(), z_ref.cpu().numpy(), rtol=1e-5)

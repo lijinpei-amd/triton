@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import torch
 import math
 import pytest
@@ -160,7 +161,7 @@ def test_inline_asm_memdesc_store(elementwise, device):
         ttgl.store(Out + ttgl.arange(0, 256, layout=load_layout), result)
 
     out = torch.empty(256, dtype=torch.int32, device=device)
-    kernel[(1, )](out, elementwise)
+    _intj_launch(kernel, (1, ), out, elementwise)
     expected = torch.cat((torch.zeros(128, dtype=torch.int32,
                                       device=device), torch.arange(1, 129, dtype=torch.int32, device=device)))
     torch.testing.assert_close(out, expected, atol=0, rtol=0)
@@ -183,7 +184,7 @@ def test_inline_asm_many_elements(device):
 
     x = torch.randint(-100, 100, (128, 128), dtype=torch.int32, device=device)
     y = torch.empty(128, dtype=torch.int32, device=device)
-    kernel[(1, )](x, y)
+    _intj_launch(kernel, (1, ), x, y)
     torch.testing.assert_close(y, x.sum(dim=1).to(torch.int32), atol=0, rtol=0)
 
 
@@ -210,7 +211,7 @@ def test_inline_asm_replicated_registers(device):
 
     x = torch.arange(256, dtype=torch.int32, device=device)
     y = torch.empty_like(x)
-    kernel[(1, )](x, y, 17)
+    _intj_launch(kernel, (1, ), x, y, 17)
     torch.testing.assert_close(y, x + 17, atol=0, rtol=0)
 
 
@@ -233,7 +234,7 @@ def test_inline_asm_once_per_thread(warp_specialized, device):
             ttgl.inline_asm("bar.sync 0;")
 
     out = torch.zeros(2 if warp_specialized else 1, dtype=torch.int32, device=device)
-    kernel[(3, )](out, warp_specialized)
+    _intj_launch(kernel, (3, ), out, warp_specialized)
     torch.testing.assert_close(out, torch.full_like(out, 3 * 128), atol=0, rtol=0)
 
 
@@ -330,7 +331,7 @@ def test_atomic_poll_tensor_acquire(block_size, use_result, device):
     flags = torch.zeros(block_size, dtype=torch.int32, device=device)
     payload = torch.zeros_like(flags)
     out = torch.zeros_like(flags)
-    kernel[(2, )](flags, payload, out, block_size, use_result, num_warps=4)
+    _intj_launch(kernel, (2, ), flags, payload, out, block_size, use_result, num_warps=4)
     torch.testing.assert_close(out, torch.arange(1, block_size + 1, dtype=torch.int32, device=device))
 
 
@@ -1175,7 +1176,7 @@ def test_async_copy_mbarrier(copy_vec):
     tensor_opts = dict(dtype=torch.float, device="cuda")
     out = torch.empty((32, 32), **tensor_opts)
     inp = torch.randn((20, 32), **tensor_opts)
-    async_copy_mbarrier_kernel[(1, )](out, inp, inp.shape[0], XBLOCK=32, YBLOCK=32, COPY_VEC=copy_vec)
+    _intj_launch(async_copy_mbarrier_kernel, (1, ), out, inp, inp.shape[0], XBLOCK=32, YBLOCK=32, COPY_VEC=copy_vec)
     torch.testing.assert_close(out[:20], inp)
     torch.testing.assert_close(out[20:], torch.zeros((12, 32), **tensor_opts))
 
@@ -1222,7 +1223,7 @@ def test_warp_specialize_noinline_ids():
     expected = torch.arange(256, dtype=torch.int32, device="cuda").repeat(2, 1)
     index_out = torch.empty_like(expected)
     scan_out = torch.empty_like(expected)
-    kernel[(1, )](index_out, scan_out, num_warps=4)
+    _intj_launch(kernel, (1, ), index_out, scan_out, num_warps=4)
     torch.testing.assert_close(index_out, 2 * expected, rtol=0, atol=0)
     torch.testing.assert_close(scan_out, expected + 1, rtol=0, atol=0)
 
@@ -1575,7 +1576,7 @@ def test_warpgroup_mma_wait_synchronizes_warpgroups():
 
     for _ in range(5):
         out = torch.empty((grid, m, d), dtype=torch.float32, device="cuda")
-        warpgroup_mma_wait_multi_warpgroup_kernel[(grid, )](a, b0, b1, out, D=d, NBLK=num_blocks, WG=num_warp_groups,
+        _intj_launch(warpgroup_mma_wait_multi_warpgroup_kernel, (grid, ), a, b0, b1, out, D=d, NBLK=num_blocks, WG=num_warp_groups,
                                                             num_warps=4 * num_warp_groups)
         torch.testing.assert_close(out, expected[None, :, :].expand_as(out), atol=0, rtol=0)
 
@@ -2398,7 +2399,7 @@ def test_math_fast_expf():
     torch.manual_seed(0)
     x = torch.randn(THREADS_PER_WARP * num_warps, device="cuda", dtype=torch.float32)
     y = torch.empty_like(x)
-    fast_expf_kernel[(1, )](x, y, THREADS_PER_WARP, num_warps)
+    _intj_launch(fast_expf_kernel, (1, ), x, y, THREADS_PER_WARP, num_warps)
     torch.testing.assert_close(y, torch.exp(x), atol=1e-5, rtol=1e-4)
 
 
@@ -2421,7 +2422,7 @@ def test_math_fast_dividef():
     y = torch.randn_like(x)
     z = torch.empty_like(x)
     y[y == 0] = 1.0
-    fast_dividef_kernel[(1, )](x, y, z, THREADS_PER_WARP, num_warps)
+    _intj_launch(fast_dividef_kernel, (1, ), x, y, z, THREADS_PER_WARP, num_warps)
     torch.testing.assert_close(z, torch.div(x, y), atol=1e-5, rtol=1e-4)
 
 
@@ -2942,7 +2943,7 @@ def test_multibuffer_prefix_subslice():
 
     out0 = torch.empty((32, 32), device="cuda", dtype=torch.float32)
     out3 = torch.empty_like(out0)
-    kernel[(1, )](out0, out3, num_warps=4)
+    _intj_launch(kernel, (1, ), out0, out3, num_warps=4)
     torch.testing.assert_close(out0, torch.ones_like(out0), atol=0, rtol=0)
     torch.testing.assert_close(out3, torch.full_like(out3, 3), atol=0, rtol=0)
 
@@ -3881,7 +3882,7 @@ def test_coalesced_layout():
     ref = torch.maximum(torch.sin(input), torch.tensor(0.0, device="cuda"))
 
     grid = (triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK))
-    kernel[grid](  #
+    _intj_launch(kernel, grid,  #
         input, output, xnumel, ynumel,  #
         *input.stride(), *output.stride(),  #
         XBLOCK, YBLOCK, num_warps=4)
@@ -3925,7 +3926,7 @@ def test_convert_auto_layout_to_coalesced_layout():
     ref = torch.ones_like(input)
 
     grid = (triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK))
-    kernel[grid](  #
+    _intj_launch(kernel, grid,  #
         input, output, xnumel, ynumel,  #
         *input.stride(), *output.stride(),  #
         XBLOCK, YBLOCK, num_warps=4)

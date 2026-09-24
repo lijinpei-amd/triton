@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import sys
 import importlib.util
 import torch
@@ -73,10 +74,10 @@ def test_simple_kernel(tmp_path):
     y = torch.randn(n, device="cuda", dtype=torch.float32)
     out = torch.empty_like(x)
     grid = (n // BLOCK, )
-    kernel[grid](x, y, out, n, BLOCK)
+    _intj_launch(kernel, grid, x, y, out, n, BLOCK)
 
     ref = torch.empty_like(x)
-    add_kernel[grid](x, y, ref, n, BLOCK)
+    _intj_launch(add_kernel, grid, x, y, ref, n, BLOCK)
 
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
@@ -107,10 +108,10 @@ def test_triton_to_gluon_dot_minimal(tmp_path):
     grid = (1, )
 
     c = torch.empty((M, N), device="cuda", dtype=torch.float32)
-    kernel[grid](a, b, c, M, N, K, num_warps=8)
+    _intj_launch(kernel, grid, a, b, c, M, N, K, num_warps=8)
 
     ref = torch.empty_like(c)
-    matmul_tile_kernel[grid](a, b, ref, M, N, K, num_warps=8)
+    _intj_launch(matmul_tile_kernel, grid, a, b, ref, M, N, K, num_warps=8)
     torch.testing.assert_close(c, ref, atol=0, rtol=0)
 
 
@@ -264,8 +265,8 @@ def test_triton_to_gluon_dot_scaled(
         FAST_MATH,
     )
 
-    kernel[grid](a, b, a_scale, b_scale, c, *kernel_args, num_warps=NUM_WARPS)
-    dot_scaled_tile_kernel[grid](a, b, a_scale, b_scale, ref, *kernel_args, num_warps=NUM_WARPS)
+    _intj_launch(kernel, grid, a, b, a_scale, b_scale, c, *kernel_args, num_warps=NUM_WARPS)
+    _intj_launch(dot_scaled_tile_kernel, grid, a, b, a_scale, b_scale, ref, *kernel_args, num_warps=NUM_WARPS)
     torch.testing.assert_close(c, ref, atol=1e-2, rtol=1e-2)
 
 
@@ -297,8 +298,8 @@ def test_triton_to_gluon_dot_scaled_minimum_scale(rhs_scale, normal_type, scale_
     a_scale, b_scale = (None, scales) if rhs_scale else (scales, None)
     a_format, b_format = (normal_type, "e4m3") if rhs_scale else ("e4m3", normal_type)
     kernel_args = (128, 128, 128, not rhs_scale, rhs_scale, a_format, b_format, True, True, True)
-    kernel[(1, )](a, b, a_scale, b_scale, out, *kernel_args, SCALE_FACTOR=scale_factor, num_warps=4)
-    dot_scaled_tile_kernel[(1, )](a, b, a_scale, b_scale, ref, *kernel_args, SCALE_FACTOR=scale_factor, num_warps=4)
+    _intj_launch(kernel, (1, ), a, b, a_scale, b_scale, out, *kernel_args, SCALE_FACTOR=scale_factor, num_warps=4)
+    _intj_launch(dot_scaled_tile_kernel, (1, ), a, b, a_scale, b_scale, ref, *kernel_args, SCALE_FACTOR=scale_factor, num_warps=4)
 
     if float_scale:
         expected_values = (0.0, ) * 4
@@ -366,8 +367,8 @@ def test_triton_to_gluon_dot_transposed_operands(lhs_transposed, rhs_transposed,
 
     grid = (1, )
     args = (block_m, block_n, block_k, lhs_transposed, rhs_transposed)
-    kernel[grid](a, b, c, *args, num_warps=8)
-    dot_transposed_operand_tile_kernel[grid](a, b, ref, *args, num_warps=8)
+    _intj_launch(kernel, grid, a, b, c, *args, num_warps=8)
+    _intj_launch(dot_transposed_operand_tile_kernel, grid, a, b, ref, *args, num_warps=8)
     torch.testing.assert_close(c, ref, atol=0, rtol=0)
 
 
@@ -431,7 +432,7 @@ def test_simple_matmul(dtype_src_str, dtype_dst_str, BLOCK_M, BLOCK_N, BLOCK_K, 
     dtype_dst = getattr(torch, dtype_dst_str)
     output = torch.empty((M, N), dtype=dtype_dst, device=device)
     grid = (triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N), 1)
-    kernel[grid](
+    _intj_launch(kernel, grid,
         a,
         b,
         output,
@@ -450,7 +451,7 @@ def test_simple_matmul(dtype_src_str, dtype_dst_str, BLOCK_M, BLOCK_N, BLOCK_K, 
     )
 
     ref = torch.empty_like(output)
-    matmul_kernel[grid](
+    _intj_launch(matmul_kernel, grid,
         a,
         b,
         ref,
@@ -589,9 +590,9 @@ def test_triton_reshape_trans(tmp_path, TRANS_KIND):
     y = torch.randn(n, device="cuda", dtype=torch.float32)
     out = torch.empty_like(x)
     grid = (n // BLOCK, )
-    kernel[grid](x, y, out, n, BLOCK, TRANS_KIND)
+    _intj_launch(kernel, grid, x, y, out, n, BLOCK, TRANS_KIND)
     ref = torch.empty_like(x)
-    reshape_trans_kernel[grid](x, y, ref, n, BLOCK, TRANS_KIND)
+    _intj_launch(reshape_trans_kernel, grid, x, y, ref, n, BLOCK, TRANS_KIND)
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
 
@@ -643,7 +644,7 @@ def test_cat_translation(tmp_path, can_reorder):
     y = torch.arange(-block, 0, device="cuda", dtype=torch.int32)
     out = torch.empty((2 * block, ), device="cuda", dtype=torch.int32)
 
-    kernel[(1, )](x, y, out, BLOCK=block, CAN_REORDER=can_reorder, num_warps=4)
+    _intj_launch(kernel, (1, ), x, y, out, BLOCK=block, CAN_REORDER=can_reorder, num_warps=4)
 
     ref = torch.cat([x, y], dim=0)
     if can_reorder:
@@ -664,9 +665,9 @@ def test_reduce_to_scalar(tmp_path):
     grid = (1, )
 
     out = torch.empty((1, ), device="cuda", dtype=torch.int32)
-    kernel[grid](out)
+    _intj_launch(kernel, grid, out)
     ref = torch.empty_like(out)
-    reduce_to_scalar_kernel[grid](ref)
+    _intj_launch(reduce_to_scalar_kernel, grid, ref)
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
 
@@ -687,11 +688,11 @@ def test_extrema_reduction(tmp_path):
     x = torch.randn(block, device="cuda", dtype=torch.float32)
     out_max = torch.empty((block // 2, ), device="cuda", dtype=torch.float32)
     out_min = torch.empty((block // 2, ), device="cuda", dtype=torch.float32)
-    kernel[(1, )](x, out_max, out_min, BLOCK=block)
+    _intj_launch(kernel, (1, ), x, out_max, out_min, BLOCK=block)
 
     ref_max = torch.empty_like(out_max)
     ref_min = torch.empty_like(out_min)
-    extrema_reduce_kernel[(1, )](x, ref_max, ref_min, BLOCK=block)
+    _intj_launch(extrema_reduce_kernel, (1, ), x, ref_max, ref_min, BLOCK=block)
     torch.testing.assert_close(out_max, ref_max, atol=0, rtol=0)
     torch.testing.assert_close(out_min, ref_min, atol=0, rtol=0)
 
@@ -709,9 +710,9 @@ def test_num_threads(tmp_path):
 
     num_threads = 256
     out = torch.empty(num_threads, dtype=torch.int32, device="cuda")
-    kernel[(1, )](out, num_warps=num_threads // 32)
+    _intj_launch(kernel, (1, ), out, num_warps=num_threads // 32)
     ref = torch.empty_like(out)
-    num_threads_kernel[(1, )](ref, num_warps=num_threads // 32)
+    _intj_launch(num_threads_kernel, (1, ), ref, num_warps=num_threads // 32)
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
 
@@ -727,10 +728,10 @@ def test_atomic_add(tmp_path):
 
     block = 32 * 4
     ref = torch.zeros((block, ), device="cuda")
-    atomic_add_kernel[(1, )](ref, BLOCK=block)
+    _intj_launch(atomic_add_kernel, (1, ), ref, BLOCK=block)
 
     out = torch.zeros((block, ), device="cuda")
-    kernel[(1, )](out, BLOCK=block)
+    _intj_launch(kernel, (1, ), out, BLOCK=block)
     torch.testing.assert_close(out, ref)
 
 
@@ -753,10 +754,10 @@ def test_cat(tmp_path):
     x = torch.randn(BLOCK, device="cuda", dtype=torch.float32)
     y = torch.randn(BLOCK, device="cuda", dtype=torch.float32)
     out = torch.empty(2 * BLOCK, device="cuda", dtype=torch.float32)
-    kernel[(1, )](x, y, out, BLOCK)
+    _intj_launch(kernel, (1, ), x, y, out, BLOCK)
 
     ref = torch.empty_like(out)
-    cat_kernel[(1, )](x, y, ref, BLOCK)
+    _intj_launch(cat_kernel, (1, ), x, y, ref, BLOCK)
     torch.testing.assert_close(sorted(out.cpu()), sorted(ref.cpu()), atol=0, rtol=0)
 
 

@@ -26,6 +26,7 @@ of gemms. The scheduling is static and we do it on device.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from intj.compat import launch as _intj_launch
 from typing import Optional
 import torch
 
@@ -201,7 +202,7 @@ def group_gemm_fn(group_A, group_B):
     d_g_lds = torch.tensor(g_lds, dtype=torch.int32, device=DEVICE)
     # we use a fixed number of CTA, and it's auto-tunable
     grid = lambda META: (META['NUM_SM'], )
-    grouped_matmul_kernel[grid](
+    _intj_launch(grouped_matmul_kernel, grid,
         d_a_ptrs,
         d_b_ptrs,
         d_c_ptrs,
@@ -403,7 +404,7 @@ if supports_tma():
 # only launch the kernel, no tensor preparation here to remove all overhead
 def triton_perf_fn(a_ptrs, b_ptrs, c_ptrs, sizes, lds, group_size):
     grid = lambda META: (META['NUM_SM'], )
-    grouped_matmul_kernel[grid](
+    _intj_launch(grouped_matmul_kernel, grid,
         a_ptrs,
         b_ptrs,
         c_ptrs,

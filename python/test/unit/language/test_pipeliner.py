@@ -1,5 +1,6 @@
 # End-to-end tests to check the correctness of the pipeliner
 
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import triton
@@ -201,7 +202,7 @@ def dot_scale_ref(x, scale, y, type_x, type_y):
     N = x_upcast.numel()
     BLOCK_SIZE = 512
     grid = ((N + BLOCK_SIZE - 1) // BLOCK_SIZE, )
-    mxfp_to_bf16_kernel[grid](x, scale, x_upcast, scale.numel(), e_bits, m_bits, BLOCK_SIZE, num_warps=4)
+    _intj_launch(mxfp_to_bf16_kernel, grid, x, scale, x_upcast, scale.numel(), e_bits, m_bits, BLOCK_SIZE, num_warps=4)
     y_upcast = y if type_y == "bf16" else y.view(type_fp8_y).to(out_dtype)
     assert x_upcast.dtype == out_dtype
     assert y_upcast.dtype == out_dtype
@@ -390,7 +391,7 @@ def test_pipeline_epilogue(ROW_COUNT, NUM_STAGES, device):
     y0 = torch.rand_like(x)
     n_rows, n_cols = x.shape
     BLOCK_SIZE = triton.next_power_of_2(n_cols)
-    kernel_up[(1, )](y0, x, x.stride(0), y0.stride(0), n_rows, n_cols, BLOCK_SIZE, NUM_STAGES)
+    _intj_launch(kernel_up, (1, ), y0, x, x.stride(0), y0.stride(0), n_rows, n_cols, BLOCK_SIZE, NUM_STAGES)
     assert (y0 == torch.ones_like(x)).all()
 
 
@@ -465,7 +466,7 @@ def test_indirect_matmul(BLOCK_M, BLOCK_N, BLOCK_K, num_stages, device):
 
     expect = torch.matmul(A.mT.to(torch.float32), B.to(torch.float32))
 
-    indirect_matmul_kernel[(1, )](
+    _intj_launch(indirect_matmul_kernel, (1, ),
         Out,
         Out.stride(0),
         A,
@@ -611,7 +612,7 @@ def test_conditional_store_pipeline(num_stages, device):
     arange = torch.arange(N, dtype=torch.int32, device=device)
     output = torch.zeros((N, ), dtype=torch.int32, device=device)
 
-    conditional_store_kernel[(1, )](arange, output, num_stages, N, True)
+    _intj_launch(conditional_store_kernel, (1, ), arange, output, num_stages, N, True)
 
     # Expected output: [1, 2, 3, 4, ..., N]
     expected = torch.arange(1, N + 1, dtype=torch.int32, device=device)

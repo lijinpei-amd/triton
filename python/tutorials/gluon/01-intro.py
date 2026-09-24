@@ -39,6 +39,7 @@ controlling these low-level details.
 import pytest
 import torch
 import triton
+from intj.compat import launch as _intj_launch
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
 
@@ -61,7 +62,7 @@ def copy_scalar_kernel(in_ptr, out_ptr):
 def copy_scalar(input, output):
     # Launch a single program.
     grid = (1, )
-    copy_scalar_kernel[grid](input, output, num_warps=1)
+    _intj_launch(copy_scalar_kernel, grid, input, output, num_warps=1)
 
 
 # %%
@@ -96,7 +97,7 @@ def memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
 def memcpy(input, output, XBLOCK):
     xnumel = input.numel()
     grid = (triton.cdiv(xnumel, XBLOCK), )
-    memcpy_kernel[grid](input, output, xnumel, XBLOCK, num_warps=1)
+    _intj_launch(memcpy_kernel, grid, input, output, xnumel, XBLOCK, num_warps=1)
 
 
 @pytest.mark.parametrize("XBLOCK", [64])
@@ -129,7 +130,7 @@ def memcpy_autotune(input, output):
     def grid(META):
         return (triton.cdiv(xnumel, META["XBLOCK"]), )
 
-    memcpy_kernel_autotune[grid](input, output, xnumel)
+    _intj_launch(memcpy_kernel_autotune, grid, input, output, xnumel)
 
 
 # %%

@@ -5,6 +5,7 @@ import pytest
 import torch
 import triton
 import triton.language as tl
+from intj.compat import launch as _intj_launch
 from triton_kernels.numerics_details.mxfp import (
     MXFP_BLOCK_SIZE,
     NVFP_BLOCK_SIZE,
@@ -119,7 +120,7 @@ def test_mxfp_upcast_torch_nan_scale(dst_dtype):
 def test_mxfp4_tile_upcast_scale_boundaries(dst_dtype, device):
     tensor, scale, expected = _mxfp_scale_boundary_data(torch.uint8, dst_dtype, device)
     actual = torch.empty_like(expected)
-    _upcast_mxfp4_tile_kernel[(1, )](
+    _intj_launch(_upcast_mxfp4_tile_kernel, (1, ),
         actual,
         tensor,
         scale,
@@ -153,7 +154,7 @@ def test_mxfp4_tile_upcast_matches_reference(dst_dtype, device):
         torch.bfloat16: tl.bfloat16,
         torch.float32: tl.float32,
     }[dst_dtype]
-    _upcast_mxfp4_tile_kernel[(1, )](
+    _intj_launch(_upcast_mxfp4_tile_kernel, (1, ),
         out,
         tensor,
         scale,

@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import numpy as np
 import pytest
 import torch
@@ -41,5 +42,5 @@ def test_int8_dot_small_block_k(block_k, device):
     a = torch.from_numpy(a).to(device)
     b = torch.from_numpy(b).to(device)
     actual = torch.empty((32, 32), dtype=torch.int32, device=device)
-    kernel[(1, )](a, b, actual, K, BLOCK_K=block_k, PAD_K=pad_k)
+    _intj_launch(kernel, (1, ), a, b, actual, K, BLOCK_K=block_k, PAD_K=pad_k)
     np.testing.assert_array_equal(to_numpy(actual), expected)

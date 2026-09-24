@@ -1,3 +1,5 @@
+from intj.compat import launch as _intj_launch
+
 import triton.profiler as proton
 
 import torch
@@ -9,7 +11,7 @@ from helper_kernels import custom_add, matmul_kernel
 def main():
     a = torch.zeros(1, device="cuda")
     with proton.scope("test"):
-        custom_add[(1, )](a)
+        _intj_launch(custom_add, (1, ), a)
 
 
 def test_main():
@@ -23,7 +25,7 @@ def matmul():
     K, N = b.shape
     c = torch.empty((M, N), device=a.device, dtype=a.dtype)
 
-    matmul_kernel[(1, )](
+    _intj_launch(matmul_kernel, (1, ),
         a, b, c,  #
         M, N, K,  #
         a.stride(0), a.stride(1),  #

@@ -13,6 +13,7 @@ Features:
 
 """
 
+from intj.compat import launch as _intj_launch
 import torch
 import triton
 import triton.language as tl
@@ -308,7 +309,7 @@ def run_mxfp_gemm(
     num_blocks = triton.cdiv(M, BLOCK_M) * triton.cdiv(N, BLOCK_N)
     grid = (num_blocks, )
 
-    mxgemm_kernel[grid](
+    _intj_launch(mxgemm_kernel, grid,
         a_d, b_d, c_d,  #
         a_scale_d, b_scale_d,  #
         M, N, K,  #

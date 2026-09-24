@@ -37,6 +37,7 @@ import torch
 
 import triton
 import triton.language as tl
+from intj import make_launcher
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
@@ -63,12 +64,19 @@ def _dropout(
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
+def _dropout_grid(n_elements: int, BLOCK_SIZE: int):
+    return (triton.cdiv(n_elements, BLOCK_SIZE), )
+
+
+_dropout_launcher = make_launcher(_dropout, grid_cpp=_dropout_grid)
+
+
 def dropout(x, x_keep, p):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    _dropout[grid](x, x_keep, output, n_elements, p, BLOCK_SIZE=1024)
+    _dropout_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
+                      x, x_keep, output, n_elements, p, 1024)
     return output
 
 
@@ -131,12 +139,15 @@ def _seeded_dropout(
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
+_seeded_dropout_launcher = make_launcher(_seeded_dropout, grid_cpp=_dropout_grid)
+
+
 def seeded_dropout(x, p, seed):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    _seeded_dropout[grid](x, output, n_elements, p, seed, BLOCK_SIZE=1024)
+    _seeded_dropout_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
+                             x, output, n_elements, p, seed, 1024)
     return output
 
 

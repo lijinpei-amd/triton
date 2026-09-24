@@ -1,3 +1,4 @@
+from intj.compat import launch as _intj_launch
 import pytest
 import torch
 
@@ -106,7 +107,7 @@ def test_scaled_upcast_scale_edges(dtype, out_dtype, nan_scale):
     scale = torch.tensor([255] * 8 if nan_scale else [0, 1, 127, 254] * 2, dtype=torch.uint8, device="cuda")
     scale = scale[:, None].expand(8, 2 if fp4 else 64).contiguous()
     out = torch.empty((8, 64), dtype=out_dtype, device="cuda")
-    _scaled_upcast_scale_edges_kernel[(1, )](x, scale, out, fp4, num_warps=1, allow_flush_denorm=False)
+    _intj_launch(_scaled_upcast_scale_edges_kernel, (1, ), x, scale, out, fp4, num_warps=1, allow_flush_denorm=False)
 
     # Both subnormal and normal BF16 results survive; the smallest FP16
     # results underflow after scaling.

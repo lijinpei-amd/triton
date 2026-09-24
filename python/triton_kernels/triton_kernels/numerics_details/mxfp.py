@@ -1,5 +1,6 @@
 # isort: off
 # fmt: off
+from intj.compat import launch as _intj_launch
 from enum import Enum
 import math
 import triton
@@ -79,7 +80,7 @@ def downcast_to_mxfp(x: torch.Tensor, out_dtype: torch.dtype, axis: int,
         # launch kernel
         blocks_out_dim = triton.cdiv(x_storage.shape[0], BLOCK_OUT_DIM)
         blocks_quant_dim = triton.cdiv(x_storage.shape[1], BLOCK_QUANT_DIM)
-        _downcast_to_mxfp[(blocks_out_dim, blocks_quant_dim)](
+        _intj_launch(_downcast_to_mxfp, (blocks_out_dim, blocks_quant_dim),
             y_storage_value, *y_storage_value.stride(),
             y_storage_scale, *y_storage_scale.stride(),
             x_storage, *x_storage.stride(), *x_storage.shape,

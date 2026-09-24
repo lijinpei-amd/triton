@@ -1,4 +1,5 @@
 # ruff: noqa: F821,F841
+from intj.compat import launch as _intj_launch
 import contextlib
 import itertools
 import re
@@ -468,7 +469,7 @@ def test_bfloat16_mul_rounds_to_nearest_even(device):
     x = rand_bf16()
     y = rand_bf16()
     z = torch.empty_like(x)
-    kernel[(1, )](z, x, y, SIZE=SIZE)
+    _intj_launch(kernel, (1, ), z, x, y, SIZE=SIZE)
 
     # The fp32 product of two bf16 values is exact, so this is a single
     # correctly rounded step.
@@ -579,7 +580,7 @@ def test_unsigned_name_mangling(device):
     x_tri = to_triton(x, device=device, dst_type=dtype_x)
     y_tri = to_triton(y, device=device, dst_type=dtype_y)
     actual = tuple(to_triton(np.empty_like(e), device=device) for e in expect)
-    kernel[(1, )](actual[0], actual[1], x_tri, y_tri, SIZE=SIZE, num_warps=4)
+    _intj_launch(kernel, (1, ), actual[0], actual[1], x_tri, y_tri, SIZE=SIZE, num_warps=4)
 
     # Bitwise op, so expect exact equality
     assert (expect[0] == to_numpy(actual[0])).all()
@@ -1474,7 +1475,7 @@ def test_index1d(expr, dtype_str, num_ctas, device):
     # triton result
     z_tri = to_triton(np.empty_like(z_ref), device=device)
     x_tri = to_triton(x, device=device)
-    kernel_match[(1, )](z_tri, x_tri, num_warps=1, SIZE=shape_x[0])
+    _intj_launch(kernel_match, (1, ), z_tri, x_tri, num_warps=1, SIZE=shape_x[0])
     # compare
     assert (z_ref == to_numpy(z_tri)).all()
 
@@ -1596,7 +1597,7 @@ def test_noinline_returns_tensor(device):
     x = torch.randn(BLOCK_SIZE, device=device, dtype=torch.float32)
     y = torch.randn(BLOCK_SIZE, device=device, dtype=torch.float32)
     z = torch.empty_like(x)
-    kernel[(1, )](x, y, z, BLOCK_SIZE=BLOCK_SIZE, num_warps=1)
+    _intj_launch(kernel, (1, ), x, y, z, BLOCK_SIZE=BLOCK_SIZE, num_warps=1)
     assert torch.equal(z, x + y)
 
 
@@ -1786,7 +1787,7 @@ def test_atomic_poll_waits_for_remote_cta(device):
     flag = torch.zeros(1, dtype=torch.int32, device=device)
     payload = torch.zeros_like(flag)
     out = torch.zeros_like(flag)
-    kernel[(2, )](flag, payload, out, num_warps=4)
+    _intj_launch(kernel, (2, ), flag, payload, out, num_warps=4)
 
     assert flag.item() == 1
     assert out.item() == 42
@@ -2528,7 +2529,7 @@ def test_cat_shape_mismatch(m1, m2, device):
     x = torch.zeros(m1, device=device, dtype=torch.float32)
     y = torch.zeros(m2, device=device, dtype=torch.float32)
     with pytest.raises(triton.CompilationError) as exc_info:
-        kernel[(1, )](x, y, M1=m1, M2=m2)
+        _intj_launch(kernel, (1, ), x, y, M1=m1, M2=m2)
     assert "tl.cat requires tensors of the same shape" in str(exc_info.value)
 
 
@@ -2575,9 +2576,9 @@ def test_load_store_same_ptr(device):
     for _ in range(1000):
         x = torch.ones((65536, ), device=device, dtype=torch.float32)
         if is_hip():
-            kernel[(65536, )](x, num_warps=16)  # threads per Warp for ROCM is 64
+            _intj_launch(kernel, (65536, ), x, num_warps=16)  # threads per Warp for ROCM is 64
         else:
-            kernel[(65536, )](x, num_warps=32)
+            _intj_launch(kernel, (65536, ), x, num_warps=32)
         assert torch.all(x == 2)
 
 
@@ -3336,23 +3337,23 @@ def test_sum_dtype(device):
         tl.store(out_ptr, x)
 
     out = torch.empty(1, dtype=torch.int32, device=device)
-    kernel_dtype[(1, )](out, init=1, in_dtype=tl.int1, out_dtype=None)
+    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int1, out_dtype=None)
     assert out[0] == 32 * 32
 
-    kernel_dtype[(1, )](out, init=1, in_dtype=tl.int1, out_dtype=tl.int1)
+    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int1, out_dtype=tl.int1)
     assert out[0] == 0
 
-    kernel_dtype[(1, )](out, init=7, in_dtype=tl.int8, out_dtype=tl.int8)
+    _intj_launch(kernel_dtype, (1, ), out, init=7, in_dtype=tl.int8, out_dtype=tl.int8)
     assert out[0] == (7 * 32 * 32) % 256
 
-    kernel_dtype[(1, )](out, init=1, in_dtype=tl.int32, out_dtype=None)
+    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int32, out_dtype=None)
     assert out[0] == 32 * 32
 
-    kernel_default_int[(1, )](out)
+    _intj_launch(kernel_default_int, (1, ), out)
     assert out[0] == 32 * 32
 
     out = torch.empty(1, dtype=torch.bfloat16, device=device)
-    kernel_default_float[(1, )](out)
+    _intj_launch(kernel_default_float, (1, ), out)
     torch.testing.assert_close(out[0], torch.tensor(32 * 32, dtype=torch.bfloat16, device=device))
 
 
@@ -3550,7 +3551,7 @@ def test_scan_bfloat16(op, axis, reverse, num_warps, device):
     if reverse:
         expected = expected.flip((axis, ))
     out = torch.empty_like(x)
-    kernel[(1, )](x, out, op, axis, reverse, num_warps=num_warps)
+    _intj_launch(kernel, (1, ), x, out, op, axis, reverse, num_warps=num_warps)
     torch.testing.assert_close(out, expected.to(torch.bfloat16), rtol=0, atol=0)
 
 
@@ -3686,7 +3687,7 @@ def test_scan_1d(M, N, device):
     x = torch.randint(-100, 100, (M, ), dtype=torch.int32, device=device)
     output = torch.empty(M * N, dtype=torch.int32, device=device)
 
-    scan_kernel[(1, )](output, x, M, N)
+    _intj_launch(scan_kernel, (1, ), output, x, M, N)
 
     ref = torch.cumsum(x, dim=0).reshape([1, M]).broadcast_to([N, M]).reshape([M * N])
     torch.testing.assert_close(ref.to(torch.int32), output, atol=0, rtol=0)
@@ -4768,7 +4769,7 @@ def test_scaled_dot_minimum_scale(rhs_scale, normal_type, fast_math, device):
         if fast_math and scale == 255:
             continue
         scales.fill_(scale)
-        _scaled_dot_scale_kernel[(1, )](x, w, scales, out, rhs_scale, normal_type, 32, fast_math, num_warps=4)
+        _intj_launch(_scaled_dot_scale_kernel, (1, ), x, w, scales, out, rhs_scale, normal_type, 32, fast_math, num_warps=4)
         if is_compile_warmup():
             return
         torch.testing.assert_close(out, torch.full_like(out, expected), rtol=0, atol=0, equal_nan=True)
@@ -5652,9 +5653,9 @@ def test_pointer_arguments(device):
     x = torch.empty(1024, device=device.split('_')[0], pin_memory=pin_memory)
     if device == "cpu":
         with pytest.raises(ValueError):
-            kernel[(1, )](x)
+            _intj_launch(kernel, (1, ), x)
     else:
-        kernel[(1, )](x)
+        _intj_launch(kernel, (1, ), x)
 
 
 # --------------------
@@ -5693,9 +5694,9 @@ def test_value_specialization_overflow(value: int, overflow: bool, device) -> No
 
     if overflow:
         with pytest.raises(OverflowError):
-            kernel[(1, )](value, x)
+            _intj_launch(kernel, (1, ), value, x)
     else:
-        kernel[(1, )](value, x)
+        _intj_launch(kernel, (1, ), value, x)
 
 
 # ----------------
@@ -6085,7 +6086,7 @@ def test_inline_asm_multiple_outputs(device):
     B_tri = to_triton(B, device=device)
     C_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
     D_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
-    kernel[(1, )](A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
+    _intj_launch(kernel, (1, ), A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
 
     C_ref = A - B
     D_ref = B - A
@@ -6157,7 +6158,7 @@ def test_inline_asm_packed_multiple_outputs(device):
     B_tri = to_triton(B, device=device)
     C_tri = to_triton(numpy_random(shape, dtype_str='int32', rs=rs), device=device)
     D_tri = to_triton(numpy_random(shape, dtype_str='float32', rs=rs), device=device)
-    kernel[(1, )](A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
+    _intj_launch(kernel, (1, ), A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
 
     C_ref = A.astype(np.int32)
     D_ref = np.maximum(A.astype(np.float32), B)
@@ -6226,7 +6227,7 @@ def test_map_elementwise_multiple_outputs(device):
     B_tri = to_triton(B, device=device)
     C_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
     D_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
-    kernel[(1, )](A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
+    _intj_launch(kernel, (1, ), A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
 
     C_ref = A // B
     D_ref = A % B
@@ -6259,7 +6260,7 @@ def test_map_elementwise_pack(device):
     B_tri = to_triton(B, device=device)
     C_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
     D_tri = to_triton(numpy_random(shape, dtype_str='uint32', rs=rs), device=device)
-    h = kernel[(1, )](A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
+    _intj_launch(kernel, (1, ), A_tri, B_tri, C_tri, D_tri, BLOCK=shape[0])
 
     C_ref = A // B
     D_ref = A % B
@@ -6288,7 +6289,7 @@ def test_for_iv(lo, hi, iv, device):
     lo = 2**35
     hi = 2**35 + 20
     out = to_triton(np.zeros((1, ), dtype=np.int64), device=device)
-    kernel[(1, )](out, lo, hi, iv)
+    _intj_launch(kernel, (1, ), out, lo, hi, iv)
     assert out[0] == sum(range(lo, hi, iv))
 
 
@@ -6567,12 +6568,12 @@ def test_constexpr_if_return(device):
 
     sem = torch.zeros((), device=device, dtype=torch.int32)
     out = torch.empty((), device=device, dtype=torch.int32)
-    kernel[(1, )](sem, out, 1)
+    _intj_launch(kernel, (1, ), sem, out, 1)
     assert out.item() == 0
 
     sem = torch.zeros((), device=device, dtype=torch.int32)
     out = torch.full((), fill_value=-1, device=device, dtype=torch.int32)
-    kernel[(4, )](sem, out, 4)
+    _intj_launch(kernel, (4, ), sem, out, 4)
     assert out.item() >= 0
 
 
@@ -6769,7 +6770,7 @@ def test_ptx_cast(dtype_str, device):
     s0 = 4
     buf11 = -torch.ones((6 * s0, 197, 197), device=device, dtype=torch_dtype)
     buf14 = -torch.ones((s0, 6, 197, 197), device=device, dtype=torch_dtype)
-    kernel[(4728, )](buf11, buf14, 1182 * s0, 197, triton_dtype, 1, 256, num_warps=2)
+    _intj_launch(kernel, (4728, ), buf11, buf14, 1182 * s0, 197, triton_dtype, 1, 256, num_warps=2)
     assert buf14.to(torch.float32).mean() == -2.0
 
 
@@ -6789,9 +6790,10 @@ def f8_to_f16(x, dtype):
         tl.store(Y + offs, x, mask=mask)
 
     ret = torch.empty(x.shape, dtype=torch.float16, device=x.device)
-    grid = lambda META: (triton.cdiv(x.numel(), META['BLOCK_SIZE']), )
+    block_size = 1024
+    grid = (triton.cdiv(ret.numel(), block_size), )
     dtype = getattr(tl, dtype)
-    kernel[grid](ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=1024)
+    _intj_launch(kernel, grid, ret, triton.reinterpret(x, dtype), ret.numel(), BLOCK_SIZE=block_size)
     return ret
 
 
@@ -7203,7 +7205,7 @@ def test_tl_range_fuse_empty_inner_bounds(bounds, flatten, device):
     lower, upper, step = bounds
     x = torch.arange(32, dtype=torch.int32, device=device)
     out = torch.empty((), dtype=torch.int32, device=device)
-    kernel[(1, )](x, out, lower, upper, step, flatten)
+    _intj_launch(kernel, (1, ), x, out, lower, upper, step, flatten)
     # Empty inner loops must still preserve the outer prologue and epilogue.
     expected = 7 + 3 * (110 + sum(range(lower, upper, step)))
     assert out.item() == expected
@@ -7433,7 +7435,7 @@ def test_side_effectful_reduction(device):
     X[:300] = 32
     X[300:] = 0
     Z = torch.zeros((), device="cuda", dtype=torch.int32)
-    sanitize_sum_kernel[(1, )](Z, X, BLOCK=BLOCK)
+    _intj_launch(sanitize_sum_kernel, (1, ), Z, X, BLOCK=BLOCK)
     torch.testing.assert_close(Z, X.sum().to(torch.int32))
 
 
@@ -7456,7 +7458,7 @@ def test_side_effectful_reduction_2d(device, reduce_dim):
     torch.manual_seed(42)
     X = torch.randint(0, 10, [BLOCK_0, BLOCK_1], device="cuda", dtype=torch.int32)
     Z = torch.zeros([NON_REDUCE_DIM], device="cuda", dtype=torch.int32)
-    sanitize_sum_2d_kernel[(1, )](Z, X, BLOCK_0=BLOCK_0, BLOCK_1=BLOCK_1, reduce_dim=reduce_dim,
+    _intj_launch(sanitize_sum_2d_kernel, (1, ), Z, X, BLOCK_0=BLOCK_0, BLOCK_1=BLOCK_1, reduce_dim=reduce_dim,
                                   NON_REDUCE_DIM=NON_REDUCE_DIM)
     torch.testing.assert_close(Z, X.sum(reduce_dim).to(torch.int32))
 
@@ -7491,7 +7493,7 @@ def test_side_effectful_scan(device):
     X[:300] = 32
     X[300:] = 0
     Z = torch.zeros_like(X)
-    sanitize_cumsum_kernel[(1, )](Z, X, BLOCK=BLOCK)
+    _intj_launch(sanitize_cumsum_kernel, (1, ), Z, X, BLOCK=BLOCK)
     torch.testing.assert_close(Z, X.cumsum(0).to(torch.int32))
 
 
@@ -7519,7 +7521,7 @@ def test_chained_reductions(in_shape, perm, red_dims, device):
     temp = torch.permute(input, perm).contiguous()
     ref = torch.sum(torch.sum(torch.sum(temp, dim=red_dims[0]), dim=red_dims[1]), dim=red_dims[2])
     result = torch.empty_like(ref)
-    kernel[(1, )](input, result, input.shape[0], input.shape[1], input.shape[2], input.shape[3], input.shape[4],
+    _intj_launch(kernel, (1, ), input, result, input.shape[0], input.shape[1], input.shape[2], input.shape[3], input.shape[4],
                   perm[0], perm[1], perm[2], perm[3], perm[4], red_dims[0], red_dims[1], red_dims[2])
 
     assert torch.all(ref == result)
@@ -7618,7 +7620,7 @@ def test_jit_function_arg(device):
     out = torch.empty((BLOCK_SIZE, ), device=device)
     expect = torch.full((BLOCK_SIZE, ), 9.0, dtype=x.dtype, device=device)
 
-    square_kernel_jit_function[(1, )](x, out, BLOCK_SIZE)
+    _intj_launch(square_kernel_jit_function, (1, ), x, out, BLOCK_SIZE)
 
     torch.testing.assert_close(out, expect)
 
@@ -7934,6 +7936,6 @@ def test_libdevice_rint(dtype_str, device):
     res_out = torch.empty_like(x_tri)
     numel = x_tri.numel()
     BLOCK_SIZE = 512
-    rint_kernel[(triton.cdiv(numel, BLOCK_SIZE), )](res_out, x_tri, numel, BLOCK_SIZE)
+    _intj_launch(rint_kernel, (triton.cdiv(numel, BLOCK_SIZE), ), res_out, x_tri, numel, BLOCK_SIZE)
     ref_out = np.rint(x_np)
     np.testing.assert_allclose(to_numpy(res_out), ref_out, rtol=0, atol=0, equal_nan=True)

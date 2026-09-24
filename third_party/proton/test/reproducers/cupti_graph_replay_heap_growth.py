@@ -697,6 +697,7 @@ def _run_single(args: argparse.Namespace) -> int:
     import triton
     import triton.language as tl
     import triton.profiler as proton
+    from intj.compat import launch as _intj_launch
     from triton.testing import cuda_graph_without_gc
 
     torch.cuda.set_device(args.device)
@@ -714,7 +715,7 @@ def _run_single(args: argparse.Namespace) -> int:
         tl.store(z_ptr + offsets, x + y, mask=mask)
 
     numel = args.numel
-    grid = lambda meta: (triton.cdiv(numel, meta["BLOCK_SIZE"]), )
+    grid = (triton.cdiv(numel, args.block_size), )
     static_x = torch.rand((numel, ), device=device, dtype=torch.float32)
     static_y = torch.rand((numel, ), device=device, dtype=torch.float32)
     static_z = torch.empty_like(static_x)
@@ -722,7 +723,7 @@ def _run_single(args: argparse.Namespace) -> int:
     def direct_iteration() -> None:
         for _ in range(args.graph_ops):
             static_z.fill_(0.0)
-            add_kernel[grid](static_x, static_y, static_z, numel, BLOCK_SIZE=args.block_size)
+            _intj_launch(add_kernel, grid, static_x, static_y, static_z, numel, BLOCK_SIZE=args.block_size)
             static_x.copy_(static_z)
 
     for _ in range(args.warmup):
