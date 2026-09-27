@@ -124,6 +124,7 @@ def small_tma_load_kernel(input_desc, output_ptr, N: tl.constexpr):
         tl.store(output_ptr + block_start + offsets, value)
 
 
+@partial(make_launcher, grid_arg=1, options={"num_warps": 4})
 @triton.jit
 def mxfp_to_bf16_kernel(
     x_ptr,
@@ -205,8 +206,8 @@ def dot_scale_ref(x, scale, y, type_x, type_y):
 
     N = x_upcast.numel()
     BLOCK_SIZE = 512
-    grid = ((N + BLOCK_SIZE - 1) // BLOCK_SIZE, )
-    _intj_launch(mxfp_to_bf16_kernel, grid, x, scale, x_upcast, scale.numel(), e_bits, m_bits, BLOCK_SIZE, num_warps=4)
+    mxfp_to_bf16_kernel(*device_stream(), (N + BLOCK_SIZE - 1) // BLOCK_SIZE, x, scale, x_upcast, scale.numel(), e_bits,
+                        m_bits, BLOCK_SIZE)
     y_upcast = y if type_y == "bf16" else y.view(type_fp8_y).to(out_dtype)
     assert x_upcast.dtype == out_dtype
     assert y_upcast.dtype == out_dtype

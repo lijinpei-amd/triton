@@ -2719,21 +2719,21 @@
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 273,
+      "line": 274,
       "target": "matmul_kernel_tma",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 344,
+      "line": 345,
       "target": "small_tma_load_kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 577,
+      "line": 578,
       "target": "matmul_kernel_persistent_scatter",
       "reason": "unsupported_scratch_allocator",
       "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
