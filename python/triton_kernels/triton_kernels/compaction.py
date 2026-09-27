@@ -1,7 +1,15 @@
-from intj.compat import launch as _intj_launch
+from functools import cache
+
+from intj import make_launcher
 import torch
 from .compaction_details._masked_compaction import _masked_compaction
 from .tensor import Tensor
+
+
+@cache
+def _masked_compaction_launcher():
+    # Built on first use, so importing this module needs no GPU.
+    return make_launcher(_masked_compaction, grid_arg=1)
 
 
 def compaction(yv, yi, bitmask, sentinel=-1):
@@ -36,11 +44,11 @@ def compaction(yv, yi, bitmask, sentinel=-1):
     if isinstance(bitmask, Tensor):
         bitmask = bitmask.storage.data
 
-    _intj_launch(_masked_compaction, (n_rows, ),
+    _masked_compaction_launcher()(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, n_rows,
         yv, yi, bitmask, bitmask.stride(0), bitmask.stride(1),  # inputs
         ret_yv, ret_yi,  # outputs
         sentinel,  # sentinel
-        K=n_cols  # constants
+        n_cols  # constants
     )
     return ret_yv, ret_yi
 
