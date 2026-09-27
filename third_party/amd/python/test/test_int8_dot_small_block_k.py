@@ -1,11 +1,13 @@
-from intj.compat import launch as _intj_launch
+from functools import partial
+
+from intj import make_launcher
 import numpy as np
 import pytest
 import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import is_hip, to_numpy
+from triton._internal_testing import device_stream, is_hip, to_numpy
 
 if not is_hip():
     pytest.skip(allow_module_level=True)
@@ -14,6 +16,7 @@ if not is_hip():
 @pytest.mark.parametrize("block_k", [1, 2, 3, 4])
 def test_int8_dot_small_block_k(block_k, device):
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def kernel(a, b, c, K, BLOCK_K: tl.constexpr, PAD_K: tl.constexpr):
         offs_m = tl.arange(0, 32)
@@ -42,5 +45,5 @@ def test_int8_dot_small_block_k(block_k, device):
     a = torch.from_numpy(a).to(device)
     b = torch.from_numpy(b).to(device)
     actual = torch.empty((32, 32), dtype=torch.int32, device=device)
-    _intj_launch(kernel, (1, ), a, b, actual, K, BLOCK_K=block_k, PAD_K=pad_k)
+    kernel(*device_stream(), 1, a, b, actual, K, block_k, pad_k)
     np.testing.assert_array_equal(to_numpy(actual), expected)

@@ -1,9 +1,11 @@
-from intj.compat import launch as _intj_launch
+from functools import partial
 import math
 import pytest
 import torch
 import triton
 import triton.language as tl
+from intj import make_launcher
+from triton._internal_testing import device_stream
 from torch._subclasses.fake_tensor import FakeTensorMode
 from triton_kernels.tensor_details.layout import (
     BlackwellActMXScaleLayout,
@@ -724,6 +726,7 @@ def test_scale_ptr_gather_column(device):
 
 
 # The one-byte base stands in for a large allocation; do not specialize its pointer range.
+@partial(make_launcher, grid_arg=1)
 @triton.jit(do_not_specialize=["S"])
 def _scale_ptr_offset(S, Out, outer, inner):
     # Two int32 stride products sum to 2**31; inspect the pointer without loading it.
@@ -734,5 +737,5 @@ def _scale_ptr_offset(S, Out, outer, inner):
 def test_scale_ptr_large_offset(device):
     base = torch.empty(1, dtype=torch.uint8, device=device)
     offset = torch.empty((), dtype=torch.int64, device=device)
-    _intj_launch(_scale_ptr_offset, (1, ), base, offset, 128, 8)
+    _scale_ptr_offset(*device_stream(), 1, base, offset, 128, 8)
     assert offset.item() == 2**31

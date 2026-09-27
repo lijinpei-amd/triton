@@ -1,4 +1,4 @@
-from intj.compat import launch as _intj_launch
+from functools import partial
 import math
 import subprocess
 import sys
@@ -10,6 +10,8 @@ import torch
 from torch._subclasses.fake_tensor import FakeTensorMode
 import triton
 import triton.language as tl
+from intj import make_launcher
+from triton._internal_testing import device_stream
 from triton_kernels.fpsan import embed, unembed
 from triton_kernels.tensor_details.bitmatrix import _keyed_add
 from triton_kernels.tensor_details.dtype import BIT, FP4, UINT8
@@ -748,6 +750,7 @@ def test_make_bitmatrix_metadata(n_rows, n_cols, k):
     assert_equal(metadata_tri.col_sorted_indx, metadata_ref.col_sorted_indx)
 
 
+@partial(make_launcher, grid_arg=1)
 @triton.jit(debug=True)
 def _keyed_add_scan_kernel(In, Out, BLOCK: tl.constexpr):
     offs = tl.arange(0, BLOCK)
@@ -770,7 +773,7 @@ def test_keyed_add_large_key_no_int_overflow():
     x = torch.full((BLOCK, ), (key << 16) | 1, dtype=torch.uint32, device=device)
     out = torch.empty_like(x)
     # Would raise a device-side assertion before the fix.
-    _intj_launch(_keyed_add_scan_kernel, (1, ), x, out, BLOCK=BLOCK)
+    _keyed_add_scan_kernel(*device_stream(), 1, x, out, BLOCK)
     # Compare in int64 (CUDA has no uint32 `arange`); values are well within int64.
     expected = (key << 16) | torch.arange(1, BLOCK + 1, dtype=torch.int64, device=device)
     assert torch.equal(out.to(torch.int64), expected)

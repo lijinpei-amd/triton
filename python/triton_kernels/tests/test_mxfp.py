@@ -5,7 +5,9 @@ import pytest
 import torch
 import triton
 import triton.language as tl
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
+from triton._internal_testing import device_stream
 from triton_kernels.numerics_details.mxfp import (
     MXFP_BLOCK_SIZE,
     NVFP_BLOCK_SIZE,
@@ -27,6 +29,7 @@ def dtype_str_to_torch(dtype_str: str) -> torch.dtype:
     return torch.uint8 if dtype_str == "float4_e2m1" else getattr(torch, dtype_str)
 
 
+@partial(make_launcher, grid_arg=1, return_compiled=True)
 @triton.jit
 def _upcast_ue8m0_scale_kernel(out, scale, BLOCK_SIZE: tl.constexpr):
     offsets = tl.program_id(0) * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
@@ -42,8 +45,7 @@ def test_ue8m0_scale_upcast(dst_dtype, scale_dtype, block_size, device):
     actual = torch.empty(256, dtype=dst_dtype, device=device)
     expected = torch.ldexp(torch.ones(256, dtype=torch.float64, device=device), scale.to(torch.int32) - 127)
     expected[-1] = float("nan")
-    kernel = _intj_launch(_upcast_ue8m0_scale_kernel, (256 // block_size, ), actual, scale.view(scale_dtype),
-                          block_size, return_compiled=True)
+    kernel = _upcast_ue8m0_scale_kernel(*device_stream(), 256 // block_size, actual, scale.view(scale_dtype), block_size)
     torch.testing.assert_close(actual, expected.to(dst_dtype), rtol=0, atol=0, equal_nan=True)
     if cuda_capability_geq(10, 0) and dst_dtype == torch.bfloat16 and block_size > 1:
         assert "cvt.rn.bf16x2.ue8m0x2" in kernel.asm["ptx"]

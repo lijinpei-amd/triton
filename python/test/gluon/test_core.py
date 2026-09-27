@@ -1,14 +1,17 @@
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 import torch
 import math
 import pytest
 import re
+from functools import partial
 from itertools import product
 
 import triton
 import triton.language as tl
 
 from triton._internal_testing import (
+    device_stream,
     is_compile_warmup,
     is_cuda,
     is_ampere_or_newer,
@@ -404,8 +407,9 @@ def test_noinline_call_preserves_live_shared_allocation(NESTED, fresh_knobs):
     output = torch.empty_like(values)
     sentinel_output = torch.empty_like(values)
 
-    compiled = _intj_launch(_noinline_shared_allocation_call_kernel, (1, ), values, output, sentinel_output, NESTED,
-                            THREADS_PER_WARP, num_warps=4, return_compiled=True)
+    launch = make_launcher(_noinline_shared_allocation_call_kernel, grid_arg=1, options={"num_warps": 4},
+                           return_compiled=True)
+    compiled = launch(*device_stream(), 1, values, output, sentinel_output, NESTED, THREADS_PER_WARP)
 
     assert compiled.metadata.shared >= 2 * values.numel() * values.element_size()
     assert compiled.asm["ttgir"].count("noinline = true") >= 1 + int(NESTED)
@@ -2388,6 +2392,7 @@ def test_amd_mfma_scaled(M, N, K, a_type, b_type, has_scale, device='cuda'):
 
 def test_math_fast_expf():
 
+    @partial(make_launcher, grid_arg=1)
     @gluon.jit
     def fast_expf_kernel(x_ptr, y_ptr, warp_size: ttgl.constexpr, num_warps: ttgl.constexpr):
         blocked: ttgl.constexpr = ttgl.BlockedLayout([1], [warp_size], [num_warps], [0])
@@ -2402,12 +2407,13 @@ def test_math_fast_expf():
     torch.manual_seed(0)
     x = torch.randn(THREADS_PER_WARP * num_warps, device="cuda", dtype=torch.float32)
     y = torch.empty_like(x)
-    _intj_launch(fast_expf_kernel, (1, ), x, y, THREADS_PER_WARP, num_warps)
+    fast_expf_kernel(*device_stream(), 1, x, y, THREADS_PER_WARP, num_warps)
     torch.testing.assert_close(y, torch.exp(x), atol=1e-5, rtol=1e-4)
 
 
 def test_math_fast_dividef():
 
+    @partial(make_launcher, grid_arg=1)
     @gluon.jit
     def fast_dividef_kernel(x_ptr, y_ptr, z_ptr, warp_size: ttgl.constexpr, num_warps: ttgl.constexpr):
         blocked: ttgl.constexpr = ttgl.BlockedLayout([1], [warp_size], [num_warps], [0])
@@ -2425,7 +2431,7 @@ def test_math_fast_dividef():
     y = torch.randn_like(x)
     z = torch.empty_like(x)
     y[y == 0] = 1.0
-    _intj_launch(fast_dividef_kernel, (1, ), x, y, z, THREADS_PER_WARP, num_warps)
+    fast_dividef_kernel(*device_stream(), 1, x, y, z, THREADS_PER_WARP, num_warps)
     torch.testing.assert_close(z, torch.div(x, y), atol=1e-5, rtol=1e-4)
 
 
@@ -3851,6 +3857,7 @@ def test_tcgen05_mma_scaled_lhs_tmem(a_format, a_torch_dtype, b_format, b_torch_
 @pytest.mark.skipif(not (is_ampere_or_newer() or is_hip()), reason="Requires Ampere or newer, or AMD")
 def test_coalesced_layout():
 
+    @partial(make_launcher, grid_arg=2, options={"num_warps": 4})
     @gluon.jit
     def kernel(in_ptr, out_ptr,  #
                xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #
@@ -3884,11 +3891,10 @@ def test_coalesced_layout():
     output = torch.zeros_like(input)
     ref = torch.maximum(torch.sin(input), torch.tensor(0.0, device="cuda"))
 
-    grid = (triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK))
-    _intj_launch(kernel, grid,  #
-        input, output, xnumel, ynumel,  #
-        *input.stride(), *output.stride(),  #
-        XBLOCK, YBLOCK, num_warps=4)
+    kernel(*device_stream(), triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK),  #
+           input, output, xnumel, ynumel,  #
+           *input.stride(), *output.stride(),  #
+           XBLOCK, YBLOCK)
 
     torch.testing.assert_close(output, ref)
 
@@ -3896,6 +3902,7 @@ def test_coalesced_layout():
 @pytest.mark.skipif(not (is_ampere_or_newer() or is_hip()), reason="Requires Ampere or newer, or AMD")
 def test_convert_auto_layout_to_coalesced_layout():
 
+    @partial(make_launcher, grid_arg=2, options={"num_warps": 4})
     @gluon.jit
     def kernel(in_ptr, out_ptr,  #
                xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #
@@ -3928,11 +3935,10 @@ def test_convert_auto_layout_to_coalesced_layout():
     output = torch.zeros_like(input)
     ref = torch.ones_like(input)
 
-    grid = (triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK))
-    _intj_launch(kernel, grid,  #
-        input, output, xnumel, ynumel,  #
-        *input.stride(), *output.stride(),  #
-        XBLOCK, YBLOCK, num_warps=4)
+    kernel(*device_stream(), triton.cdiv(xnumel, XBLOCK), triton.cdiv(ynumel, YBLOCK),  #
+           input, output, xnumel, ynumel,  #
+           *input.stride(), *output.stride(),  #
+           XBLOCK, YBLOCK)
 
     torch.testing.assert_close(output, ref)
 

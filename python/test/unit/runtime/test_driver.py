@@ -6,7 +6,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import cloudpickle
-from intj.compat import launch as _intj_launch
+from functools import partial
+
+from intj import make_launcher
 import pytest
 import torch
 
@@ -21,7 +23,7 @@ from triton._compile_warmup import (
     summarize_compile_trace,
 )
 from triton._compile_warmup_pool import ProcessPoolWarmupDispatcher, SharedWarmupCoordinator, _jit_dumps
-from triton._internal_testing import is_compile_warmup, random_float, random_int
+from triton._internal_testing import device_stream, is_compile_warmup, random_float, random_int
 from triton import _test_runner
 from triton.backends.driver import GPUDriver, expand_signature, wrap_handle_tensordesc_impl
 from triton.backends.nvidia.compiler import CUDABackend
@@ -490,6 +492,7 @@ def test_kernel_in_thread(device):
     # Test calling in a new thread sets a valid device context
     buf = torch.zeros((38016 * 1024, ), dtype=torch.float32, device=device)
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def _kernel(P, BLOCK: tl.constexpr):
         pid = tl.program_id(0).to(tl.int64)
@@ -500,7 +503,7 @@ def test_kernel_in_thread(device):
 
     def call_triton():
         N = buf.numel()
-        _intj_launch(_kernel, (triton.cdiv(N, 1024),), buf, BLOCK=1024)
+        _kernel(*device_stream(), triton.cdiv(N, 1024), buf, 1024)
         getattr(torch, device).synchronize()
 
     call_triton()

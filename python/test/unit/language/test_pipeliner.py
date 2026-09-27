@@ -1,12 +1,15 @@
 # End-to-end tests to check the correctness of the pipeliner
 
+from functools import partial
+
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2, is_hip, is_hip_gfx1250
+from triton._internal_testing import device_stream, is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2, is_hip, is_hip_gfx1250
 
 
 def check_capabilities():
@@ -98,6 +101,7 @@ def matmul_kernel_tma(  #
     output_ptr.store([offs_am, offs_bn], accumulator)
 
 
+@partial(make_launcher, grid_arg=2, return_compiled=True)
 @triton.jit
 def vecadd_kernel(a_ptr, b_ptr, output_ptr, n_elements, num_blocks, BLOCK_SIZE: tl.constexpr, NUM_STAGES: tl.constexpr):
     pid = tl.program_id(axis=0)
@@ -355,9 +359,8 @@ def test_pipeline_vecadd(device):
     a = torch.randn(SIZE, dtype=torch.float16, device=device)
     b = torch.randn(SIZE, dtype=torch.float16, device=device)
     output = torch.empty(SIZE, dtype=torch.float16, device=device)
-    grid = (triton.cdiv(SIZE, NUM_BLOCKS * BLOCK_SIZE), 1)
-    handler = _intj_launch(vecadd_kernel, grid, a, b, output, SIZE, NUM_BLOCKS, BLOCK_SIZE, NUM_STAGES,
-                           return_compiled=True)
+    handler = vecadd_kernel(*device_stream(), triton.cdiv(SIZE, NUM_BLOCKS * BLOCK_SIZE), 1, a, b, output, SIZE,
+                            NUM_BLOCKS, BLOCK_SIZE, NUM_STAGES)
     ref_out = a + b
     torch.testing.assert_close(ref_out, output)
     if is_cuda():
@@ -372,6 +375,7 @@ def test_pipeline_vecadd(device):
 @pytest.mark.parametrize("NUM_STAGES", [1, 2, 3, 4, 5])
 def test_pipeline_epilogue(ROW_COUNT, NUM_STAGES, device):
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def kernel_up(output_ptr, input_ptr, input_row_stride, output_row_stride, n_rows, n_cols, BLOCK_SIZE: tl.constexpr,
                   NUM_STAGES: tl.constexpr):
@@ -393,7 +397,7 @@ def test_pipeline_epilogue(ROW_COUNT, NUM_STAGES, device):
     y0 = torch.rand_like(x)
     n_rows, n_cols = x.shape
     BLOCK_SIZE = triton.next_power_of_2(n_cols)
-    _intj_launch(kernel_up, (1, ), y0, x, x.stride(0), y0.stride(0), n_rows, n_cols, BLOCK_SIZE, NUM_STAGES)
+    kernel_up(*device_stream(), 1, y0, x, x.stride(0), y0.stride(0), n_rows, n_cols, BLOCK_SIZE, NUM_STAGES)
     assert (y0 == torch.ones_like(x)).all()
 
 
@@ -597,6 +601,7 @@ def test_conditional_store_pipeline(num_stages, device):
     """
     check_capabilities()
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def conditional_store_kernel(
         arange_ptr,
@@ -614,7 +619,7 @@ def test_conditional_store_pipeline(num_stages, device):
     arange = torch.arange(N, dtype=torch.int32, device=device)
     output = torch.zeros((N, ), dtype=torch.int32, device=device)
 
-    _intj_launch(conditional_store_kernel, (1, ), arange, output, num_stages, N, True)
+    conditional_store_kernel(*device_stream(), 1, arange, output, num_stages, N, True)
 
     # Expected output: [1, 2, 3, 4, ..., N]
     expected = torch.arange(1, N + 1, dtype=torch.int32, device=device)

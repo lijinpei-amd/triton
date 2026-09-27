@@ -1,8 +1,8 @@
-from intj.compat import launch as _intj_launch
+from intj import make_launcher
 import pytest
 import torch
 
-from triton._internal_testing import is_hip_cdna3, is_hip_cdna4
+from triton._internal_testing import device_stream, is_hip_cdna3, is_hip_cdna4
 from triton.experimental import gluon
 import triton.experimental.gluon.language as ttgl
 
@@ -55,8 +55,8 @@ def test_runtime_scaled_upcast_fp4_compact_scale(k_packed, scale_k, spt_packed):
     scale = (scale_exponents + 0x7f).to(torch.uint8)
     out = torch.empty((M, out_k), dtype=torch.bfloat16, device="cuda")
 
-    program = _intj_launch(_compact_scaled_upcast_fp4_kernel, (1, ), x, scale, out, M, k_packed, out_k, scale_k,
-                           spt_packed, num_warps=1, return_compiled=True)
+    launch = make_launcher(_compact_scaled_upcast_fp4_kernel, grid_arg=1, options={"num_warps": 1}, return_compiled=True)
+    program = launch(*device_stream(), 1, x, scale, out, M, k_packed, out_k, scale_k, spt_packed)
 
     expected = torch.ldexp(torch.full_like(scale_exponents, 0.5, dtype=torch.float32),
                            scale_exponents).repeat_interleave(elements_per_scale, dim=1).to(torch.bfloat16)
@@ -107,7 +107,9 @@ def test_scaled_upcast_scale_edges(dtype, out_dtype, nan_scale):
     scale = torch.tensor([255] * 8 if nan_scale else [0, 1, 127, 254] * 2, dtype=torch.uint8, device="cuda")
     scale = scale[:, None].expand(8, 2 if fp4 else 64).contiguous()
     out = torch.empty((8, 64), dtype=out_dtype, device="cuda")
-    _intj_launch(_scaled_upcast_scale_edges_kernel, (1, ), x, scale, out, fp4, num_warps=1, allow_flush_denorm=False)
+    launch = make_launcher(_scaled_upcast_scale_edges_kernel, grid_arg=1,
+                           options={"num_warps": 1, "allow_flush_denorm": False})
+    launch(*device_stream(), 1, x, scale, out, fp4)
 
     # Both subnormal and normal BF16 results survive; the smallest FP16
     # results underflow after scaling.

@@ -1,4 +1,7 @@
-from intj.compat import launch as _intj_launch, launch_or_interpret as _intj_launch_or_interpret
+from functools import partial
+
+from intj import make_launcher
+from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import numpy as np
 import pytest
 import scipy.stats
@@ -6,6 +9,7 @@ import torch
 
 import triton
 import triton.language as tl
+from triton._internal_testing import device_stream
 
 #####################################
 # Reference Philox Implementation
@@ -196,6 +200,7 @@ def test_rand(size, seed, dtype, device, const_seed):
 
 def test_seed_is_int(device):
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def kernel(X, seed):
         offset = tl.arange(0, 1)
@@ -205,10 +210,10 @@ def test_seed_is_int(device):
     x = torch.empty(1, dtype=torch.float32, device=device)
     with pytest.raises(triton.compiler.errors.CompilationError):
         seed0 = torch.zeros(1, dtype=torch.int32, device=device)
-        _intj_launch(kernel, (1, ), x, seed0)
+        kernel(*device_stream(), 1, x, seed0)
     with pytest.raises(triton.compiler.errors.CompilationError):
         seed1 = 2.3
-        _intj_launch(kernel, (1, ), x, seed1)
+        kernel(*device_stream(), 1, x, seed1)
 
 
 # test normal PRNG

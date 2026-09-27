@@ -1,11 +1,13 @@
-from intj.compat import launch as _intj_launch
+from functools import partial
+
+from intj import make_launcher
 
 import pytest
 import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import is_hip
+from triton._internal_testing import device_stream, is_hip
 
 if not is_hip():
     pytest.skip(allow_module_level=True)
@@ -44,6 +46,7 @@ def test_buffer_op_ptr_optimization(input_size, input_offset, block_size, num_bl
         }
     """
 
+    @partial(make_launcher, grid_arg=1, options={"num_warps": 1}, return_compiled=True)
     @triton.jit
     def kernel(X, Y, BLOCK_SIZE: tl.constexpr, NUM_BLOCKS: tl.constexpr, INCREMENT: tl.constexpr,
                INITIAL_OFFSET: tl.constexpr):
@@ -76,10 +79,7 @@ def test_buffer_op_ptr_optimization(input_size, input_offset, block_size, num_bl
         for j in range(block_size):
             ref_output[j] += X[(input_offset + initial_offset + increment * i + j) % input_size]
 
-    grid = (1, )
-
-    pgm = _intj_launch(kernel, grid, X[input_offset:], Y, block_size, num_blocks, increment, initial_offset, num_warps=1,
-                       return_compiled=True)
+    pgm = kernel(*device_stream(), 1, X[input_offset:], Y, block_size, num_blocks, increment, initial_offset)
 
     check_ir(pgm.asm["ttgir"], expect_optimization)
 

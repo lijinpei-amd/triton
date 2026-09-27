@@ -1,7 +1,11 @@
-from intj.compat import launch as _intj_launch, launch_or_interpret as _intj_launch_or_interpret
+from functools import partial
+
+from intj import make_launcher
+from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import pytest
 import triton
 import triton.language as tl
+from triton._internal_testing import device_stream
 from typing import NamedTuple
 import torch
 
@@ -339,13 +343,14 @@ def test_passing_tuple_to_make_tensor_descriptor(device, with_allocator):
 
 def test_modifying_tuples():
 
+    @partial(make_launcher, grid_arg=1)
     @triton.jit
     def set_tuple_value_at_idx():
         t = tl.tuple([5, 6, 7])
         t[0] = 0
 
     with pytest.raises(triton.CompilationError):
-        _intj_launch(set_tuple_value_at_idx, (1, ))
+        set_tuple_value_at_idx(*device_stream(), 1)
 
 
 @pytest.mark.interpreter

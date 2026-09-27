@@ -1,3 +1,4 @@
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 import sys
 import importlib.util
@@ -11,6 +12,7 @@ from triton.tools.mxfp import MXFP4Tensor, MXScaleTensor
 from triton.tools.triton_to_gluon_translator.translator import convert_triton_to_gluon
 from triton.tools.triton_to_gluon_translator.target import TranslatorTarget
 from triton._internal_testing import (
+    device_stream,
     is_blackwell,
     is_hopper_or_newer,
     is_cuda,
@@ -66,18 +68,17 @@ def add_kernel(x_ptr, y_ptr, out_ptr, n_elements, BLOCK: tl.constexpr):
 
 
 def test_simple_kernel(tmp_path):
-    kernel = convert_kernel(add_kernel, "add_kernel", tmp_path)
+    kernel = make_launcher(convert_kernel(add_kernel, "add_kernel", tmp_path), grid_arg=1)
 
     n = 1024
     BLOCK = 128
     x = torch.randn(n, device="cuda", dtype=torch.float32)
     y = torch.randn(n, device="cuda", dtype=torch.float32)
     out = torch.empty_like(x)
-    grid = (n // BLOCK, )
-    _intj_launch(kernel, grid, x, y, out, n, BLOCK)
+    kernel(*device_stream(), n // BLOCK, x, y, out, n, BLOCK)
 
     ref = torch.empty_like(x)
-    _intj_launch(add_kernel, grid, x, y, ref, n, BLOCK)
+    make_launcher(add_kernel, grid_arg=1)(*device_stream(), n // BLOCK, x, y, ref, n, BLOCK)
 
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
@@ -101,17 +102,17 @@ def matmul_tile_kernel(a_ptr, b_ptr, c_ptr, BLOCK_M: tl.constexpr, BLOCK_N: tl.c
 def test_triton_to_gluon_dot_minimal(tmp_path):
     if not (is_hopper_or_newer() or is_hip_cdna3_or_newer() or is_hip_gfx1250()):
         pytest.skip("Requires Hopper, Blackwell, CDNA3+, or gfx1250")
-    kernel = convert_kernel(matmul_tile_kernel, "matmul_tile_kernel", tmp_path)
+    kernel = make_launcher(convert_kernel(matmul_tile_kernel, "matmul_tile_kernel", tmp_path), grid_arg=1,
+                           options={"num_warps": 8})
     M, N, K = 128, 128, 128
     a = torch.randn((M, K), device="cuda", dtype=torch.float16)
     b = torch.randn((K, N), device="cuda", dtype=torch.float16)
-    grid = (1, )
 
     c = torch.empty((M, N), device="cuda", dtype=torch.float32)
-    _intj_launch(kernel, grid, a, b, c, M, N, K, num_warps=8)
+    kernel(*device_stream(), 1, a, b, c, M, N, K)
 
     ref = torch.empty_like(c)
-    _intj_launch(matmul_tile_kernel, grid, a, b, ref, M, N, K, num_warps=8)
+    make_launcher(matmul_tile_kernel, grid_arg=1, options={"num_warps": 8})(*device_stream(), 1, a, b, ref, M, N, K)
     torch.testing.assert_close(c, ref, atol=0, rtol=0)
 
 
@@ -661,13 +662,12 @@ def reduce_to_scalar_kernel(out_ptr):
 
 
 def test_reduce_to_scalar(tmp_path):
-    kernel = convert_kernel(reduce_to_scalar_kernel, "reduce_to_scalar_kernel", tmp_path)
-    grid = (1, )
+    kernel = make_launcher(convert_kernel(reduce_to_scalar_kernel, "reduce_to_scalar_kernel", tmp_path), grid_arg=1)
 
     out = torch.empty((1, ), device="cuda", dtype=torch.int32)
-    _intj_launch(kernel, grid, out)
+    kernel(*device_stream(), 1, out)
     ref = torch.empty_like(out)
-    _intj_launch(reduce_to_scalar_kernel, grid, ref)
+    make_launcher(reduce_to_scalar_kernel, grid_arg=1)(*device_stream(), 1, ref)
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
 
@@ -724,14 +724,14 @@ def atomic_add_kernel(out_ptr, BLOCK: tl.constexpr):
 
 
 def test_atomic_add(tmp_path):
-    kernel = convert_kernel(atomic_add_kernel, "atomic_add_kernel", tmp_path)
+    kernel = make_launcher(convert_kernel(atomic_add_kernel, "atomic_add_kernel", tmp_path), grid_arg=1)
 
     block = 32 * 4
     ref = torch.zeros((block, ), device="cuda")
-    _intj_launch(atomic_add_kernel, (1, ), ref, BLOCK=block)
+    make_launcher(atomic_add_kernel, grid_arg=1)(*device_stream(), 1, ref, block)
 
     out = torch.zeros((block, ), device="cuda")
-    _intj_launch(kernel, (1, ), out, BLOCK=block)
+    kernel(*device_stream(), 1, out, block)
     torch.testing.assert_close(out, ref)
 
 
@@ -748,16 +748,16 @@ def cat_kernel(x_ptr, y_ptr, out_ptr, BLOCK: tl.constexpr):
 
 
 def test_cat(tmp_path):
-    kernel = convert_kernel(cat_kernel, "cat_kernel", tmp_path)
+    kernel = make_launcher(convert_kernel(cat_kernel, "cat_kernel", tmp_path), grid_arg=1)
 
     BLOCK = 256
     x = torch.randn(BLOCK, device="cuda", dtype=torch.float32)
     y = torch.randn(BLOCK, device="cuda", dtype=torch.float32)
     out = torch.empty(2 * BLOCK, device="cuda", dtype=torch.float32)
-    _intj_launch(kernel, (1, ), x, y, out, BLOCK)
+    kernel(*device_stream(), 1, x, y, out, BLOCK)
 
     ref = torch.empty_like(out)
-    _intj_launch(cat_kernel, (1, ), x, y, ref, BLOCK)
+    make_launcher(cat_kernel, grid_arg=1)(*device_stream(), 1, x, y, ref, BLOCK)
     torch.testing.assert_close(sorted(out.cpu()), sorted(ref.cpu()), atol=0, rtol=0)
 
 

@@ -1,3 +1,4 @@
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 import contextlib
 import pytest
@@ -9,7 +10,7 @@ import triton
 import triton.language as tl
 from triton.compiler.errors import CompilationError, CompileTimeAssertionFailure
 import traceback
-from triton._internal_testing import is_cuda, is_hip, is_hip_cdna4
+from triton._internal_testing import device_stream, is_cuda, is_hip, is_hip_cdna4
 
 
 def format_exception(type, value, tb):
@@ -547,7 +548,7 @@ def test_err_constexpr_and_do_not_specialize():
         triton.compile(triton.compiler.ASTSource(fn=kernel, signature={}, constexprs={"N": 5}))
 
     with pytest.raises(CompilationError, match="N marked as constexpr and listed in do_not_specialize"):
-        _intj_launch(kernel, (1, ), 5)
+        make_launcher(kernel, grid_arg=1)(*device_stream(), 1, 5)
 
 
 def test_dot_scaled_shape_verification(fresh_triton_cache):

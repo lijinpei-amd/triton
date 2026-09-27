@@ -1,5 +1,8 @@
 # fmt: off
 
+from functools import partial
+
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 import numpy as np
 import pytest
@@ -7,7 +10,7 @@ import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import is_cuda
+from triton._internal_testing import device_stream, is_cuda
 from triton.language.extra import libdevice
 
 
@@ -16,6 +19,7 @@ from triton.language.extra import libdevice
 # -----------------------
 
 
+@partial(make_launcher, grid_arg=1)
 @triton.jit
 def tanh_kernel(
     x_ptr,
@@ -51,7 +55,7 @@ def test_math_extern(dtype_str, direct_import):
     x = torch.randn((100,), dtype=getattr(torch, dtype_str), device="cuda")
 
     y_tri = torch.empty_like(x)
-    _intj_launch(tanh_kernel, (1, ), x, y_tri, x.shape[0], direct_import, BLOCK_SIZE=128)
+    tanh_kernel(*device_stream(), 1, x, y_tri, x.shape[0], direct_import, 128)
 
     y_ref = torch.tanh(x)
     np.testing.assert_allclose(y_ref.cpu().numpy(), y_tri.cpu().numpy(), rtol=0, atol=1.0e-6)

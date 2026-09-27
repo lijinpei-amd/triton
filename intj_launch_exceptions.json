@@ -745,567 +745,567 @@
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 127,
+      "line": 130,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_inline_asm_memdesc_view: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 309,
+      "line": 312,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_atomic_poll_tensor_results: kernel[(1,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 363,
+      "line": 366,
       "target": "copy_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_copy_kernel: copy_kernel[(4,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 424,
+      "line": 428,
       "target": "copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_copy_kernel_multi_cta: copy_kernel[(4,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 476,
+      "line": 480,
       "target": "local_store_transposed_cga_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_local_store_transposed_cga_to_non_transposed_alloc: local_store_transposed_cga_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 524,
+      "line": 528,
       "target": "async_shared_store_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_async_shared_store: async_shared_store_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 535,
+      "line": 539,
       "target": "async_shared_store_f16_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_async_shared_store_packed_f16: async_shared_store_f16_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 578,
+      "line": 582,
       "target": "tma_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_tma: tma_kernel[(1,)] passes TensorDescriptor object(s) desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 588,
+      "line": 592,
       "target": "noinline_tma_kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 643,
+      "line": 647,
       "target": "tma_im2col_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_im2col: tma_im2col_kernel[(1,)] passes num_ctas=2 if multicast else 1; the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 689,
+      "line": 693,
       "target": "tma_round_f32_to_tf32_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_gluon_tma_round_f32_to_tf32: tma_round_f32_to_tf32_kernel[(1,)] passes TensorDescriptor object(s) in_desc, out_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 735,
+      "line": 739,
       "target": "tma_multicast_copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_multicast_copy: tma_multicast_copy_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 806,
+      "line": 810,
       "target": "tma_gather_scatter_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_gather_scatter_multi_cta: tma_gather_scatter_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 886,
+      "line": 890,
       "target": "tma_gather_scatter_subslice_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tma_gather_scatter_subslice: tma_gather_scatter_subslice_kernel[(1,)] passes num_ctas=1 << len(cga_layout); the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1014,
+      "line": 1018,
       "target": "tcgen05_mma_multicast_commit_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_multicast_commit: tcgen05_mma_multicast_commit_kernel[(1,)] passes num_ctas=ctas_per_cga[0] * ctas_per_cga[1]; the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1143,
+      "line": 1147,
       "target": "tcgen05_mma_scaled_direct_multicast_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_scaled_direct_multicast_barrier: tcgen05_mma_scaled_direct_multicast_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1260,
+      "line": 1264,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mbarrier_arrive_multicast: kernel[(num_ctas,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1295,
+      "line": 1299,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mbarrier_arrive_broadcast_one_cta: kernel[(num_ctas,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1344,
+      "line": 1348,
       "target": "tma_device_load_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_device_tma_load: tma_device_load_kernel[(1,)] passes Gluon layout object(s) smem_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1382,
+      "line": 1386,
       "target": "tma_device_store_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_device_tma_store: tma_device_store_kernel[(1,)] passes Gluon layout object(s) smem_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1444,
+      "line": 1448,
       "target": "mma_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_warpgroup_mma: mma_kernel[(1,)] passes Gluon layout object(s) block_layout, acc_layout, shared_layout_a, shared_layout_b as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1482,
+      "line": 1486,
       "target": "mma_kernel",
       "reason": "unsupported_tuple_and_layout_constexpr",
       "detail": "Passes shape tuples and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1510,
+      "line": 1514,
       "target": "mma_kernel",
       "reason": "unsupported_tuple_and_layout_constexpr",
       "detail": "Passes shape tuples and Gluon layout constexprs; intj cannot bake those values."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1619,
+      "line": 1623,
       "target": "mma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_two_ctas_transposed_lhs_shared_layout: mma_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 1839,
+      "line": 1843,
       "target": "tma_mma_shared_inputs_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "_run_tma_mma_shared_inputs: tma_mma_shared_inputs_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2069,
+      "line": 2073,
       "target": "mma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_mma_shared_inputs: mma_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2204,
+      "line": 2208,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_amd_wmma: the BLOCKED_LAYOUT and WMMA_LAYOUT constexpr arguments are Gluon layout objects, which intj cannot encode in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2268,
+      "line": 2272,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_amd_mfma: kernel[(1, 1)] passes Gluon layout object(s) mfma_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2474,
+      "line": 2480,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_2d: the JIT reads captured TensorMemoryLayout and TensorMemoryScalesLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2510,
+      "line": 2516,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_pipeline_stage_subslice_index_reinterpret: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2552,
+      "line": 2558,
       "target": "tmem_row_slice_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_row_slice: the kernel reads the TensorMemoryLayout global from its defining Python scope; intj cannot revalidate that captured layout in its module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2578,
+      "line": 2584,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_source_layout_contiguous_subslice: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2608,
+      "line": 2614,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_noncontiguous_subslice_load_store: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2641,
+      "line": 2647,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_noncontiguous_subslice_load_min: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2663,
+      "line": 2669,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_subslice_unpacked_one_column: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2696,
+      "line": 2702,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_wait_predicated_store: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2751,
+      "line": 2757,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures a TensorMemoryLayout class; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2863,
+      "line": 2869,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures a TensorMemoryLayout class; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 2979,
+      "line": 2985,
       "target": "kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3016,
+      "line": 3022,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_slice_reinterpret: kernel[(1,)] reads BLOCK, SPLIT_BLOCK, XBLOCK, YBLOCK, and NUM_THREADS host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3050,
+      "line": 3056,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_tma_slice: kernel[(1,)] passes TensorDescriptor object(s) in_desc, out_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3094,
+      "line": 3100,
       "target": "tmem_copy_no_scales",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_no_scales: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3129,
+      "line": 3135,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_copy_noncontiguous_subslice: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3235,
+      "line": 3241,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_padded_shared_layout_subslice: kernel[(1,)] reads warp_size_cst, num_warps_cst, and smem_layout host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3333,
+      "line": 3339,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3460,
+      "line": 3466,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_mma_v2: kernel[(1,)] reads B and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3488,
+      "line": 3494,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_dot_fma: kernel[(1,)] reads B and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3519,
+      "line": 3525,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_dot3d_fma: kernel[(1,)] reads B, BATCH, and threads_per_warp host constexprs from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3567,
+      "line": 3573,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split_auto_layout_execution: kernel[(1,)] reads threads_per_warp host constexpr from its defining Python scope; intj refuses JIT kernels with used_global_vals because it cannot revalidate those values in the module key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3640,
+      "line": 3646,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3692,
+      "line": 3698,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tcgen05_mma_scaled_noncontiguous_accumulator: the JIT reads captured TensorMemoryLayout and TensorMemoryScalesLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3840,
+      "line": 3846,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures local scalar constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 3985,
+      "line": 3991,
       "target": "in_thread_transpose_roundtrip_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "Passes a Gluon layout constexpr; intj cannot bake layout objects."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4005,
+      "line": 4011,
       "target": "descriptor_shape_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_descriptor_shape: descriptor_shape_kernel[(1,)] passes TensorDescriptor object(s) desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4069,
+      "line": 4075,
       "target": "shared_gather_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_gather: shared_gather_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4116,
+      "line": 4122,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_memory_pointers: kernel[(1,)] passes Gluon layout object(s) layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4155,
+      "line": 4161,
       "target": "shared_gather_scatter_two_ctas_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_gather_scatter_two_ctas: shared_gather_scatter_two_ctas_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4242,
+      "line": 4248,
       "target": "shared_gather_cga_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_gather_cga: shared_gather_cga_kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4322,
+      "line": 4328,
       "target": "shared_subslice_two_ctas_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_subslice_two_ctas: shared_subslice_two_ctas_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4408,
+      "line": 4414,
       "target": "cross_cta_tma_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_cross_cta_tma: cross_cta_tma_kernel[(1,)] passes num_ctas=1 << len(cga_layout); the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4458,
+      "line": 4464,
       "target": "shared_subslice_swizzled_register_block_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_shared_subslice_swizzled_register_block: shared_subslice_swizzled_register_block_kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4545,
+      "line": 4551,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_scatter: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4561,
+      "line": 4567,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_scatter: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4794,
+      "line": 4800,
       "target": "shared_atomic_scatter_rmw_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_atomic_scatter_rmw: shared_atomic_scatter_rmw_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_rhs, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4859,
+      "line": 4865,
       "target": "shared_atomic_scatter_rmw_broadcast_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_shared_atomic_scatter_rmw_broadcast: shared_atomic_scatter_rmw_broadcast_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4898,
+      "line": 4904,
       "target": "shared_gather_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_gather_multiwarp: shared_gather_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 4920,
+      "line": 4926,
       "target": "shared_scatter_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_gather_multiwarp: shared_scatter_kernel[(1,)] passes Gluon layout object(s) layout_2d, layout_1d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5002,
+      "line": 5008,
       "target": "gather_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_2d_native: gather_2d_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5077,
+      "line": 5083,
       "target": "scatter_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_2d_native: scatter_2d_kernel[(1,)] passes Gluon layout object(s) layout_2d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5171,
+      "line": 5177,
       "target": "gather_3d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_3d_native: gather_3d_kernel[(1,)] passes Gluon layout object(s) layout_3d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5266,
+      "line": 5272,
       "target": "scatter_3d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_3d_native: scatter_3d_kernel[(1,)] passes Gluon layout object(s) layout_3d, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5368,
+      "line": 5374,
       "target": "gather_subslice_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_subslice_2d: gather_subslice_2d_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5469,
+      "line": 5475,
       "target": "scatter_subslice_2d_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_subslice_2d: scatter_subslice_2d_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, shared_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5550,
+      "line": 5556,
       "target": "gather_padded_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_padded: gather_padded_kernel[(1,)] passes Gluon layout object(s) layout_2d, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5625,
+      "line": 5631,
       "target": "scatter_padded_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_padded: scatter_padded_kernel[(1,)] passes Gluon layout object(s) layout_2d, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5724,
+      "line": 5730,
       "target": "gather_padded_subslice_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_gather_padded_subslice: gather_padded_subslice_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5827,
+      "line": 5833,
       "target": "scatter_padded_subslice_kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_scatter_padded_subslice: scatter_padded_subslice_kernel[(1,)] passes Gluon layout object(s) layout_full, layout_slice, padded_layout as kernel constexpr arguments; intj cannot encode layout objects in its launch key."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 5938,
+      "line": 5944,
       "target": "tmem_reduction_kernel",
       "reason": "unsupported_enum_constexpr",
       "detail": "test_tmem_reduction: tmem_reduction_kernel[(1,)] passes propagate_nan as a tl.PropagateNan enum constexpr; intj supports scalar, dtype, string, and JIT-function constexprs, but not this enum object."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6005,
+      "line": 6011,
       "target": "clc_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_clc_basic: clc_kernel[(grid,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6245,
+      "line": 6251,
       "target": "mma_scaled_tcgen05_copy_kernel",
       "reason": "unsupported_num_ctas",
       "detail": "mma_scaled_tcgen05_copy: mma_scaled_tcgen05_copy_kernel[grid] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_core.py",
-      "line": 6432,
+      "line": 6438,
       "target": "tmem288k_simple_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem288k_simple: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
@@ -2719,63 +2719,63 @@
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 269,
+      "line": 273,
       "target": "matmul_kernel_tma",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 340,
+      "line": 344,
       "target": "small_tma_load_kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 573,
+      "line": 577,
       "target": "matmul_kernel_persistent_scatter",
       "reason": "unsupported_scratch_allocator",
       "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 150,
+      "line": 154,
       "target": "const_kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 152,
+      "line": 156,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 190,
+      "line": 194,
       "target": "const_kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 192,
+      "line": 196,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 244,
+      "line": 249,
       "target": "const_kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_random.py",
-      "line": 246,
+      "line": 251,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global BLOCK = tl.constexpr(1024); intj rejects used_global_vals because it cannot revalidate globals."
@@ -3020,91 +3020,91 @@
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 30,
+      "line": 34,
       "target": "_tuple_index",
       "reason": "unsupported_tuple_argument",
       "detail": "test_index: _tuple_index[(1,)] passes tuple-valued argument(s) rets, vals; intj does not decode nested tuples, tensor shapes/strides, or tuple constexprs."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 58,
+      "line": 62,
       "target": "_tuple_assign",
       "reason": "unsupported_tuple_argument",
       "detail": "test_assign passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 142,
+      "line": 146,
       "target": "_tuple_serialize",
       "reason": "unsupported_tuple_argument",
       "detail": "test_serialize passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 203,
+      "line": 207,
       "target": "_namedtuple_kernel",
       "reason": "unsupported_tuple_argument",
       "detail": "test_namedtuple passes tuple or NamedTuple host arguments containing tensors or JIT values; intj cannot decode aggregate arguments."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 256,
+      "line": 260,
       "target": "m_to_the_n",
       "reason": "unsupported_tuple_argument",
       "detail": "test_passing_tuple_with_constexpr: m_to_the_n[(1,)] passes tuple-valued argument(s) x.shape, x.stride(), (2, 3); intj does not decode nested tuples, tensor shapes/strides, or tuple constexprs."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 269,
+      "line": 273,
       "target": "kernel",
       "reason": "unsupported_tuple_argument",
       "detail": "test_passing_tuple_with_mixed_constexpr_and_non_constexpr_values: kernel[(1,)] passes tuple-valued argument(s) (x, tl.constexpr(3)); intj does not decode nested tuples, tensor shapes/strides, or tuple constexprs."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 283,
+      "line": 287,
       "target": "_nested_tuple_kernel",
       "reason": "unsupported_tuple_argument",
       "detail": "test_passing_nested_tuple_with_constexpr: _nested_tuple_kernel[(1,)] passes tuple-valued argument(s) ((1,), (tl.constexpr(2),)); intj does not decode nested tuples, tensor shapes/strides, or tuple constexprs."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 336,
+      "line": 340,
       "target": "m_to_the_n",
       "reason": "unsupported_tuple_argument",
       "detail": "test_passing_tuple_to_make_tensor_descriptor: m_to_the_n[(1,)] passes tuple-valued argument(s) x.size(), x.stride(), (2, 3), x.size(0); intj does not decode nested tuples, tensor shapes/strides, or tuple constexprs."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 399,
+      "line": 404,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel reads module-global TrivialTuple; intj rejects used_global_vals because it cannot revalidate globals."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 427,
+      "line": 432,
       "target": "kernel_value",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_constexpr_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 431,
+      "line": 436,
       "target": "kernel_shape",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_constexpr_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 450,
+      "line": 455,
       "target": "kernel_nested",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_constexpr_nested_tuple_arg_unpack passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
     },
     {
       "path": "python/test/unit/language/test_tuple.py",
-      "line": 469,
+      "line": 474,
       "target": "kernel",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_constexpr_tuple_arg_subscript passes tuple-valued shape as tl.constexpr; intj only decodes scalar constexpr values."
@@ -3657,14 +3657,14 @@
     },
     {
       "path": "python/test/unit/runtime/test_driver.py",
-      "line": 46,
+      "line": 48,
       "target": "kernel",
       "reason": "custom_kernel_interface_return",
       "detail": "The custom KernelInterface.warmup returns a string and the test asserts that return and intercepted arguments."
     },
     {
       "path": "python/test/unit/runtime/test_driver.py",
-      "line": 330,
+      "line": 332,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "compile_warmup_only intercepts KernelInterface.__getitem__ and serializes JIT payloads; intj bypasses this Triton runtime path."
@@ -3860,49 +3860,49 @@
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 497,
+      "line": 498,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_triton_to_gluon_descriptor_roundtrip: kernel[grid] is a generated Gluon JIT passed host TensorDescriptor object(s) gluon_desc; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 501,
+      "line": 502,
       "target": "descriptor_store_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_triton_to_gluon_descriptor_roundtrip: descriptor_store_kernel[grid] passes TensorDescriptor object(s) desc_ref to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 524,
+      "line": 525,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_triton_to_gluon_descriptor_load_roundtrip: kernel[grid] is a generated Gluon JIT passed host TensorDescriptor object(s) gluon_desc, out_desc; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 528,
+      "line": 529,
       "target": "descriptor_copy_kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_triton_to_gluon_descriptor_load_roundtrip: descriptor_copy_kernel[grid] passes TensorDescriptor object(s) in_desc, desc_ref to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 559,
+      "line": 560,
       "target": "kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "test_triton_to_gluon_make_tensor_descriptor: the translated Hopper+ kernel creates two device-side TMA descriptors; NVIDIA lowering allocates global scratch, which intj rejects."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 622,
+      "line": 623,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split: kernel[grid] is a generated Gluon JIT whose source reads module global BLOCK_SPLIT; intj cannot revalidate that captured constexpr."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 624,
+      "line": 625,
       "target": "split_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split: split_kernel[grid] is generated from split_kernel, whose body reads module global BLOCK_SPLIT; intj refuses the captured global rather than cache a stale specialization."
@@ -3951,14 +3951,14 @@
     },
     {
       "path": "python/triton_kernels/tests/test_tensor_details/test_layout_blackwell.py",
-      "line": 721,
+      "line": 723,
       "target": "_gather_scale_column",
       "reason": "unsupported_tuple_constexpr",
       "detail": "The kernel receives packed.stride()[1:] as a tuple constexpr; intj cannot decode tuple launch arguments."
     },
     {
       "path": "python/triton_kernels/tests/test_tensor_details/test_layout_hopper.py",
-      "line": 437,
+      "line": 441,
       "target": "_upcast_mxfp4_to_bf16",
       "reason": "unsupported_captured_global",
       "detail": "test_upcast_mxfp4_to_bf16: the called hopper_value helpers read MXFP_BLOCK_SIZE transitively; intj refuses that captured global."
