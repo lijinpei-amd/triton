@@ -2707,8 +2707,8 @@
       "path": "python/test/unit/language/test_decorator.py",
       "line": 47,
       "target": "_kernel",
-      "reason": "exempt_autotune_heuristics",
-      "detail": "test_triton_heuristic: _kernel[grid] is decorated with @triton.autotune plus two @triton.heuristics layers; the test checks wrapper argument/keyword handling and _kernel.base_fn."
+      "reason": "unsupported_heuristic_subset",
+      "detail": "make_launcher raises UnsupportedKernel: heuristic 'EVEN_src' reads nargs['src'].data_ptr(), outside intj's lowered heuristic subset (a heuristic over an otherwise unkeyed caller argument must compile to C)."
     },
     {
       "path": "python/test/unit/language/test_matmul.py",
@@ -3264,179 +3264,32 @@
       "detail": "Passes TensorDescriptor and custom DevicePtr without importing torch; intj cannot decode descriptors and imports torch."
     },
     {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 40,
+      "path": "python/test/unit/runtime/test_autotuner.py",
+      "line": 46,
       "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_fresh asserts Triton's autotuner listener callbacks and cache behavior."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 85,
-      "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_in_memory_cache_hit asserts Triton's autotuner listener callbacks and cache behavior."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 89,
-      "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_in_memory_cache_hit asserts Triton's autotuner listener callbacks and cache behavior."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 119,
-      "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_disk_cache_hit asserts Triton's autotuner listener callbacks and cache behavior."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 128,
-      "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_disk_cache_hit asserts Triton's autotuner listener callbacks and cache behavior."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotune_listener.py",
-      "line": 153,
-      "target": "_kernel",
-      "reason": "triton_autotune_listener_test",
-      "detail": "test_autotune_listener_single_config asserts Triton's autotuner listener callbacks and cache behavior."
+      "reason": "triton_autotuner_cache_state",
+      "detail": "test_kwargs asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 2)."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 38,
+      "line": 48,
       "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner cache entries for positional and reordered keyword arguments."
+      "reason": "triton_autotuner_cache_state",
+      "detail": "test_kwargs asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 2). This call also passes every argument by keyword, which intj's positional launcher cannot express."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 40,
+      "line": 68,
       "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner cache entries for positional and reordered keyword arguments."
+      "reason": "triton_autotuner_cache_state",
+      "detail": "test_no_do_bench asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 1)."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 60,
+      "line": 229,
       "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner cache after its default benchmarking path."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 80,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner restore_value pre/post hooks across candidate benchmarks and final launch."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 82,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner restore_value pre/post hooks across candidate benchmarks and final launch."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 111,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner reset_to_zero pre-hook, including None and positional/keyword bindings."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 113,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner reset_to_zero pre-hook, including None and positional/keyword bindings."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 143,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner restore_value hooks when the optional tensor is None."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 145,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner restore_value hooks when the optional tensor is None."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 179,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner pre/post hook counts and exception propagation."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 227,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner early-prune and performance-model callback arguments and invocation."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 261,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner fractional top_k pruning retains one candidate."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 418,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner best_config and listener state when pruning leaves one config and skips benchmarking."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 468,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner IR-override compilation path using TTIR."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 518,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner IR-override compilation path using TTGIR."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 616,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Tests Triton's Autotuner IR-override compilation path using PTX."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 655,
-      "target": "dot_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner post-hook receives the exact tensor-memory OutOfResources error."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 696,
-      "target": "add_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner post-hook receives the threads OutOfResources error."
-    },
-    {
-      "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 724,
-      "target": "_kernel",
-      "reason": "triton_autotuner_test",
-      "detail": "Asserts Triton's Autotuner raises its exact no-valid-config error before launch."
+      "reason": "triton_autotuner_keyword_prune_args",
+      "detail": "test_prune_configs[False] asserts early_config_prune receives N in **kwargs because the call passes N=N. intj launchers are positional-only, so the pruner sees N in named_args, exactly as for a positional Triton call; with_perf_model=True passes through intj."
     },
     {
       "path": "python/test/unit/runtime/test_bindings.py",
@@ -4280,14 +4133,14 @@
     },
     {
       "path": "python/tutorials/08-grouped-gemm.py",
-      "line": 368,
+      "line": 375,
       "target": "grouped_matmul_tma_kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "The device-side TMA descriptor kernel requires Triton's scratch allocator; intj rejects kernels requiring scratch memory."
     },
     {
       "path": "python/tutorials/08-grouped-gemm.py",
-      "line": 419,
+      "line": 425,
       "target": "grouped_matmul_tma_kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "The device-side TMA descriptor kernel requires Triton's scratch allocator; intj rejects kernels requiring scratch memory."

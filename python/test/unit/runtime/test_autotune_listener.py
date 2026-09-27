@@ -3,6 +3,14 @@ import torch
 import triton
 import triton.language as tl
 from triton.runtime.jit import JITFunction
+from intj import make_launcher
+
+
+def _intj_launcher(kernel, grid):
+    """One intj launcher, which owns its tuner cache; tuned values are not passed."""
+    launcher = make_launcher(kernel, **({"grid_py": grid} if callable(grid) else {"grid_arg": len(grid)}))
+    dims = () if callable(grid) else tuple(grid)
+    return lambda *args: launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, *dims, *args)
 
 
 def do_bench(kernel_call, quantiles, use_cuda_graph=False):
@@ -37,7 +45,7 @@ def test_autotune_listener_fresh(device: str, fresh_knobs) -> None:
     N = 1024
     src = torch.randn(N, device=device)
     dst = torch.empty(N, device=device)
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    _intj_launcher(_kernel, (triton.cdiv(N, 32), ))(dst, src, N)
 
     # Listener fired exactly once
     assert len(captured) == 1
@@ -81,12 +89,13 @@ def test_autotune_listener_in_memory_cache_hit(device: str, fresh_knobs) -> None
     src = torch.randn(N, device=device)
     dst = torch.empty(N, device=device)
 
+    launch = _intj_launcher(_kernel, (triton.cdiv(N, 32), ))
     # First call: fresh benchmark
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    launch(dst, src, N)
     assert len(captured) == 1
 
     # Second call with same key: in-memory cache hit, listener should NOT fire again
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    launch(dst, src, N)
     assert len(captured) == 1
 
 
@@ -116,7 +125,7 @@ def test_autotune_listener_disk_cache_hit(device: str, fresh_knobs, fresh_triton
     dst = torch.empty(N, device=device)
 
     # First call: fresh benchmark, populates disk cache
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    _intj_launcher(_kernel, (triton.cdiv(N, 32), ))(dst, src, N)
     assert len(captured) == 1
     assert not captured[0]["cache_hit"]
     assert captured[0]["duration"] is not None and captured[0]["duration"] > 0
@@ -124,8 +133,8 @@ def test_autotune_listener_disk_cache_hit(device: str, fresh_knobs, fresh_triton
     # Clear in-memory cache so next call hits disk cache
     _kernel.cache.clear()
 
-    # Second call: disk cache hit
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    # Second call: disk cache hit (a new launcher starts with an empty in-memory cache)
+    _intj_launcher(_kernel, (triton.cdiv(N, 32), ))(dst, src, N)
     assert len(captured) == 2
     assert captured[1]["cache_hit"]
     assert captured[1]["duration"] is None
@@ -150,7 +159,7 @@ def test_autotune_listener_single_config(device: str, fresh_knobs) -> None:
     N = 1024
     src = torch.randn(N, device=device)
     dst = torch.empty(N, device=device)
-    _kernel[(triton.cdiv(N, 32), )](dst, src, N=N)
+    _intj_launcher(_kernel, (triton.cdiv(N, 32), ))(dst, src, N)
 
     # Single config: no autotune benchmarking, listener should not fire
     assert len(captured) == 0

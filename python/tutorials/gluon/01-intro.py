@@ -39,6 +39,7 @@ controlling these low-level details.
 import pytest
 import torch
 import triton
+from intj import make_launcher
 from intj.compat import launch as _intj_launch
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
@@ -124,13 +125,18 @@ def memcpy_kernel_autotune(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
     memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK)
 
 
+def _memcpy_autotune_grid(xnumel: int, XBLOCK: int):
+    return (triton.cdiv(xnumel, XBLOCK), )
+
+
+# The grid reads the tuned XBLOCK; intj compiles it into the launcher.
+_memcpy_autotune_launcher = make_launcher(memcpy_kernel_autotune, grid_cpp=_memcpy_autotune_grid)
+
+
 def memcpy_autotune(input, output):
     xnumel = input.numel()
-
-    def grid(META):
-        return (triton.cdiv(xnumel, META["XBLOCK"]), )
-
-    _intj_launch(memcpy_kernel_autotune, grid, input, output, xnumel)
+    _memcpy_autotune_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, input, output,
+                              xnumel)
 
 
 # %%

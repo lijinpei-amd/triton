@@ -1,12 +1,13 @@
 # intj launch-site migration
 
 This branch routes supported Triton and Gluon launches through the sibling
-`intj/callable_grid` launcher. Install this Triton checkout
-as described in [README.md](README.md), then make the intj checkout importable
-in the same Python environment:
+`intj` launcher (its `develop` branch, at or after `b4e9f1f`, which added
+autotune and heuristics support to `make_launcher`). Install this Triton
+checkout as described in [README.md](README.md), then make the intj checkout
+importable in the same Python environment:
 
 ```sh
-python3 -m pip install -e ../workspace/intj/callable_grid
+python3 -m pip install -e ../intj
 python3 -c 'import triton, intj; print(triton.__version__, intj.__file__)'
 ```
 
@@ -28,6 +29,13 @@ or a selected autotuning configuration. The direct examples are
 [dropout](python/tutorials/04-low-memory-dropout.py), and
 [softmax](python/tutorials/02-fused-softmax.py).
 
+`intj.compat.launch` refuses `@triton.autotune` and `@triton.heuristics`
+wrappers, so decorated kernels use `make_launcher` directly: build the launcher
+once (each launcher owns its tuner cache), omit tuned and heuristic values from
+the call, and read tuned values in a `grid_cpp` function such as
+`_matmul_grid` in the [matrix multiplication tutorial](python/tutorials/03-matrix-multiplication.py).
+String constexprs are baked with `Constexpr(value=...)`, one launcher per value.
+
 Most converted call sites use `intj.compat.launch` or, for interpreter-marked
 tests, `intj.compat.launch_or_interpret` so their existing argument binding and
 options remain intact. The bridges use `grid_arg` for concrete grids and
@@ -44,14 +52,16 @@ Triton's launcher where a different unsupported constraint applies.
 
 ## Coverage and exceptions
 
-The migration inventory contains **1,257 launch expressions**: 1,254 ordinary
+The migration inventory contains **1,254 launch expressions**: 1,251 ordinary
 Python calls and three inside embedded Python scripts. In compiled execution,
-**446** ordinary sites use intj: 256 through `intj.compat.launch`, 175 through
-`intj.compat.launch_or_interpret`, and 15 through direct `make_launcher`
-handles. The remaining **811** are listed individually in
-[intj_launch_exceptions.json](intj_launch_exceptions.json): 808 ordinary calls
-and three embedded-script calls. Entries identify a source path, current line,
-target, concrete reason, and detail. An exception applies to that launch, not
+**464** ordinary sites use intj: 252 through `intj.compat.launch`, 175 through
+`intj.compat.launch_or_interpret`, and 37 through direct `make_launcher`
+handles, 22 of them on autotuned kernels. The remaining **790** are listed
+individually in [intj_launch_exceptions.json](intj_launch_exceptions.json):
+787 ordinary calls and three embedded-script calls. (The inventory had 1,257
+expressions until the autotuner tests' three keyword/positional launch pairs
+each became one positional intj call.) Entries identify a source path, current
+line, target, concrete reason, and detail. An exception applies to that launch, not
 to every launch in its file.
 
 The largest reasons are sanitizer profile scratch, GSan runtime behavior,
@@ -61,7 +71,7 @@ constraint applies. The full reason-count table follows.
 
 <!-- BEGIN INTJ REASON COUNTS -->
 <details>
-<summary>All 59 reason counts (811 retained sites)</summary>
+<summary>All 59 reason counts (790 retained sites)</summary>
 
 | Reason | Sites |
 | --- | ---: |
@@ -75,7 +85,6 @@ constraint applies. The full reason-count table follows.
 | `proton_instrumentation` | 34 |
 | `unsupported_scratch_allocator` | 30 |
 | `unsupported_tuple_constexpr` | 20 |
-| `triton_autotuner_test` | 19 |
 | `captured_global_xblock` | 18 |
 | `triton_cache_test` | 17 |
 | `unsupported_descriptor_argument` | 15 |
@@ -87,7 +96,6 @@ constraint applies. The full reason-count table follows.
 | `consan_instrumentation` | 7 |
 | `triton_async_cache_test` | 7 |
 | `mir_dump_swap_pipeline` | 6 |
-| `triton_autotune_listener_test` | 6 |
 | `triton_stage_hook_test` | 6 |
 | `unsupported_tuple_and_layout_constexpr` | 6 |
 | `unsupported_tuple_pointer_argument` | 6 |
@@ -100,6 +108,7 @@ constraint applies. The full reason-count table follows.
 | `captured_global_specialization` | 3 |
 | `llvm_pass_plugin_output` | 3 |
 | `precompiled_kernel_not_jit` | 3 |
+| `triton_autotuner_cache_state` | 3 |
 | `triton_runtime_diagnostic_test` | 3 |
 | `unsupported_function_constexpr` | 3 |
 | `custom_cpu_backend` | 2 |
@@ -108,11 +117,11 @@ constraint applies. The full reason-count table follows.
 | `captured_global_amdwmmalayout` | 1 |
 | `custom_kernel_interface_return` | 1 |
 | `descriptor_multicta_compilation_listener` | 1 |
-| `exempt_autotune_heuristics` | 1 |
 | `exempt_triton_reproducer` | 1 |
 | `jit_global_and_compiler_visitor` | 1 |
 | `plugin_stage_hook` | 1 |
 | `tensor_descriptor_and_no_torch` | 1 |
+| `triton_autotuner_keyword_prune_args` | 1 |
 | `triton_launch_overhead_baseline` | 1 |
 | `triton_link_hook_test` | 1 |
 | `uncached_compiler_knob` | 1 |
@@ -120,6 +129,7 @@ constraint applies. The full reason-count table follows.
 | `unsupported_cooperative_grid` | 1 |
 | `unsupported_descriptor_and_jit_class` | 1 |
 | `unsupported_enum_constexpr` | 1 |
+| `unsupported_heuristic_subset` | 1 |
 | `unsupported_keyword_only_parameters` | 1 |
 | `unsupported_launch_pdl` | 1 |
 | `unsupported_non_scalar_constexpr` | 1 |
@@ -130,8 +140,8 @@ constraint applies. The full reason-count table follows.
 
 ## Validation
 
-The current source audit parsed 398 tracked Python files and matched all 808
-ordinary indexed launches and three embedded-script launches to the 811
+The current source audit parsed 398 tracked Python files and matched all 787
+ordinary indexed launches and three embedded-script launches to the 790
 manifest entries. Run it after changing launch sites or the manifest:
 
 ```sh
@@ -143,9 +153,16 @@ supports a particular kernel; verify compiled and interpreter paths on the
 applicable GPU. For example:
 
 ```sh
-PYTHONPATH="$PWD/python:../workspace/intj/callable_grid" \
+PYTHONPATH="$PWD/python:../intj" \
   python3 -m pytest python/test/unit/language/test_core.py -s --tb=short
 ```
+
+The autotune conversions ran on gfx942 with Triton 3.8.0 and intj `b4e9f1f`:
+`test_autotuner.py`, `test_autotune_listener.py` and `test_decorator.py` pass
+(29 passed, 4 skipped), as do the matrix-multiplication, grouped-GEMM and Gluon
+intro tutorials' correctness sections. The four skipped autotuner tests
+(`test_override_ttir`, `test_override_ttgir`, `test_override_ptx`,
+`test_exceed_tmem`) are CUDA-only and untested through intj.
 
 A JIT launch that only needs the returned `CompiledKernel` can now use
 `return_compiled=True`. The remaining exceptions retain Triton's launcher for

@@ -3,9 +3,17 @@ import torch
 import triton
 import triton.language as tl
 import pytest
+from intj import make_launcher
 
 import pathlib
 from triton._internal_testing import is_cuda, is_hip_cdna2, is_rubin
+
+
+def _intj_launcher(kernel, grid):
+    """One intj launcher, which owns its tuner cache; tuned values are not passed."""
+    launcher = make_launcher(kernel, **({"grid_py": grid} if callable(grid) else {"grid_arg": len(grid)}))
+    dims = () if callable(grid) else tuple(grid)
+    return lambda *args: launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, *dims, *args)
 
 
 def do_bench(kernel_call, quantiles, use_cuda_graph=False):
@@ -76,10 +84,8 @@ def test_restore(pass_kwargs_to_kernel, device):
         tl.store(src + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    if pass_kwargs_to_kernel:
-        _kernel[grid](src=src, N=N)
-    else:
-        _kernel[grid](src, N)
+    # intj launchers take positional arguments only.
+    _intj_launcher(_kernel, grid)(src, N)
     triton.testing.assert_close(src, torch.ones_like(src))
 
 
@@ -107,10 +113,8 @@ def test_reset_to_zero(pass_kwargs_to_kernel, src_is_none, device):
             tl.store(dst + offsets, tl.full([BLOCK_SIZE], 1, dtype=dst.dtype.element_ty), mask=mask)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    if pass_kwargs_to_kernel:
-        _kernel[grid](src=src, dst=dst, N=N)
-    else:
-        _kernel[grid](src, dst, N)
+    # intj launchers take positional arguments only.
+    _intj_launcher(_kernel, grid)(src, dst, N)
     triton.testing.assert_close(dst, torch.ones_like(dst))
 
 
@@ -139,10 +143,8 @@ def test_restore_with_none(pass_kwargs_to_kernel, device):
             tl.store(dst + offsets, tl.full([BLOCK_SIZE], 1, dtype=dst.dtype.element_ty), mask=mask)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    if pass_kwargs_to_kernel:
-        _kernel[grid](src=src, dst=dst, N=N)
-    else:
-        _kernel[grid](src, dst, N)
+    # intj launchers take positional arguments only.
+    _intj_launcher(_kernel, grid)(src, dst, N)
     triton.testing.assert_close(dst, torch.ones_like(dst))
 
 
@@ -176,7 +178,7 @@ def test_hooks(device):
             tl.store(src + offsets, x, mask=offsets < N)
             offsets += BLOCK_SIZE
 
-    _kernel[(1, )](src, N)
+    _intj_launcher(_kernel, (1, ))(src, N)
 
     # On NVIDIA GPUs:
     # This will cause out of resources when N_STAGES = 64
@@ -258,7 +260,7 @@ def test_prune_configs_fractional_top_k_keeps_one(device: str):
         tl.store(dst + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
     torch.testing.assert_close(src, dst)
 
 
@@ -415,7 +417,7 @@ def test_pruned_single_config_skips_benchmark(prune_kind: str, device: str, fres
         tl.store(dst + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
     torch.testing.assert_close(src, dst)
     assert _kernel.best_config == configs[1]
     assert 'run_do_bench' not in records
@@ -465,7 +467,7 @@ module {
         tl.store(dst + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
 
     # Change the behavior of kernel by overriding PTX
     torch.testing.assert_close(src * 10, dst)
@@ -515,7 +517,7 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
         tl.store(dst + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
 
     # Change the behavior of kernel by overriding PTX
     torch.testing.assert_close(src * 10, dst)
@@ -613,7 +615,7 @@ $L__func_end0:
         tl.store(dst + offsets, x, mask=offsets < N)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
 
     # Change the behavior of kernel by overriding PTX
     torch.testing.assert_close(src * 10, dst)
@@ -652,7 +654,7 @@ def test_exceed_tmem(device):
         c = c.reshape([BLOCK_SIZE * BLOCK_SIZE])
         tl.store(dst + tl.arange(0, BLOCK_SIZE * BLOCK_SIZE), c)
 
-    dot_kernel[(1, )](dst)
+    _intj_launcher(dot_kernel, (1, ))(dst)
     tmem_size = 576 if is_rubin() else 512
     assert exception_out_of_resource is not None and str(
         exception_out_of_resource
@@ -693,7 +695,7 @@ def test_exceed_threads(device):
     def grid(meta):
         return (triton.cdiv(x.numel(), meta['BLOCK_SIZE']), )
 
-    add_kernel[grid](x, y, output, x.numel(), BLOCK_SIZE=128)
+    _intj_launcher(add_kernel, grid)(x, y, output, x.numel(), 128)
 
     warp_size = triton.runtime.driver.active.get_current_target().warp_size
     assert exception_out_of_resource is not None and f"out of resource: threads, Required: {128 * warp_size}" in str(
@@ -721,7 +723,7 @@ def test_prune_all_configs(device):
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
     try:
-        _kernel[grid](dst, src, N=N)
+        _intj_launcher(_kernel, grid)(dst, src, N)
         pytest.fail("Expected exception was not thrown.")
     except triton.TritonError as e:
         assert e is not None and str(

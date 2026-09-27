@@ -26,7 +26,7 @@ of gemms. The scheduling is static and we do it on device.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from intj.compat import launch as _intj_launch
+from intj import make_launcher
 from typing import Optional
 import torch
 
@@ -170,6 +170,15 @@ def grouped_matmul_kernel(
         last_problem_end = last_problem_end + num_tiles
 
 
+# we use a fixed number of CTA, and it's auto-tunable: the grid reads the tuned
+# NUM_SM, and intj compiles it into the launcher.
+def _grouped_grid(NUM_SM: int):
+    return (NUM_SM, )
+
+
+_grouped_matmul_launcher = make_launcher(grouped_matmul_kernel, grid_cpp=_grouped_grid)
+
+
 def group_gemm_fn(group_A, group_B):
     assert len(group_A) == len(group_B)
     group_size = len(group_A)
@@ -200,9 +209,7 @@ def group_gemm_fn(group_A, group_B):
     d_c_ptrs = torch.tensor(C_addrs, device=DEVICE)
     d_g_sizes = torch.tensor(g_sizes, dtype=torch.int32, device=DEVICE)
     d_g_lds = torch.tensor(g_lds, dtype=torch.int32, device=DEVICE)
-    # we use a fixed number of CTA, and it's auto-tunable
-    grid = lambda META: (META['NUM_SM'], )
-    _intj_launch(grouped_matmul_kernel, grid,
+    _grouped_matmul_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
         d_a_ptrs,
         d_b_ptrs,
         d_c_ptrs,
@@ -403,8 +410,7 @@ if supports_tma():
 
 # only launch the kernel, no tensor preparation here to remove all overhead
 def triton_perf_fn(a_ptrs, b_ptrs, c_ptrs, sizes, lds, group_size):
-    grid = lambda META: (META['NUM_SM'], )
-    _intj_launch(grouped_matmul_kernel, grid,
+    _grouped_matmul_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
         a_ptrs,
         b_ptrs,
         c_ptrs,

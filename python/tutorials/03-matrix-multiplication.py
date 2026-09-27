@@ -149,7 +149,9 @@ You will specifically learn about:
 # Final Result
 # ------------
 
-from intj.compat import launch as _intj_launch
+import functools
+
+from intj import Constexpr, make_launcher
 import torch
 
 import triton
@@ -332,6 +334,19 @@ def leaky_relu(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel.
 
 
+# 1D launch grid where each block gets its own program. It reads the tuned block
+# sizes and is compiled into the launcher, so a warmed call runs no Python.
+def _matmul_grid(M: int, N: int, BLOCK_SIZE_M: int, BLOCK_SIZE_N: int):
+    return (triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), )
+
+
+# One launcher per ACTIVATION string, which is baked into the kernel.
+@functools.cache
+def _matmul_launcher(activation):
+    return make_launcher(matmul_kernel, grid_cpp=_matmul_grid,
+                         extra_annotation={"ACTIVATION": Constexpr(value=activation)})
+
+
 def matmul(a, b, activation=""):
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
@@ -340,15 +355,14 @@ def matmul(a, b, activation=""):
     K, N = b.shape
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float16)
-    # 1D launch kernel where each block gets its own program.
-    grid = lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), )
-    _intj_launch(matmul_kernel, grid,
+    # The tuned BLOCK_SIZE_* values are not passed: the autotuner picks them.
+    _matmul_launcher(activation)(
+        torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
         a, b, c,  #
         M, N, K,  #
         a.stride(0), a.stride(1),  #
         b.stride(0), b.stride(1),  #
         c.stride(0), c.stride(1),  #
-        ACTIVATION=activation  #
     )
     return c
 
