@@ -2502,203 +2502,203 @@
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 305,
+      "line": 308,
       "target": "kernel_fn",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 1483,
+      "line": 1487,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_index1d: kernel[(1,)] is the generated mismatched-shape kernel in catch_compilation_error; it passes dynamic num_ctas=num_ctas and asserts Triton CompilationError specifically."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2191,
+      "line": 2197,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_scalar_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2212,
+      "line": 2218,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tensor_atomic_cas_multicta_result: kernel[(1,)] passes num_ctas=4; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2263,
+      "line": 2269,
       "target": "kernel_r",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2264,
+      "line": 2270,
       "target": "kernel_r",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2283,
+      "line": 2289,
       "target": "kernel_r",
       "reason": "unsupported_cooperative_grid",
       "detail": "The launch enables launch_cooperative_grid; intj does not support cooperative-grid launch metadata."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 2513,
+      "line": 2519,
       "target": "kernel",
       "reason": "unsupported_descriptor_argument",
       "detail": "test_cat_nd: kernel[(1,)] passes TensorDescriptor object(s) x_desc, y_desc, z_desc to the kernel; intj has no descriptor argument decoder."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3516,
+      "line": 3523,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3978,
+      "line": 3986,
       "target": "kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "test_trans_4d constructs tensor descriptors in the JIT kernel; NVIDIA SM90+ TMA lowering requires global scratch, which intj cannot allocate for launch."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4616,
+      "line": 4624,
       "target": "mxfp_upcast_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4797,
+      "line": 4805,
       "target": "_scaled_dot_scale_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4914,
+      "line": 4922,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5119,
+      "line": 5127,
       "target": "patched_kernel",
       "reason": "unsupported_annotation",
       "detail": "test_const: patched_kernel[(1,)] uses tl.const pointer annotations; a focused intj probe raised ValueError: parameter 'in_ptr' has unsupported annotation <class 'triton.language.core.const'>."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5628,
+      "line": 5636,
       "target": "kernel",
       "reason": "unsupported_keyword_only_parameters",
       "detail": "The JIT kernel declares keyword-only parameters, which make_launcher currently rejects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5640,
+      "line": 5648,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5642,
+      "line": 5650,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5802,
+      "line": 5811,
       "target": "patched_kernel",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_reshape passes out_format as a tuple constexpr; intj rejects the tuple launch argument with TypeError: unsupported argument out_tuple of type tuple."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5998,
+      "line": 6007,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6025,
+      "line": 6034,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_packed: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6051,
+      "line": 6060,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_with_pointers: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6206,
+      "line": 6215,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_map_elementwise: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6613,
+      "line": 6624,
       "target": "kernel_patched",
       "reason": "unsupported_captured_global",
       "detail": "test_constexpr_assignment: kernel_patched[(1,)] reads global constexpr_type in the patched JIT body; a focused intj probe raised UnsupportedKernel for used_global_vals=['constexpr_type']."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6669,
+      "line": 6680,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "test_num_threads: kernel[(1,)] passes get_num_threads as a backend-specific Python function constexpr; intj cannot serialize that function as a kernel argument."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6694,
+      "line": 6705,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6718,
+      "line": 6729,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7588,
+      "line": 7605,
       "target": "gather_test_kernel_1d",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7590,
+      "line": 7607,
       "target": "gather_test_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7909,
+      "line": 7927,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
