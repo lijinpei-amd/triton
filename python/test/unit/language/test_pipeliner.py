@@ -9,7 +9,8 @@ import torch
 import triton
 import triton.language as tl
 
-from triton._internal_testing import device_stream, is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2, is_hip, is_hip_gfx1250
+from triton._internal_testing import (device_stream, is_cuda, is_hopper_or_newer, is_hip_cdna, is_hip_cdna2, is_hip,
+                                      is_hip_gfx1250)
 
 
 def check_capabilities():

@@ -55,7 +55,8 @@ def test_runtime_scaled_upcast_fp4_compact_scale(k_packed, scale_k, spt_packed):
     scale = (scale_exponents + 0x7f).to(torch.uint8)
     out = torch.empty((M, out_k), dtype=torch.bfloat16, device="cuda")
 
-    launch = make_launcher(_compact_scaled_upcast_fp4_kernel, grid_arg=1, options={"num_warps": 1}, return_compiled=True)
+    launch = make_launcher(_compact_scaled_upcast_fp4_kernel, grid_arg=1, options={"num_warps": 1},
+                           return_compiled=True)
     program = launch(*device_stream(), 1, x, scale, out, M, k_packed, out_k, scale_k, spt_packed)
 
     expected = torch.ldexp(torch.full_like(scale_exponents, 0.5, dtype=torch.float32),

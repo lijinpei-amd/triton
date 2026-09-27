@@ -2574,7 +2574,8 @@ def test_store_constant(num_ctas, dtype_str, constant_field, device):
 
 def test_load_store_same_ptr(device):
 
-    @partial(make_launcher, grid_arg=1, options={"num_warps": 16 if is_hip() else 32})  # threads per Warp for ROCM is 64
+    # threads per Warp for ROCM is 64
+    @partial(make_launcher, grid_arg=1, options={"num_warps": 16 if is_hip() else 32})
     @triton.jit()
     def kernel(in_out_ptr):
         pid = tl.program_id(axis=0)

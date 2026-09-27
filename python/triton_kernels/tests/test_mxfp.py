@@ -45,7 +45,8 @@ def test_ue8m0_scale_upcast(dst_dtype, scale_dtype, block_size, device):
     actual = torch.empty(256, dtype=dst_dtype, device=device)
     expected = torch.ldexp(torch.ones(256, dtype=torch.float64, device=device), scale.to(torch.int32) - 127)
     expected[-1] = float("nan")
-    kernel = _upcast_ue8m0_scale_kernel(*device_stream(), 256 // block_size, actual, scale.view(scale_dtype), block_size)
+    kernel = _upcast_ue8m0_scale_kernel(*device_stream(), 256 // block_size, actual, scale.view(scale_dtype),
+                                        block_size)
     torch.testing.assert_close(actual, expected.to(dst_dtype), rtol=0, atol=0, equal_nan=True)
     if cuda_capability_geq(10, 0) and dst_dtype == torch.bfloat16 and block_size > 1:
         assert "cvt.rn.bf16x2.ue8m0x2" in kernel.asm["ptx"]
