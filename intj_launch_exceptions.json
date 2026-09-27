@@ -2704,13 +2704,6 @@
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
     },
     {
-      "path": "python/test/unit/language/test_decorator.py",
-      "line": 47,
-      "target": "_kernel",
-      "reason": "unsupported_heuristic_subset",
-      "detail": "make_launcher raises UnsupportedKernel: heuristic 'EVEN_src' reads nargs['src'].data_ptr(), outside intj's lowered heuristic subset (a heuristic over an otherwise unkeyed caller argument must compile to C)."
-    },
-    {
       "path": "python/test/unit/language/test_matmul.py",
       "line": 170,
       "target": "matmul_kernel",

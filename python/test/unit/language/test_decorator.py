@@ -3,6 +3,14 @@ import torch
 import triton
 import triton.language as tl
 import pytest
+from intj import make_launcher
+
+
+def _intj_launcher(kernel, grid):
+    """One intj launcher, which owns its tuner cache; tuned values are not passed."""
+    launcher = make_launcher(kernel, **({"grid_py": grid} if callable(grid) else {"grid_arg": len(grid)}))
+    dims = () if callable(grid) else tuple(grid)
+    return lambda *args: launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, *dims, *args)
 
 
 def test_decorator_with_def(device):
@@ -44,7 +52,7 @@ def test_triton_heuristic(device):
         tl.store(dst + 1, EVEN_src)
 
     grid = lambda META: (triton.cdiv(N, META['BLOCK_SIZE']), )
-    _kernel[grid](dst, src, N=N)
+    _intj_launcher(_kernel, grid)(dst, src, N)
     assert dst[0].item() == 0.0
     assert dst[1].item() == 1.0
     assert _kernel.base_fn.__name__ == "_kernel"
