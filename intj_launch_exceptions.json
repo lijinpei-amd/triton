@@ -3258,28 +3258,28 @@
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 46,
+      "line": 45,
       "target": "_kernel",
       "reason": "triton_autotuner_cache_state",
       "detail": "test_kwargs asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 2)."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 48,
+      "line": 47,
       "target": "_kernel",
       "reason": "triton_autotuner_cache_state",
       "detail": "test_kwargs asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 2). This call also passes every argument by keyword, which intj's positional launcher cannot express."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 68,
+      "line": 67,
       "target": "_kernel",
       "reason": "triton_autotuner_cache_state",
       "detail": "test_no_do_bench asserts len(_kernel.cache). Through make_launcher, intj tunes on its own tuner chain and copies back only best_config, bench_time and configs_timings, so the decorated Autotuner's cache stays empty (measured: 0 == 1)."
     },
     {
       "path": "python/test/unit/runtime/test_autotuner.py",
-      "line": 229,
+      "line": 226,
       "target": "_kernel",
       "reason": "triton_autotuner_keyword_prune_args",
       "detail": "test_prune_configs[False] asserts early_config_prune receives N in **kwargs because the call passes N=N. intj launchers are positional-only, so the pruner sees N in named_args, exactly as for a positional Triton call; with_perf_model=True passes through intj."

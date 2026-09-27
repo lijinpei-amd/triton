@@ -39,8 +39,8 @@ controlling these low-level details.
 import pytest
 import torch
 import triton
+from functools import partial
 from intj import make_launcher
-from intj.compat import launch as _intj_launch
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
 
@@ -48,6 +48,7 @@ from triton.experimental.gluon import language as gl
 # We illustrate this with a trivial kernel that copies a scalar.
 
 
+@partial(make_launcher, grid_arg=1, options={"num_warps": 1})
 @gluon.jit
 def copy_scalar_kernel(in_ptr, out_ptr):
     value = gl.load(in_ptr)
@@ -55,15 +56,16 @@ def copy_scalar_kernel(in_ptr, out_ptr):
 
 
 # %%
-# The launcher is host-side code that invokes the kernel. PyTorch tensors are
+# The launcher is host-side code that invokes the kernel. Here intj's
+# `make_launcher` above wraps it: calls take the device, the stream, one int per
+# grid dimension, then the kernel arguments, all positional. PyTorch tensors are
 # converted to global memory pointers when passed to Gluon kernels, just like in
-# Triton. And the grid is specified in the same way.
+# Triton.
 
 
 def copy_scalar(input, output):
     # Launch a single program.
-    grid = (1, )
-    _intj_launch(copy_scalar_kernel, grid, input, output, num_warps=1)
+    copy_scalar_kernel(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, 1, input, output)
 
 
 # %%
@@ -95,10 +97,14 @@ def memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
         gl.store(out_ptr + i, value)
 
 
+# memcpy_kernel stays a JIT function because memcpy_kernel_autotune below calls it.
+_memcpy_launcher = make_launcher(memcpy_kernel, grid_arg=1, options={"num_warps": 1})
+
+
 def memcpy(input, output, XBLOCK):
     xnumel = input.numel()
-    grid = (triton.cdiv(xnumel, XBLOCK), )
-    _intj_launch(memcpy_kernel, grid, input, output, xnumel, XBLOCK, num_warps=1)
+    _memcpy_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, triton.cdiv(xnumel, XBLOCK),
+                     input, output, xnumel, XBLOCK)
 
 
 @pytest.mark.parametrize("XBLOCK", [64])
@@ -116,6 +122,12 @@ def test_memcpy(XBLOCK, xnumel):
 # XBLOCK as an example.
 
 
+# The grid reads the tuned XBLOCK; intj compiles it into the launcher.
+def _memcpy_autotune_grid(xnumel: int, XBLOCK: int):
+    return (triton.cdiv(xnumel, XBLOCK), )
+
+
+@partial(make_launcher, grid_cpp=_memcpy_autotune_grid)
 @triton.autotune(
     configs=[triton.Config({"XBLOCK": 2**i}, num_warps=1) for i in range(8, 14)],
     key=["xnumel"],
@@ -125,18 +137,10 @@ def memcpy_kernel_autotune(in_ptr, out_ptr, xnumel, XBLOCK: gl.constexpr):
     memcpy_kernel(in_ptr, out_ptr, xnumel, XBLOCK)
 
 
-def _memcpy_autotune_grid(xnumel: int, XBLOCK: int):
-    return (triton.cdiv(xnumel, XBLOCK), )
-
-
-# The grid reads the tuned XBLOCK; intj compiles it into the launcher.
-_memcpy_autotune_launcher = make_launcher(memcpy_kernel_autotune, grid_cpp=_memcpy_autotune_grid)
-
-
 def memcpy_autotune(input, output):
-    xnumel = input.numel()
-    _memcpy_autotune_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, input, output,
-                              xnumel)
+    # XBLOCK is tuned, so it is not passed.
+    memcpy_kernel_autotune(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, input, output,
+                           input.numel())
 
 
 # %%

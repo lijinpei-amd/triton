@@ -37,6 +37,12 @@ def is_interpreter():
     return os.environ.get('TRITON_INTERPRET', '0') == '1'
 
 
+def device_stream():
+    """The current (device, stream) pair that leads a positional intj launcher call."""
+    device = torch.cuda.current_device()
+    return device, torch.cuda.current_stream(device).cuda_stream
+
+
 def random_int(low, high, *, warmup_value=None, **kwargs):
     if is_compile_warmup():
         return low if warmup_value is None else warmup_value
