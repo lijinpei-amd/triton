@@ -1,5 +1,5 @@
 # ruff: noqa: F821
-from intj.compat import launch as _intj_launch
+from intj import make_launcher
 import itertools
 import numpy as np
 import pytest
@@ -8,9 +8,9 @@ import torch
 import triton
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
-from triton import language as tl
+from triton import knobs, language as tl
 from triton._internal_testing import is_blackwell, is_cuda, is_hip, is_hip_cdna3, is_hip_cdna4, is_hip_gfx1250, is_hopper, is_interpreter
-from triton._internal_testing import is_blackwell_ultra
+from triton._internal_testing import device_stream, is_blackwell_ultra
 from triton.experimental.gluon.language.nvidia.ampere import mma_v2
 from triton.experimental.gluon.language.nvidia import hopper
 from triton.experimental.gluon.language.nvidia.blackwell import (
@@ -25,6 +25,13 @@ from triton.experimental.gluon.language.nvidia.blackwell import (
 )
 
 THREADS_PER_WARP = triton.runtime.driver.active.get_current_target().warp_size
+
+# The tests flip fpsan on and off, so every launcher keys on the live instrumentation mode.
+_FPSAN = ("knobs.compilation.instrumentation_mode", )
+
+
+def _mode():
+    return knobs.compilation.instrumentation_mode
 
 
 def _hip_device_supports_fpsan():
@@ -251,7 +258,7 @@ def _random_float_bits(rs: np.random.RandomState, shape, dtype: str) -> np.ndarr
 def _as_float_bits_tensor(bits: np.ndarray, dtype: str):
     _, _, _, torch_storage_dtype, torch_dtype, _ = _float_dtype_info(dtype)
     storage = torch.tensor(bits, device="cuda", dtype=torch_storage_dtype)
-    return storage, triton.TensorWrapper(storage, dtype=torch_dtype)
+    return storage, storage.view(torch_dtype)
 
 
 def _mix_float_bits(bits: np.ndarray, dtype: str) -> np.ndarray:
@@ -576,6 +583,7 @@ def _payload_equal(a, b) -> bool:
     return np.array_equal(_as_payload_np_unsigned(a), _as_payload_np_unsigned(b))
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _binop_kernel(x_ptr, y_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                   THREADS_PER_WARP: gl.constexpr):
@@ -609,6 +617,7 @@ def _binop_kernel(x_ptr, y_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @triton.jit
 def _clamp_kernel(x_ptr, lo_ptr, hi_ptr, out_ptr, n_elements, PROPAGATE_NAN: tl.constexpr, BLOCK: tl.constexpr):
     offs = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
@@ -623,6 +632,7 @@ def _clamp_kernel(x_ptr, lo_ptr, hi_ptr, out_ptr, n_elements, PROPAGATE_NAN: tl.
     tl.store(out_ptr + offs, out, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _constant_identity_kernel(x_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                               THREADS_PER_WARP: gl.constexpr):
@@ -643,6 +653,7 @@ def _constant_identity_kernel(x_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOC
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _reciprocal_involution_kernel(x_ptr, out_ptr, n_elements, BLOCK: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     pid = gl.program_id(0)
@@ -655,6 +666,7 @@ def _reciprocal_involution_kernel(x_ptr, out_ptr, n_elements, BLOCK: gl.constexp
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _expect_zero_upper_triangle_kernel(x_ptr, out_ptr, N: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     layout: gl.constexpr = gl.BlockedLayout([1, 1], [THREADS_PER_WARP, 1], [4, 1], [1, 0])
@@ -679,10 +691,10 @@ def test_expect_zero_upper_triangle_exp(device, fresh_knobs):
     upper_triangle = torch.triu(torch.ones_like(x, dtype=torch.bool), diagonal=1)
 
     fresh_knobs.compilation.instrumentation_mode = ""
-    _intj_launch(_expect_zero_upper_triangle_kernel, (1, ), x, regular_out, N=N, THREADS_PER_WARP=THREADS_PER_WARP)
+    _expect_zero_upper_triangle_kernel(*device_stream(), (1, ), _mode(), x, regular_out, N, THREADS_PER_WARP)
 
     fresh_knobs.compilation.instrumentation_mode = "fpsan"
-    _intj_launch(_expect_zero_upper_triangle_kernel, (1, ), x, fpsan_out, N=N, THREADS_PER_WARP=THREADS_PER_WARP)
+    _expect_zero_upper_triangle_kernel(*device_stream(), (1, ), _mode(), x, fpsan_out, N, THREADS_PER_WARP)
 
     assert torch.equal(regular_out[upper_triangle], torch.zeros_like(regular_out[upper_triangle]))
     assert torch.equal(fpsan_out[upper_triangle], torch.zeros_like(fpsan_out[upper_triangle]))
@@ -704,14 +716,8 @@ def test_constant_identity_noop(device, op, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_constant_identity_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        OP=op,
-        BLOCK=BLOCK,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _constant_identity_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), out.view(torch.float32),
+                              n_elements, op, BLOCK, THREADS_PER_WARP)
 
     _assert_payload_equal(out, x)
 
@@ -730,13 +736,8 @@ def test_reciprocal_involution(device, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_reciprocal_involution_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        BLOCK=BLOCK,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _reciprocal_involution_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), out.view(torch.float32),
+                                  n_elements, BLOCK, THREADS_PER_WARP)
 
     _assert_payload_equal(out, x)
 
@@ -759,7 +760,7 @@ def test_binops_payload_semantics(device, op, expected_fn, fresh_knobs):
 
     fresh_knobs.compilation.instrumentation_mode = "fpsan"
 
-    # Use int32 storage but treat it as float32 via TensorWrapper so fpsan operates on payload bits.
+    # Use int32 storage but view it as float32 so fpsan operates on payload bits.
     n_elements = 1024
     BLOCK = 256
 
@@ -769,12 +770,12 @@ def test_binops_payload_semantics(device, op, expected_fn, fresh_knobs):
     y = torch.randint(-(2**31), 2**31 - 1, (n_elements, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_binop_kernel, grid, xw, yw, outw, n_elements, OP=op, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _binop_kernel(*device_stream(), grid, _mode(), xw, yw, outw, n_elements, op, BLOCK, THREADS_PER_WARP)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = expected_fn(x.cpu().numpy().astype(np.int32, copy=False), y.cpu().numpy().astype(np.int32, copy=False))
@@ -814,15 +815,8 @@ def test_clamp_payload_semantics(device, propagate_nan, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_clamp_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(lo, dtype=torch.float32),
-        triton.TensorWrapper(hi, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        PROPAGATE_NAN=propagate_nan,
-        BLOCK=BLOCK,
-    )
+    _clamp_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), lo.view(torch.float32),
+                  hi.view(torch.float32), out.view(torch.float32), n_elements, propagate_nan, BLOCK)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = _expected_clamp_i32(x_np, lo_np, hi_np)
@@ -853,18 +847,19 @@ def test_binops_payload_semantics_zero_denominator(device, op, expected_fn, fres
 
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_binop_kernel, grid, xw, yw, outw, n_elements, OP=op, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _binop_kernel(*device_stream(), grid, _mode(), xw, yw, outw, n_elements, op, BLOCK, THREADS_PER_WARP)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = expected_fn(x.cpu().numpy().astype(np.int32, copy=False), y.cpu().numpy().astype(np.int32, copy=False))
     _assert_payload_equal(out_np, exp_np)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _unary_math_kernel(x_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                        THREADS_PER_WARP: gl.constexpr):
@@ -881,6 +876,7 @@ def _unary_math_kernel(x_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.c
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _exp_binary_identity_kernel(x_ptr, y_ptr, out_ptr, n_elements, MODE: gl.constexpr, BLOCK: gl.constexpr,
                                 THREADS_PER_WARP: gl.constexpr):
@@ -900,6 +896,7 @@ def _exp_binary_identity_kernel(x_ptr, y_ptr, out_ptr, n_elements, MODE: gl.cons
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _exp_scaled_identity_kernel(x_ptr, out_ptr, n_elements, MODE: gl.constexpr, BLOCK: gl.constexpr,
                                 THREADS_PER_WARP: gl.constexpr):
@@ -918,6 +915,7 @@ def _exp_scaled_identity_kernel(x_ptr, out_ptr, n_elements, MODE: gl.constexpr, 
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _exp_inverse_identity_kernel(x_ptr, out_ptr, n_elements, MODE: gl.constexpr, BLOCK: gl.constexpr,
                                  THREADS_PER_WARP: gl.constexpr):
@@ -936,6 +934,7 @@ def _exp_inverse_identity_kernel(x_ptr, out_ptr, n_elements, MODE: gl.constexpr,
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _cossin_identity_kernel(x_ptr, y_ptr, lhs_ptr, rhs_ptr, n_elements, MODE: gl.constexpr, BLOCK: gl.constexpr,
                             THREADS_PER_WARP: gl.constexpr):
@@ -1007,14 +1006,8 @@ def test_unary_math_identity(device, op, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_unary_math_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        OP=op,
-        BLOCK=BLOCK,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _unary_math_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), out.view(torch.float32), n_elements, op,
+                       BLOCK, THREADS_PER_WARP)
 
     if op == "exp":
         exp_bits = _expected_exp_i32(x_bits)
@@ -1043,14 +1036,8 @@ def test_exp2_payload_f64(device, fresh_knobs):
     _, x = _as_float_bits_tensor(x_bits, "f64")
     out = torch.empty((n_elements, ), dtype=torch.int64, device="cuda")
 
-    _intj_launch(_unary_math_kernel, (1, ),
-        x,
-        triton.TensorWrapper(out, dtype=torch.float64),
-        n_elements,
-        OP="exp2",
-        BLOCK=block,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _unary_math_kernel(*device_stream(), (1, ), _mode(), x, out.view(torch.float64), n_elements, "exp2", block,
+                       THREADS_PER_WARP)
 
     _assert_payload_equal(out, _expected_exp2_i64(x_bits))
 
@@ -1070,16 +1057,16 @@ def test_exp_add_mul_identity(device, fresh_knobs):
     out_add = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
     out_mul = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    out_add_w = triton.TensorWrapper(out_add, dtype=torch.float32)
-    out_mul_w = triton.TensorWrapper(out_mul, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    out_add_w = out_add.view(torch.float32)
+    out_mul_w = out_mul.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_exp_binary_identity_kernel, grid, xw, yw, out_add_w, n_elements, MODE="exp_add", BLOCK=BLOCK,
-                                      THREADS_PER_WARP=THREADS_PER_WARP)
-    _intj_launch(_exp_binary_identity_kernel, grid, xw, yw, out_mul_w, n_elements, MODE="exp_mul", BLOCK=BLOCK,
-                                      THREADS_PER_WARP=THREADS_PER_WARP)
+    _exp_binary_identity_kernel(*device_stream(), grid, _mode(), xw, yw, out_add_w, n_elements, "exp_add", BLOCK,
+                                THREADS_PER_WARP)
+    _exp_binary_identity_kernel(*device_stream(), grid, _mode(), xw, yw, out_mul_w, n_elements, "exp_mul", BLOCK,
+                                THREADS_PER_WARP)
 
     _assert_payload_equal(out_add, out_mul)
 
@@ -1100,24 +1087,10 @@ def test_exp_add_mul_identity_f64(device, fresh_knobs):
     out_mul = torch.empty_like(out_add)
 
     grid = (1, )
-    _intj_launch(_exp_binary_identity_kernel, grid,
-        x,
-        y,
-        triton.TensorWrapper(out_add, dtype=torch.float64),
-        n_elements,
-        MODE="exp_add",
-        BLOCK=block,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
-    _intj_launch(_exp_binary_identity_kernel, grid,
-        x,
-        y,
-        triton.TensorWrapper(out_mul, dtype=torch.float64),
-        n_elements,
-        MODE="exp_mul",
-        BLOCK=block,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _exp_binary_identity_kernel(*device_stream(), grid, _mode(), x, y, out_add.view(torch.float64), n_elements,
+                                "exp_add", block, THREADS_PER_WARP)
+    _exp_binary_identity_kernel(*device_stream(), grid, _mode(), x, y, out_mul.view(torch.float64), n_elements,
+                                "exp_mul", block, THREADS_PER_WARP)
 
     _assert_payload_equal(out_add, out_mul)
 
@@ -1136,15 +1109,15 @@ def test_exp_exp2_scaled_identity(device, fresh_knobs):
     out_exp = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
     out_exp2 = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    out_exp_w = triton.TensorWrapper(out_exp, dtype=torch.float32)
-    out_exp2_w = triton.TensorWrapper(out_exp2, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    out_exp_w = out_exp.view(torch.float32)
+    out_exp2_w = out_exp2.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_exp_scaled_identity_kernel, grid, xw, out_exp_w, n_elements, MODE="exp", BLOCK=BLOCK,
-                                      THREADS_PER_WARP=THREADS_PER_WARP)
-    _intj_launch(_exp_scaled_identity_kernel, grid, xw, out_exp2_w, n_elements, MODE="exp2_scaled", BLOCK=BLOCK,
-                                      THREADS_PER_WARP=THREADS_PER_WARP)
+    _exp_scaled_identity_kernel(*device_stream(), grid, _mode(), xw, out_exp_w, n_elements, "exp", BLOCK,
+                                THREADS_PER_WARP)
+    _exp_scaled_identity_kernel(*device_stream(), grid, _mode(), xw, out_exp2_w, n_elements, "exp2_scaled", BLOCK,
+                                THREADS_PER_WARP)
 
     _assert_payload_equal(out_exp, out_exp2)
 
@@ -1163,15 +1136,15 @@ def test_exp_neg_reciprocal_identity(device, fresh_knobs):
     out_neg = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
     out_recip = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    out_neg_w = triton.TensorWrapper(out_neg, dtype=torch.float32)
-    out_recip_w = triton.TensorWrapper(out_recip, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    out_neg_w = out_neg.view(torch.float32)
+    out_recip_w = out_recip.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_exp_inverse_identity_kernel, grid, xw, out_neg_w, n_elements, MODE="exp_neg", BLOCK=BLOCK,
-                                       THREADS_PER_WARP=THREADS_PER_WARP)
-    _intj_launch(_exp_inverse_identity_kernel, grid, xw, out_recip_w, n_elements, MODE="exp_recip", BLOCK=BLOCK,
-                                       THREADS_PER_WARP=THREADS_PER_WARP)
+    _exp_inverse_identity_kernel(*device_stream(), grid, _mode(), xw, out_neg_w, n_elements, "exp_neg", BLOCK,
+                                 THREADS_PER_WARP)
+    _exp_inverse_identity_kernel(*device_stream(), grid, _mode(), xw, out_recip_w, n_elements, "exp_recip", BLOCK,
+                                 THREADS_PER_WARP)
 
     _assert_payload_equal(out_neg, out_recip)
 
@@ -1192,18 +1165,19 @@ def test_cossin_angle_identities(device, mode, fresh_knobs):
     lhs = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
     rhs = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    lhsw = triton.TensorWrapper(lhs, dtype=torch.float32)
-    rhsw = triton.TensorWrapper(rhs, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    lhsw = lhs.view(torch.float32)
+    rhsw = rhs.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_cossin_identity_kernel, grid, xw, yw, lhsw, rhsw, n_elements, MODE=mode, BLOCK=BLOCK,
-                                  THREADS_PER_WARP=THREADS_PER_WARP)
+    _cossin_identity_kernel(*device_stream(), grid, _mode(), xw, yw, lhsw, rhsw, n_elements, mode, BLOCK,
+                            THREADS_PER_WARP)
 
     _assert_payload_equal(lhs, rhs)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _extern_unary_math_kernel(x_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                               THREADS_PER_WARP: gl.constexpr):
@@ -1247,19 +1221,14 @@ def test_extern_unary_payload_semantics(device, op, symbol, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_extern_unary_math_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        OP=op,
-        BLOCK=BLOCK,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _extern_unary_math_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), out.view(torch.float32),
+                              n_elements, op, BLOCK, THREADS_PER_WARP)
 
     exp_bits = _expected_extern_unary_tag_i32(x_bits, symbol)
     _assert_payload_equal(out, exp_bits)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _extern_binary_math_kernel(x_ptr, y_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                                THREADS_PER_WARP: gl.constexpr):
@@ -1281,6 +1250,7 @@ def _extern_binary_math_kernel(x_ptr, y_ptr, out_ptr, n_elements, OP: gl.constex
     gl.store(out_ptr + offs, z, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _extern_ternary_math_kernel(x_ptr, y_ptr, z_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                                 THREADS_PER_WARP: gl.constexpr):
@@ -1299,6 +1269,7 @@ def _extern_ternary_math_kernel(x_ptr, y_ptr, z_ptr, out_ptr, n_elements, OP: gl
     gl.store(out_ptr + offs, out, mask=mask)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _extern_mixed_math_kernel(x_ptr, y_ptr, out_ptr, n_elements, OP: gl.constexpr, BLOCK: gl.constexpr,
                               THREADS_PER_WARP: gl.constexpr):
@@ -1333,12 +1304,12 @@ def test_extern_binary_payload_semantics(device, op, symbol, fresh_knobs):
     y = torch.randint(-(2**31), 2**31 - 1, (n_elements, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_extern_binary_math_kernel, grid, xw, yw, outw, n_elements, OP=op, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _extern_binary_math_kernel(*device_stream(), grid, _mode(), xw, yw, outw, n_elements, op, BLOCK, THREADS_PER_WARP)
 
     exp_bits = _expected_extern_binary_tag_i32(
         x.cpu().numpy().astype(np.int32, copy=False),
@@ -1366,14 +1337,14 @@ def test_extern_ternary_payload_semantics(device, op, symbol, fresh_knobs):
     z = torch.randint(-(2**31), 2**31 - 1, (n_elements, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    zw = triton.TensorWrapper(z, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    zw = z.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_extern_ternary_math_kernel, grid, xw, yw, zw, outw, n_elements, OP=op, BLOCK=BLOCK,
-                                      THREADS_PER_WARP=THREADS_PER_WARP)
+    _extern_ternary_math_kernel(*device_stream(), grid, _mode(), xw, yw, zw, outw, n_elements, op, BLOCK,
+                                THREADS_PER_WARP)
 
     input_bits = [
         x.cpu().numpy().astype(np.int32, copy=False),
@@ -1404,11 +1375,11 @@ def test_extern_mixed_payload_semantics(device, op, symbol, fresh_knobs):
     y = torch.randint(-(2**31), 2**31 - 1, (n_elements, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_extern_mixed_math_kernel, grid, xw, y, outw, n_elements, OP=op, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _extern_mixed_math_kernel(*device_stream(), grid, _mode(), xw, y, outw, n_elements, op, BLOCK, THREADS_PER_WARP)
 
     exp_bits = _expected_extern_variadic_tag_i32(
         [
@@ -1421,6 +1392,7 @@ def test_extern_mixed_payload_semantics(device, op, symbol, fresh_knobs):
     _assert_payload_equal(out, exp_bits)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _inline_asm_math_kernel(x_ptr, y_ptr, out_ptr, n_elements, ASM: gl.constexpr, BLOCK: gl.constexpr,
                             THREADS_PER_WARP: gl.constexpr):
@@ -1450,15 +1422,8 @@ def test_inline_asm_payload_semantics(device, asm, fresh_knobs):
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_inline_asm_math_kernel, grid,
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(y, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        n_elements,
-        ASM=asm,
-        BLOCK=BLOCK,
-        THREADS_PER_WARP=THREADS_PER_WARP,
-    )
+    _inline_asm_math_kernel(*device_stream(), grid, _mode(), x.view(torch.float32), y.view(torch.float32),
+                            out.view(torch.float32), n_elements, asm, BLOCK, THREADS_PER_WARP)
 
     exp_bits = _expected_extern_variadic_tag_i32(
         [x.cpu().numpy().astype(np.int32, copy=False),
@@ -1466,6 +1431,7 @@ def test_inline_asm_payload_semantics(device, asm, fresh_knobs):
     _assert_payload_equal(out, exp_bits)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _inline_asm_ue8m0_payload_kernel(scale_ptr, out_ptr, ASM: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     layout: gl.constexpr = gl.BlockedLayout([2], [THREADS_PER_WARP], [4], [0])
@@ -1482,7 +1448,7 @@ def test_inline_asm_ue8m0_payload_semantics(device, asm, fresh_knobs):
 
     scales = torch.arange(256, device=device, dtype=torch.int32).to(torch.uint8)
     out = torch.empty(256, device=device, dtype=torch.int16)
-    _intj_launch(_inline_asm_ue8m0_payload_kernel, (1, ), scales, out, asm, THREADS_PER_WARP)
+    _inline_asm_ue8m0_payload_kernel(*device_stream(), (1, ), _mode(), scales, out, asm, THREADS_PER_WARP)
 
     # Integer operands are sign-extended before applying the assembly's tag.
     tag = np.uint16(stable_string_hash_u64(asm) & np.uint64(0xFFFF))
@@ -1490,6 +1456,7 @@ def test_inline_asm_ue8m0_payload_semantics(device, asm, fresh_knobs):
     _assert_payload_equal(out, expected)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _swiglu_tanh_kernel(gate_ptr, linear_ptr, out_ptr, BLOCK: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     layout: gl.constexpr = gl.BlockedLayout(size_per_thread=[2], threads_per_warp=[THREADS_PER_WARP], warps_per_cta=[4],
@@ -1511,10 +1478,8 @@ def test_swiglu_tanh_payload_semantics(device, fresh_knobs):
     gate = torch.randint(-(2**31), 2**31 - 1, (128, ), dtype=torch.int32, device="cuda", generator=g)
     linear = torch.randint(-(2**31), 2**31 - 1, (128, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty_like(gate)
-    _intj_launch(_swiglu_tanh_kernel, (1, ), triton.TensorWrapper(gate, dtype=torch.float32),
-                               triton.TensorWrapper(linear, dtype=torch.float32),
-                               triton.TensorWrapper(out, dtype=torch.float32), BLOCK=128,
-                               THREADS_PER_WARP=THREADS_PER_WARP)
+    _swiglu_tanh_kernel(*device_stream(), (1, ), _mode(), gate.view(torch.float32), linear.view(torch.float32),
+                        out.view(torch.float32), 128, THREADS_PER_WARP)
     gate_bits = gate.cpu().numpy()
     half = np.full_like(gate_bits, np.float32(0.5).view(np.int32))
     arg = _expected_mul_i32(gate_bits, np.full_like(gate_bits, np.float32(0.851).view(np.int32)))
@@ -1540,6 +1505,7 @@ def _expected_ext_f16_to_f32_i32(x_i16: np.ndarray) -> np.ndarray:
     return _unmix_payload_u32_to_f32_bits_i32(out_u32)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _fma_kernel(x_ptr, y_ptr, z_ptr, out_ptr, n_elements, BLOCK: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     pid = gl.program_id(0)
@@ -1569,13 +1535,13 @@ def test_fma_payload_semantics(device, fresh_knobs):
     z = torch.randint(-(2**31), 2**31 - 1, (n_elements, ), dtype=torch.int32, device="cuda", generator=g)
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    yw = triton.TensorWrapper(y, dtype=torch.float32)
-    zw = triton.TensorWrapper(z, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    yw = y.view(torch.float32)
+    zw = z.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_fma_kernel, grid, xw, yw, zw, outw, n_elements, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _fma_kernel(*device_stream(), grid, _mode(), xw, yw, zw, outw, n_elements, BLOCK, THREADS_PER_WARP)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = _expected_fma_i32(
@@ -1586,6 +1552,7 @@ def test_fma_payload_semantics(device, fresh_knobs):
     _assert_payload_equal(out_np, exp_np)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _cast_trunc_ext_kernel(x_ptr, out_ptr, n_elements, BLOCK: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     pid = gl.program_id(0)
@@ -1614,11 +1581,11 @@ def test_cast_trunc_ext_payload_semantics(device, fresh_knobs):
     x[:3] = torch.tensor(special_f32_bits, dtype=torch.int32, device="cuda")
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float32)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float32)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_cast_trunc_ext_kernel, grid, xw, outw, n_elements, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _cast_trunc_ext_kernel(*device_stream(), grid, _mode(), xw, outw, n_elements, BLOCK, THREADS_PER_WARP)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = _expected_trunc_ext_roundtrip_i32(x.cpu().numpy().astype(np.int32, copy=False))
@@ -1626,6 +1593,7 @@ def test_cast_trunc_ext_payload_semantics(device, fresh_knobs):
     _assert_payload_equal(out_np[:3], special_f32_bits)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _cast_ext_kernel(x_ptr, out_ptr, n_elements, BLOCK: gl.constexpr, THREADS_PER_WARP: gl.constexpr):
     pid = gl.program_id(0)
@@ -1654,11 +1622,11 @@ def test_cast_ext_payload_semantics(device, fresh_knobs):
     x[:3] = torch.tensor(special_f16_bits, dtype=torch.int16, device="cuda")
     out = torch.empty((n_elements, ), dtype=torch.int32, device="cuda")
 
-    xw = triton.TensorWrapper(x, dtype=torch.float16)
-    outw = triton.TensorWrapper(out, dtype=torch.float32)
+    xw = x.view(torch.float16)
+    outw = out.view(torch.float32)
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_cast_ext_kernel, grid, xw, outw, n_elements, BLOCK=BLOCK, THREADS_PER_WARP=THREADS_PER_WARP)
+    _cast_ext_kernel(*device_stream(), grid, _mode(), xw, outw, n_elements, BLOCK, THREADS_PER_WARP)
 
     out_np = out.cpu().numpy().astype(np.int32, copy=False)
     exp_np = _expected_ext_f16_to_f32_i32(x.cpu().numpy().astype(np.int16, copy=False))
@@ -1666,6 +1634,7 @@ def test_cast_ext_payload_semantics(device, fresh_knobs):
     _assert_payload_equal(out_np[:3], special_f32_bits)
 
 
+@make_launcher(dynamic_options=_FPSAN)
 @gluon.jit
 def _downcast_placement_kernel(x_ptr, y_ptr, after_ptr, before_ptr, n_elements, BLOCK: gl.constexpr,
                                THREADS_PER_WARP: gl.constexpr):
@@ -1697,8 +1666,8 @@ def test_downcast_placement_payload_semantics(device, fresh_knobs):
     before, beforew = _as_float_bits_tensor(np.empty((n_elements, ), dtype=np.int16), "bf16")
 
     grid = (triton.cdiv(n_elements, BLOCK), )
-    _intj_launch(_downcast_placement_kernel, grid, xw, yw, afterw, beforew, n_elements, BLOCK=BLOCK,
-                                     THREADS_PER_WARP=THREADS_PER_WARP)
+    _downcast_placement_kernel(*device_stream(), grid, _mode(), xw, yw, afterw, beforew, n_elements, BLOCK,
+                               THREADS_PER_WARP)
 
     expected_after = _cast_float_bits(_mul_float_bits(x_bits, y_bits, "f32"), "f32", "bf16")
     expected_before = _mul_float_bits(_cast_float_bits(x_bits, "f32", "bf16"), _cast_float_bits(y_bits, "f32", "bf16"),
@@ -2111,6 +2080,7 @@ def test_bf16_dot_sharding(device, homomorphic_casts, fresh_knobs):
         bv = tl.load(b + kb * 64 + cols)
         tl.store(out + rows * 64 + cols, tl.dot(av, bv).to(tl.bfloat16))
 
+    @make_launcher(dynamic_options=_FPSAN, options={"num_warps": 4})
     @triton.jit
     def add(left, right, out):
         offsets = tl.arange(0, 4096)
@@ -2142,7 +2112,7 @@ def test_bf16_dot_sharding(device, homomorphic_casts, fresh_knobs):
     dot[(1, )](aw, bw, wholew, K_START=0, BLOCK_K=K, num_warps=4)
     dot[(1, )](aw, bw, leftw, K_START=0, BLOCK_K=HALF, num_warps=4)
     dot[(1, )](aw, bw, rightw, K_START=HALF, BLOCK_K=HALF, num_warps=4)
-    _intj_launch(add, (1, ), leftw, rightw, splitw, num_warps=4)
+    add(*device_stream(), (1, ), _mode(), leftw, rightw, splitw)
     torch.testing.assert_close(whole, split, atol=0, rtol=0)
 
 
@@ -3244,6 +3214,7 @@ def test_tmem_store_in_warp_specialize_partition_visible_to_parent(device, fresh
 def test_reduction(device, fresh_knobs):
     _require_cuda_backend(device)
 
+    @make_launcher(dynamic_options=_FPSAN)
     @triton.jit
     def reduce_kernel(a_ptr, c_ptr, M: tl.constexpr, N: tl.constexpr, stride_ak: tl.constexpr, stride_am: tl.constexpr,
                       stride_an: tl.constexpr, ORDER: tl.constexpr):
@@ -3264,25 +3235,27 @@ def test_reduction(device, fresh_knobs):
     c1 = torch.empty((K, ), dtype=torch.float32).to('cuda')
     c2 = torch.empty((K, ), dtype=torch.float32).to('cuda')
 
-    _intj_launch(reduce_kernel, (K, ), a, c1, M, N, a.stride(0), a.stride(1), a.stride(2), ORDER=0)
-    _intj_launch(reduce_kernel, (K, ), a, c2, M, N, a.stride(0), a.stride(1), a.stride(2), ORDER=1)
+    reduce_kernel(*device_stream(), (K, ), _mode(), a, c1, M, N, a.stride(0), a.stride(1), a.stride(2), 0)
+    reduce_kernel(*device_stream(), (K, ), _mode(), a, c2, M, N, a.stride(0), a.stride(1), a.stride(2), 1)
     assert not _payload_equal(c1, c2)
 
     fresh_knobs.compilation.instrumentation_mode = "fpsan"
 
-    _intj_launch(reduce_kernel, (K, ), a, c1, M, N, a.stride(0), a.stride(1), a.stride(2), ORDER=0)
-    _intj_launch(reduce_kernel, (K, ), a, c2, M, N, a.stride(0), a.stride(1), a.stride(2), ORDER=1)
+    reduce_kernel(*device_stream(), (K, ), _mode(), a, c1, M, N, a.stride(0), a.stride(1), a.stride(2), 0)
+    reduce_kernel(*device_stream(), (K, ), _mode(), a, c2, M, N, a.stride(0), a.stride(1), a.stride(2), 1)
     assert _payload_equal(c1, c2)
 
 
 def test_reduction_matches_loop(device, fresh_knobs):
     _require_cuda_backend(device)
 
+    @make_launcher(dynamic_options=_FPSAN)
     @triton.jit
     def reduce_sum_kernel(x_ptr, out_ptr, N: tl.constexpr):
         x = tl.load(x_ptr + tl.arange(0, N))
         tl.store(out_ptr, tl.sum(x, axis=0))
 
+    @make_launcher(dynamic_options=_FPSAN)
     @triton.jit
     def loop_sum_kernel(x_ptr, out_ptr, N: tl.constexpr):
         acc = tl.full([], 0.0, tl.float32)
@@ -3296,14 +3269,14 @@ def test_reduction_matches_loop(device, fresh_knobs):
     reduce_out = torch.empty((1, ), dtype=torch.float32, device="cuda")
     loop_out = torch.empty((1, ), dtype=torch.float32, device="cuda")
 
-    _intj_launch(reduce_sum_kernel, (1, ), x, reduce_out, N=N)
-    _intj_launch(loop_sum_kernel, (1, ), x, loop_out, N=N)
+    reduce_sum_kernel(*device_stream(), (1, ), _mode(), x, reduce_out, N)
+    loop_sum_kernel(*device_stream(), (1, ), _mode(), x, loop_out, N)
     assert not _payload_equal(reduce_out, loop_out)
 
     fresh_knobs.compilation.instrumentation_mode = "fpsan"
 
-    _intj_launch(reduce_sum_kernel, (1, ), x, reduce_out, N=N)
-    _intj_launch(loop_sum_kernel, (1, ), x, loop_out, N=N)
+    reduce_sum_kernel(*device_stream(), (1, ), _mode(), x, reduce_out, N)
+    loop_sum_kernel(*device_stream(), (1, ), _mode(), x, loop_out, N)
     _assert_payload_equal(reduce_out, loop_out)
 
 
@@ -3312,6 +3285,7 @@ def test_f32_loop_preserves_snan_payload(device, fresh_knobs):
     if not is_cuda():
         pytest.skip("regression is specific to NVPTX fabs lowering")
 
+    @make_launcher(dynamic_options=_FPSAN, options={"num_warps": 1})
     @triton.jit
     def sum_kernel(x_ptr, out_ptr, BLOCK: tl.constexpr):
         offsets = tl.arange(0, BLOCK)
@@ -3331,12 +3305,7 @@ def test_f32_loop_preserves_snan_payload(device, fresh_knobs):
     assert np.isfinite(input_bits.view(np.float32)).all()
     x = torch.tensor(input_bits, dtype=torch.int32, device="cuda")
     out = torch.empty((block, ), dtype=torch.int32, device="cuda")
-    _intj_launch(sum_kernel, (1, ),
-        triton.TensorWrapper(x, dtype=torch.float32),
-        triton.TensorWrapper(out, dtype=torch.float32),
-        BLOCK=block,
-        num_warps=1,
-    )
+    sum_kernel(*device_stream(), (1, ), _mode(), x.view(torch.float32), out.view(torch.float32), block)
 
     expected = _expected_add_i32(input_bits[0], input_bits[1])
     expected = _expected_add_i32(expected, input_bits[2])

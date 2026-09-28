@@ -1312,168 +1312,168 @@
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2025,
+      "line": 1994,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures local shape or block constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2078,
+      "line": 2047,
       "target": "kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_dot_explicit_and_implicit_upcasts_match, implicit call: FpSan rewrites tl.dot and reserves third-party profile scratch; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2079,
+      "line": 2048,
       "target": "kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_dot_explicit_and_implicit_upcasts_match, explicit call: FpSan rewrites tl.dot and reserves third-party profile scratch; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2139,
+      "line": 2109,
       "target": "dot",
       "reason": "unsupported_profile_scratch",
       "detail": "test_bf16_dot_sharding, initial whole dot: FpSan reserves third-party profile scratch for tl.dot; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2142,
+      "line": 2112,
       "target": "dot",
       "reason": "unsupported_profile_scratch",
       "detail": "test_bf16_dot_sharding, whole dot after the homomorphic-casts knob changes: FpSan reserves profile scratch; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2143,
+      "line": 2113,
       "target": "dot",
       "reason": "unsupported_profile_scratch",
       "detail": "test_bf16_dot_sharding, left shard: FpSan reserves third-party profile scratch for tl.dot; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2144,
+      "line": 2114,
       "target": "dot",
       "reason": "unsupported_profile_scratch",
       "detail": "test_bf16_dot_sharding, right shard: FpSan reserves third-party profile scratch for tl.dot; intj rejects nonzero profile_scratch_size."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2199,
+      "line": 2169,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_mma_v2: the JIT reads captured M, N, and K from the enclosing test; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2253,
+      "line": 2223,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "The JIT kernel captures local shape or block constexprs; intj refuses captured non-JIT globals."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2315,
+      "line": 2285,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_warpgroup_mma: the JIT reads captured M, N, and K from the enclosing test; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2394,
+      "line": 2364,
       "target": "kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_dot_scaled enables FpSan and calls tl.dot_scaled; its instrumentation reserves third-party profile scratch, which intj rejects."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2470,
+      "line": 2440,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tcgen05_mma: the JIT reads captured M, N, K, and TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2531,
+      "line": 2501,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tcgen05_mma_warp_specialize_partition: the JIT reads captured M, N, K, and TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2585,
+      "line": 2555,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_independent_ctas: kernel[(1,)] passes num_ctas=num_ctas; the test parameter can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2655,
+      "line": 2625,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_two_ctas: kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2786,
+      "line": 2756,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tcgen05_mma_scaled: the JIT reads captured M, N, K, TensorMemoryLayout, and TensorMemoryScalesLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2900,
+      "line": 2870,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tcgen05_mma_scaled_two_ctas: kernel[(1,)] passes num_ctas=2; this is fixed multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 2955,
+      "line": 2925,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_index_subslice: the JIT reads captured BLOCK and TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3016,
+      "line": 2986,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_row_subslice: the JIT reads captured TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3067,
+      "line": 3037,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_load_reduce: the JIT reads captured M, N, and TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3188,
+      "line": 3158,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_tmem_copy_scales_in_warp_specialize_partition: kernel[(1,)] passes num_ctas=2 if two_ctas else 1; the expression can select multi-CTA execution, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3239,
+      "line": 3209,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_tmem_store_in_warp_specialize_partition_visible_to_parent: the JIT reads captured BLOCK and TensorMemoryLayout; intj refuses globals it cannot revalidate."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3395,
+      "line": 3364,
       "target": "kernel",
       "reason": "unsupported_layout_constexpr",
       "detail": "test_mfma_dot: kernel[(1,)] passes Gluon layout object mfma_layout as a constexpr; intj cannot encode that object in its launch key."
     },
     {
       "path": "python/test/gluon/test_fpsan.py",
-      "line": 3444,
+      "line": 3413,
       "target": "kernel",
       "reason": "unsupported_profile_scratch",
       "detail": "test_wmma_dot enables FpSan and calls Gluon WMMA through semantic.dot; its instrumentation reserves profile scratch, which intj rejects."
