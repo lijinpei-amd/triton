@@ -2,7 +2,6 @@
 
 
 from intj import make_launcher
-from intj.compat import launch as _intj_launch
 import pytest
 import torch
 import triton
@@ -19,6 +18,7 @@ def check_capabilities():
             pytest.skip("CUDA 8.0+ required")
 
 
+@make_launcher(return_compiled=True)
 @triton.jit
 def matmul_kernel(  #
         a_ptr, scale_ptr, b_ptr, output_ptr,  #
@@ -278,10 +278,9 @@ def test_pipeline_matmul(scale, device):
         if scale:
             K = scale_a.shape[-1]
         stride_sm, stride_sk = scale_a.stride() if scale else (0, 0)
-        handler = _intj_launch(matmul_kernel, grid, a, scale_a, b, output, M, N, K, a.stride(0), a.stride(1),
-                               stride_sm, stride_sk, b.stride(0), b.stride(1), output.stride(0), output.stride(1),
-                               BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES=NUM_STAGES, a_type=a_type, b_type=b_type,
-                               return_compiled=True)
+        handler = matmul_kernel(*device_stream(), grid, a, scale_a, b, output, M, N, K, a.stride(0),
+                                a.stride(1), stride_sm, stride_sk, b.stride(0), b.stride(1), output.stride(0),
+                                output.stride(1), BLOCK_M, BLOCK_N, BLOCK_K, NUM_STAGES, a_type, b_type)
     if scale:
         ref_out = dot_scale_ref(a, scale_a, b, a_type, b_type)
     else:
@@ -416,6 +415,7 @@ def random_bfloat16(shape, device):
     return X
 
 
+@make_launcher(grid_arg=1, options={"num_warps": 4}, dynamic_options=("num_stages", ))
 @triton.jit
 def indirect_matmul_kernel(
     Out,
@@ -473,21 +473,8 @@ def test_indirect_matmul(BLOCK_M, BLOCK_N, BLOCK_K, num_stages, device):
 
     expect = torch.matmul(A.mT.to(torch.float32), B.to(torch.float32))
 
-    _intj_launch(indirect_matmul_kernel, (1, ),
-        Out,
-        Out.stride(0),
-        A,
-        A.stride(0),
-        B,
-        B.stride(0),
-        Indices,
-        K,
-        BLOCK_M,
-        BLOCK_K,
-        BLOCK_N,
-        num_warps=4,
-        num_stages=num_stages,
-    )
+    indirect_matmul_kernel(*device_stream(), 1, num_stages, Out, Out.stride(0), A, A.stride(0), B, B.stride(0), Indices,
+                           K, BLOCK_M, BLOCK_K, BLOCK_N)
     torch.testing.assert_close(expect, Out)
 
 

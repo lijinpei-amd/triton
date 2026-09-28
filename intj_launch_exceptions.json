@@ -2558,147 +2558,147 @@
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3523,
+      "line": 3525,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 3986,
+      "line": 3989,
       "target": "kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "test_trans_4d constructs tensor descriptors in the JIT kernel; NVIDIA SM90+ TMA lowering requires global scratch, which intj cannot allocate for launch."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4624,
+      "line": 4627,
       "target": "mxfp_upcast_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4805,
+      "line": 4808,
       "target": "_scaled_dot_scale_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 4922,
+      "line": 4925,
       "target": "kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5127,
+      "line": 5130,
       "target": "patched_kernel",
       "reason": "unsupported_annotation",
       "detail": "test_const: patched_kernel[(1,)] uses tl.const pointer annotations; a focused intj probe raised ValueError: parameter 'in_ptr' has unsupported annotation <class 'triton.language.core.const'>."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5636,
+      "line": 5639,
       "target": "kernel",
       "reason": "unsupported_keyword_only_parameters",
       "detail": "The JIT kernel declares keyword-only parameters, which make_launcher currently rejects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5648,
+      "line": 5651,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5650,
+      "line": 5653,
       "target": "kernel",
       "reason": "triton_runtime_diagnostic_test",
       "detail": "The test asserts Triton launcher TypeError diagnostics for invalid keyword-only arguments; keep the original Triton runtime under test."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 5811,
+      "line": 5814,
       "target": "patched_kernel",
       "reason": "unsupported_tuple_constexpr",
       "detail": "test_reshape passes out_format as a tuple constexpr; intj rejects the tuple launch argument with TypeError: unsupported argument out_tuple of type tuple."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6007,
+      "line": 6010,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6034,
+      "line": 6037,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_packed: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6060,
+      "line": 6063,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_inline_asm_with_pointers: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6215,
+      "line": 6218,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "test_map_elementwise: kernel[(1,)] passes num_ctas=num_ctas; num_ctas_list is currently [1] but deliberately retains the multi-CTA test parameter, while intj supports only num_ctas=1."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6624,
+      "line": 6627,
       "target": "kernel_patched",
       "reason": "unsupported_captured_global",
       "detail": "test_constexpr_assignment: kernel_patched[(1,)] reads global constexpr_type in the patched JIT body; a focused intj probe raised UnsupportedKernel for used_global_vals=['constexpr_type']."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6680,
+      "line": 6683,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "test_num_threads: kernel[(1,)] passes get_num_threads as a backend-specific Python function constexpr; intj cannot serialize that function as a kernel argument."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6705,
+      "line": 6708,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 6729,
+      "line": 6732,
       "target": "kernel",
       "reason": "unsupported_function_constexpr",
       "detail": "Passes Python GPU extern functions as constexprs; intj.compat cannot bake function objects."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7605,
+      "line": 7609,
       "target": "gather_test_kernel_1d",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7607,
+      "line": 7611,
       "target": "gather_test_kernel",
       "reason": "compile_warmup_interception",
       "detail": "The enclosing test is selected by Triton --warmup-only (or this shared helper is called by such tests); warmup monkeypatches KernelInterface.__getitem__ to capture specializations on FakeTensor, which intj would bypass."
     },
     {
       "path": "python/test/unit/language/test_core.py",
-      "line": 7927,
+      "line": 7931,
       "target": "kernel",
       "reason": "unsupported_num_ctas",
       "detail": "The launch can run with num_ctas greater than one; intj supports only one CTA per program."
@@ -2726,14 +2726,14 @@
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 345,
+      "line": 344,
       "target": "small_tma_load_kernel",
       "reason": "unsupported_host_descriptor",
       "detail": "Passes host TensorDescriptor objects; intj cannot decode descriptor launch arguments."
     },
     {
       "path": "python/test/unit/language/test_pipeliner.py",
-      "line": 578,
+      "line": 565,
       "target": "matmul_kernel_persistent_scatter",
       "reason": "unsupported_scratch_allocator",
       "detail": "The kernel uses tl.make_tensor_descriptor; NVIDIA TMA lowering allocates global scratch, which intj rejects."
@@ -3895,21 +3895,21 @@
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 623,
+      "line": 622,
       "target": "kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split: kernel[grid] is a generated Gluon JIT whose source reads module global BLOCK_SPLIT; intj cannot revalidate that captured constexpr."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 625,
+      "line": 624,
       "target": "split_kernel",
       "reason": "unsupported_captured_global",
       "detail": "test_split: split_kernel[grid] is generated from split_kernel, whose body reads module global BLOCK_SPLIT; intj refuses the captured global rather than cache a stale specialization."
     },
     {
       "path": "python/test/unit/tools/test_triton_to_gluon.py",
-      "line": 787,
+      "line": 786,
       "target": "kernel",
       "reason": "unsupported_scratch_allocator",
       "detail": "test_gather_scatter_roundtrip: the translated Blackwell kernel creates input and output TMA descriptors; NVIDIA lowering allocates global scratch, which intj rejects."

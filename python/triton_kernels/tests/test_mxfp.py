@@ -80,6 +80,11 @@ def _upcast_mxfp4_tile_kernel(
     tl.store(out + offs_m * stride_out_m + offs_k * stride_out_k, out_tile)
 
 
+# test_mxfp4_tile_upcast_matches_reference is CUDA-only and still launches the
+# JIT function through intj.compat.launch.
+_upcast_mxfp4_tile = make_launcher(_upcast_mxfp4_tile_kernel, grid_arg=1)
+
+
 def _mxfp_scale_boundary_data(src_dtype, dst_dtype, device):
     values = torch.tensor([0, 0.5, 1, 1.5, 2, 3, 4, get_max_quant_val(src_dtype)], dtype=torch.float64)
     values = torch.cat((values, -values)).repeat(2)
@@ -124,7 +129,9 @@ def test_mxfp_upcast_torch_nan_scale(dst_dtype):
 def test_mxfp4_tile_upcast_scale_boundaries(dst_dtype, device):
     tensor, scale, expected = _mxfp_scale_boundary_data(torch.uint8, dst_dtype, device)
     actual = torch.empty_like(expected)
-    _intj_launch(_upcast_mxfp4_tile_kernel, (1, ),
+    _upcast_mxfp4_tile(
+        *device_stream(),
+        1,
         actual,
         tensor,
         scale,

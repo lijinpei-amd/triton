@@ -2635,6 +2635,7 @@ def test_umulhi(dtype_str, device):
 @pytest.mark.parametrize("dtype_str", ["int32", "int64"])
 def test_umulhi_known_bits(masked, dtype_str, device):
 
+    @make_launcher(grid_arg=1, return_compiled=True)
     @triton.jit
     def kernel(X, Z, MASKED: tl.constexpr, DTYPE: tl.constexpr):
         offsets = tl.arange(0, 32)
@@ -2652,7 +2653,7 @@ def test_umulhi_known_bits(masked, dtype_str, device):
     x = torch.tensor([0, 1, -1, -2**(bits - 1), 2**(bits - 1) - 1, half - 1, half, -half] * 4,
                      dtype=getattr(torch, dtype_str), device=device)
     output = torch.empty_like(x)
-    compiled = _intj_launch(kernel, (1, ), x, output, masked, getattr(tl, f"uint{bits}"), return_compiled=True)
+    compiled = kernel(*device_stream(), 1, x, output, masked, getattr(tl, f"uint{bits}"))
     expected = torch.zeros_like(x) if masked else (x >> (bits - 8)) & 255
     torch.testing.assert_close(output, expected)
     if is_cuda():
@@ -3325,6 +3326,7 @@ negative_config = [('cumsum', 'float32', (32, 32), -1, False, 4)]
 
 def test_sum_dtype(device):
 
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel_dtype(out_ptr, init, in_dtype: tl.constexpr, out_dtype: tl.constexpr):
         x = tl.full((32, 32), init, dtype=in_dtype)
@@ -3346,16 +3348,16 @@ def test_sum_dtype(device):
         tl.store(out_ptr, x)
 
     out = torch.empty(1, dtype=torch.int32, device=device)
-    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int1, out_dtype=None)
+    kernel_dtype(*device_stream(), 1, out, 1, tl.int1, None)
     assert out[0] == 32 * 32
 
-    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int1, out_dtype=tl.int1)
+    kernel_dtype(*device_stream(), 1, out, 1, tl.int1, tl.int1)
     assert out[0] == 0
 
-    _intj_launch(kernel_dtype, (1, ), out, init=7, in_dtype=tl.int8, out_dtype=tl.int8)
+    kernel_dtype(*device_stream(), 1, out, 7, tl.int8, tl.int8)
     assert out[0] == (7 * 32 * 32) % 256
 
-    _intj_launch(kernel_dtype, (1, ), out, init=1, in_dtype=tl.int32, out_dtype=None)
+    kernel_dtype(*device_stream(), 1, out, 1, tl.int32, None)
     assert out[0] == 32 * 32
 
     kernel_default_int(*device_stream(), 1, out)
@@ -3542,6 +3544,7 @@ def test_scan2d(op, dtype_str, shape, axis, reverse, num_warps, device):
 def test_scan_bfloat16(op, axis, reverse, num_warps, device):
     check_type_supported("bfloat16", device)
 
+    @make_launcher(grid_arg=1, options={"num_warps": num_warps})
     @triton.jit
     def kernel(X, Y, OP: tl.constexpr, AXIS: tl.constexpr, REVERSE: tl.constexpr):
         offsets = tl.arange(0, 32)[:, None] * 32 + tl.arange(0, 32)[None, :]
@@ -3560,7 +3563,7 @@ def test_scan_bfloat16(op, axis, reverse, num_warps, device):
     if reverse:
         expected = expected.flip((axis, ))
     out = torch.empty_like(x)
-    _intj_launch(kernel, (1, ), x, out, op, axis, reverse, num_warps=num_warps)
+    kernel(*device_stream(), 1, x, out, op, axis, reverse)
     torch.testing.assert_close(out, expected.to(torch.bfloat16), rtol=0, atol=0)
 
 
@@ -6755,6 +6758,7 @@ def test_load_scalar_with_mask(device):
 @pytest.mark.parametrize("dtype_str", ['float16', 'int16'])
 def test_ptx_cast(dtype_str, device):
 
+    @make_launcher(grid_arg=1, options={"num_warps": 2})
     @triton.jit
     def kernel(in_ptr0, out_ptr2, xnumel, rnumel, dtype: tl.constexpr, XBLOCK: tl.constexpr, RBLOCK: tl.constexpr):
         xoffset = tl.program_id(0) * XBLOCK
@@ -6786,7 +6790,7 @@ def test_ptx_cast(dtype_str, device):
     s0 = 4
     buf11 = -torch.ones((6 * s0, 197, 197), device=device, dtype=torch_dtype)
     buf14 = -torch.ones((s0, 6, 197, 197), device=device, dtype=torch_dtype)
-    _intj_launch(kernel, (4728, ), buf11, buf14, 1182 * s0, 197, triton_dtype, 1, 256, num_warps=2)
+    kernel(*device_stream(), 4728, buf11, buf14, 1182 * s0, 197, triton_dtype, 1, 256)
     assert buf14.to(torch.float32).mean() == -2.0
 
 

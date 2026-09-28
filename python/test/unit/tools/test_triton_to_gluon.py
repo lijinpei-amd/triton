@@ -583,17 +583,16 @@ def reshape_trans_kernel(x_ptr, y_ptr, out_ptr, n_elements, BLOCK: tl.constexpr,
 
 @pytest.mark.parametrize("TRANS_KIND", ["trans_method", "tl_trans_separate", "tl_trans_tuple", "tl_trans"])
 def test_triton_reshape_trans(tmp_path, TRANS_KIND):
-    kernel = convert_kernel(reshape_trans_kernel, "reshape_trans_kernel", tmp_path)
+    kernel = make_launcher(convert_kernel(reshape_trans_kernel, "reshape_trans_kernel", tmp_path), grid_arg=1)
 
     n = 1024
     BLOCK = 256
     x = torch.randn(n, device="cuda", dtype=torch.float32)
     y = torch.randn(n, device="cuda", dtype=torch.float32)
     out = torch.empty_like(x)
-    grid = (n // BLOCK, )
-    _intj_launch(kernel, grid, x, y, out, n, BLOCK, TRANS_KIND)
+    kernel(*device_stream(), n // BLOCK, x, y, out, n, BLOCK, TRANS_KIND)
     ref = torch.empty_like(x)
-    _intj_launch(reshape_trans_kernel, grid, x, y, ref, n, BLOCK, TRANS_KIND)
+    make_launcher(reshape_trans_kernel, grid_arg=1)(*device_stream(), n // BLOCK, x, y, ref, n, BLOCK, TRANS_KIND)
     torch.testing.assert_close(out, ref, atol=0, rtol=0)
 
 
