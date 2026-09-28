@@ -1,8 +1,10 @@
 # intj launch-site migration
 
 This branch routes supported Triton and Gluon launches through the sibling
-`intj` launcher (its `develop` branch, at or after `b4e9f1f`, which added
-autotune and heuristics support to `make_launcher`). Install this Triton
+`intj` launcher (its `develop` branch, at or after `2a876ff`: `make_launcher`
+used as a decorator builds lazily on the first call, takes per-call compile
+options and knobs through `dynamic_options`, and keys `str`, `tl.dtype` and
+JIT-function constexprs by value). Install this Triton
 checkout as described in [README.md](README.md), then make the intj checkout
 importable in the same Python environment:
 
@@ -29,15 +31,33 @@ or a selected autotuning configuration. The direct examples are
 [dropout](python/tutorials/04-low-memory-dropout.py), and
 [softmax](python/tutorials/02-fused-softmax.py).
 
-Build a `make_launcher` handle once per kernel, preferably by stacking
-`functools.partial(make_launcher, grid_arg=..., options=...)` on the kernel
-definition, and call it positionally as `(device, stream, *grid, *args)`. Tests
-take the pair from `triton._internal_testing.device_stream()`. Keep the JIT
-function and build the handle beside it when something else needs the kernel
-object: another JIT function calls it, the triton-to-gluon translator reads it,
-or a test inspects the `Autotuner`. Library modules that must import without a
-GPU build the handle on first use (`functools.cache`), as `compaction()` in
-triton_kernels does.
+Decorate the kernel with `@make_launcher(grid_arg=..., options=...)` and call
+it positionally as `(device, stream, *grid, *dynamic_options, *args)`. Tests
+take the pair from `triton._internal_testing.device_stream()`. The launcher
+builds on its first call, so decorating a module-level kernel needs no GPU at
+import, and an option only one backend accepts (such as AMD's
+`allow_flush_denorm`) is checked then too. Keep the JIT function and build the
+handle beside it when something else needs the kernel object: another JIT
+function calls it, the triton-to-gluon translator reads it, or a test inspects
+the `Autotuner`. `make_launcher` still refuses `TRITON_INTERPRET=1` when it is
+called, so a module-level decorator makes its module unimportable under the
+interpreter; library modules that must import there build the handle on
+first use (`functools.cache`), as `compaction()` in triton_kernels does.
+
+What varies per call is an argument, not another launcher:
+- compile options: name them in `dynamic_options` and pass their values right
+  after the grid, as the layer-norm tutorial does with `num_warps`;
+- Triton knobs a test flips between calls: name the knob path in
+  `dynamic_options` and pass its live value. `test_fpsan.py` declares
+  `knobs.compilation.instrumentation_mode` on every launcher; intj raises
+  `ValueError` if the passed value is not the live one;
+- `str`, `tl.dtype` and JIT-function constexprs: pass them positionally, like
+  any other argument. The matrix-multiplication tutorial's `ACTIVATION` string
+  is one.
+
+`make_launcher` rejects `TensorWrapper` (`triton.reinterpret`) arguments. Where
+the reinterpreted dtype is a torch dtype, pass `tensor.view(dtype)` instead, as
+`test_fpsan.py` does.
 
 `intj.compat.launch` refuses `@triton.autotune` and `@triton.heuristics`
 wrappers, so decorated kernels always use `make_launcher`: each launcher owns
@@ -45,13 +65,12 @@ its tuner cache, the call omits tuned and heuristic values, and a `grid_cpp`
 function reads tuned values, such as `_block_grid` in the
 [autotuner tests](python/test/unit/runtime/test_autotuner.py) or `_matmul_grid`
 in the [matrix multiplication tutorial](python/tutorials/03-matrix-multiplication.py).
-String constexprs are baked with `Constexpr(value=...)`, one launcher per value.
 
 A launch stays on `intj.compat.launch` (or, for interpreter-marked tests,
-`intj.compat.launch_or_interpret`) when one handle cannot serve it: its
-compile options, baked `str`/`tl.dtype`/JIT-function constexprs, reinterpreted
-`TensorWrapper` dtypes or compilation knobs (such as fpsan's instrumentation
-mode) change between calls; a compile-warmup test reaches it; or its test
+`intj.compat.launch_or_interpret`) when a direct launcher cannot serve it: it
+passes a `TensorWrapper` from `to_triton` (unsigned integers) or
+`triton.reinterpret` (fp8 types, some with no torch dtype, such as
+`float8e4b15`); a compile-warmup test reaches it; or its test
 relies on the bridge's CPU-pointer `ValueError`. Launches whose tests cannot
 run on the gfx942 validation machine (CUDA-, gfx950- or gfx1250-only, proton,
 plugin) also stay on the bridge until they can be verified.
@@ -75,9 +94,13 @@ Triton's launcher where a different unsupported constraint applies.
 
 The migration inventory contains **1,253 launch expressions**: 1,250 ordinary
 Python calls and three inside embedded Python scripts. In compiled execution,
-**465** ordinary sites use intj: 98 through direct `make_launcher` handles
-(23 of them on autotuned kernels), 192 through `intj.compat.launch`, and 175
-through `intj.compat.launch_or_interpret`. The remaining **789** are listed
+**465** ordinary sites use intj: 150 through direct `make_launcher` handles
+(23 of them on autotuned kernels), 140 through `intj.compat.launch`, and 175
+through `intj.compat.launch_or_interpret`. Of the 140 bridge sites, 107 are
+in tests that cannot run on the gfx942 validation machine, 20 are reached by
+compile warmup (13 in tests, 7 in triton_kernels library code), 11 pass
+`TensorWrapper` arguments and 2 expect the bridge's CPU-pointer `ValueError`.
+The remaining **789** are listed
 individually in [intj_launch_exceptions.json](intj_launch_exceptions.json):
 786 ordinary calls and three embedded-script calls. (The inventory had 1,257
 expressions until the autotuner tests' three keyword/positional launch pairs
@@ -193,6 +216,33 @@ the touched triton_kernels and AMD tests, and the Gluon intro tutorial.
 Interpreter mode still collects and runs `test_tuple.py`, `test_random.py` and
 `test_autotuner.py::test_kwargs`. Launches whose tests skip on gfx942 stay on
 `intj.compat.launch` and are untested through a direct handle.
+
+The dynamic-launcher migration ran on the same setup with intj `429d8e1`:
+39 fpsan sites, 13 per-call-variant sites, 56 `functools.partial` stacks and
+16 handles built beside their kernels moved to `@make_launcher(...)`. Every touched
+test file passes in full: `test_core.py` (15,027 passed, 2,226 skipped),
+`test_fpsan.py` (119 passed), Gluon `test_core.py`, `test_libdevice.py`,
+`test_random.py`, `test_tuple.py`, `test_pipeliner.py`, the autotuner,
+listener, driver and triton-to-gluon tests, the touched triton_kernels and AMD
+tests, the fused-attention tests, and the vector-add, matmul, dropout,
+layer-norm, grouped-GEMM and Gluon intro tutorials' correctness sections. The
+two CUDA-only fpsan launches (`test_bf16_dot_sharding`,
+`test_f32_loop_preserves_snan_payload`) are untested. Median host time per
+launch, device and stream read per call as the tests do:
+
+| site | before | after |
+| --- | ---: | ---: |
+| fpsan `_binop_kernel` (str `OP`, fpsan knob, reinterpreted pointers) | 28.6 us (bridge) | 7.9 us |
+| `test_sum_dtype` (two `tl.dtype` constexprs) | 20.1 us (bridge) | 5.7 us |
+| layer-norm forward (`num_warps` per call) | 9.4 us (`functools.cache` factory) | 8.3 us |
+
+With the device and stream hoisted the three take 3.2, 3.0 and 3.7 us.
+
+Interpreter mode collects and runs `test_tuple.py`, `test_random.py` and
+`test_autotuner.py::test_kwargs` (118 passed). `cuda/test_libdevice_cuda.py`
+and the fused-attention tutorial still fail to import there, as before this
+migration: their module-level launchers call `make_launcher`, which refuses
+`TRITON_INTERPRET=1`.
 
 A JIT launch that only needs the returned `CompiledKernel` can now use
 `return_compiled=True`. The remaining exceptions retain Triton's launcher for
