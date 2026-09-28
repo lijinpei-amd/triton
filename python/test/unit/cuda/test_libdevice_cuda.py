@@ -1,6 +1,5 @@
 # fmt: off
 
-from functools import partial
 
 from intj import make_launcher
 from intj.compat import launch as _intj_launch
@@ -19,7 +18,7 @@ from triton.language.extra import libdevice
 # -----------------------
 
 
-@partial(make_launcher, grid_arg=1)
+@make_launcher(grid_arg=1)
 @triton.jit
 def tanh_kernel(
     x_ptr,

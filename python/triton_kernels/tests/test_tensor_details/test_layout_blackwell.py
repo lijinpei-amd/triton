@@ -1,4 +1,3 @@
-from functools import partial
 import math
 import pytest
 import torch
@@ -726,7 +725,7 @@ def test_scale_ptr_gather_column(device):
 
 
 # The one-byte base stands in for a large allocation; do not specialize its pointer range.
-@partial(make_launcher, grid_arg=1)
+@make_launcher(grid_arg=1)
 @triton.jit(do_not_specialize=["S"])
 def _scale_ptr_offset(S, Out, outer, inner):
     # Two int32 stride products sum to 2**31; inspect the pointer without loading it.

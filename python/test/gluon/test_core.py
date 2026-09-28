@@ -4,7 +4,6 @@ import torch
 import math
 import pytest
 import re
-from functools import partial
 from itertools import product
 
 import triton
@@ -2392,7 +2391,7 @@ def test_amd_mfma_scaled(M, N, K, a_type, b_type, has_scale, device='cuda'):
 
 def test_math_fast_expf():
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @gluon.jit
     def fast_expf_kernel(x_ptr, y_ptr, warp_size: ttgl.constexpr, num_warps: ttgl.constexpr):
         blocked: ttgl.constexpr = ttgl.BlockedLayout([1], [warp_size], [num_warps], [0])
@@ -2413,7 +2412,7 @@ def test_math_fast_expf():
 
 def test_math_fast_dividef():
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @gluon.jit
     def fast_dividef_kernel(x_ptr, y_ptr, z_ptr, warp_size: ttgl.constexpr, num_warps: ttgl.constexpr):
         blocked: ttgl.constexpr = ttgl.BlockedLayout([1], [warp_size], [num_warps], [0])
@@ -3857,7 +3856,7 @@ def test_tcgen05_mma_scaled_lhs_tmem(a_format, a_torch_dtype, b_format, b_torch_
 @pytest.mark.skipif(not (is_ampere_or_newer() or is_hip()), reason="Requires Ampere or newer, or AMD")
 def test_coalesced_layout():
 
-    @partial(make_launcher, grid_arg=2, options={"num_warps": 4})
+    @make_launcher(grid_arg=2, options={"num_warps": 4})
     @gluon.jit
     def kernel(in_ptr, out_ptr,  #
                xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #
@@ -3902,7 +3901,7 @@ def test_coalesced_layout():
 @pytest.mark.skipif(not (is_ampere_or_newer() or is_hip()), reason="Requires Ampere or newer, or AMD")
 def test_convert_auto_layout_to_coalesced_layout():
 
-    @partial(make_launcher, grid_arg=2, options={"num_warps": 4})
+    @make_launcher(grid_arg=2, options={"num_warps": 4})
     @gluon.jit
     def kernel(in_ptr, out_ptr,  #
                xnumel, ynumel, xstride_in, ystride_in, xstride_out, ystride_out,  #

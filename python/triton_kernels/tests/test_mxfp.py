@@ -29,7 +29,7 @@ def dtype_str_to_torch(dtype_str: str) -> torch.dtype:
     return torch.uint8 if dtype_str == "float4_e2m1" else getattr(torch, dtype_str)
 
 
-@partial(make_launcher, grid_arg=1, return_compiled=True)
+@make_launcher(grid_arg=1, return_compiled=True)
 @triton.jit
 def _upcast_ue8m0_scale_kernel(out, scale, BLOCK_SIZE: tl.constexpr):
     offsets = tl.program_id(0) * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)

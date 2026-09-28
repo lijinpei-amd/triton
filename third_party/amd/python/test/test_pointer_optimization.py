@@ -1,5 +1,3 @@
-from functools import partial
-
 from intj import make_launcher
 
 import pytest
@@ -46,7 +44,7 @@ def test_buffer_op_ptr_optimization(input_size, input_offset, block_size, num_bl
         }
     """
 
-    @partial(make_launcher, grid_arg=1, options={"num_warps": 1}, return_compiled=True)
+    @make_launcher(grid_arg=1, options={"num_warps": 1}, return_compiled=True)
     @triton.jit
     def kernel(X, Y, BLOCK_SIZE: tl.constexpr, NUM_BLOCKS: tl.constexpr, INCREMENT: tl.constexpr,
                INITIAL_OFFSET: tl.constexpr):

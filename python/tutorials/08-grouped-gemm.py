@@ -26,7 +26,6 @@ of gemms. The scheduling is static and we do it on device.
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from functools import partial
 
 from intj import make_launcher
 from typing import Optional
@@ -58,7 +57,7 @@ def _grouped_grid(NUM_SM: int):
     return (NUM_SM, )
 
 
-@partial(make_launcher, grid_cpp=_grouped_grid)
+@make_launcher(grid_cpp=_grouped_grid)
 @triton.autotune(
     configs=[
         triton.Config({

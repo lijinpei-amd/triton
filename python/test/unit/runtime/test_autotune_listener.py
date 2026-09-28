@@ -3,7 +3,6 @@ import torch
 import triton
 import triton.language as tl
 from triton.runtime.jit import JITFunction
-from functools import partial
 from intj import make_launcher
 from triton._internal_testing import device_stream
 
@@ -30,7 +29,7 @@ def test_autotune_listener_fresh(device: str, fresh_knobs) -> None:
 
     configs = [triton.Config({"BLOCK_SIZE": 32}), triton.Config({"BLOCK_SIZE": 128})]
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.autotune(configs=configs, key=["N"], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -74,7 +73,7 @@ def test_autotune_listener_in_memory_cache_hit(device: str, fresh_knobs) -> None
 
     configs = [triton.Config({"BLOCK_SIZE": 32}), triton.Config({"BLOCK_SIZE": 128})]
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.autotune(configs=configs, key=["N"], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -145,7 +144,7 @@ def test_autotune_listener_single_config(device: str, fresh_knobs) -> None:
 
     fresh_knobs.autotuning.listener = listener
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.autotune(configs=[triton.Config({"BLOCK_SIZE": 32})], key=["N"], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):

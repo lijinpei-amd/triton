@@ -3,7 +3,6 @@ from intj import make_launcher
 from intj.compat import launch as _intj_launch
 from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import contextlib
-from functools import partial
 import itertools
 import re
 from typing import Optional
@@ -452,7 +451,7 @@ def test_bfloat16_mul_rounds_to_nearest_even(device):
     # up to 1 ulp on every multiply.
     check_type_supported("bfloat16", device)
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(Z, X, Y, SIZE: tl.constexpr):
         off = tl.arange(0, SIZE)
@@ -1588,7 +1587,7 @@ def noinline_load_block_fn(ptr, BLOCK_SIZE: tl.constexpr):
 
 def test_noinline_returns_tensor(device):
 
-    @partial(make_launcher, grid_arg=1, options={"num_warps": 1})
+    @make_launcher(grid_arg=1, options={"num_warps": 1})
     @triton.jit
     def kernel(X, Y, Z, BLOCK_SIZE: tl.constexpr):
         x = noinline_load_block_fn(X, BLOCK_SIZE)
@@ -1742,7 +1741,7 @@ def test_atomic_poll_tensor_results(block_size, timeout, device):
 
 def test_atomic_poll_no_timeout_uses_no_shared_memory(device):
 
-    @partial(make_launcher, grid_arg=1, options={"num_warps": 4}, return_compiled=True)
+    @make_launcher(grid_arg=1, options={"num_warps": 4}, return_compiled=True)
     @triton.jit
     def kernel(flag, out):
         matched = tl.atomic_poll(flag, 1)
@@ -2526,7 +2525,7 @@ def test_cat_nd(shape, dim, device):
 ])
 def test_cat_shape_mismatch(m1, m2, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(X, Y, M1: tl.constexpr, M2: tl.constexpr):
         x = tl.load(X + tl.arange(0, M1))
@@ -2575,7 +2574,7 @@ def test_store_constant(num_ctas, dtype_str, constant_field, device):
 def test_load_store_same_ptr(device):
 
     # threads per Warp for ROCM is 64
-    @partial(make_launcher, grid_arg=1, options={"num_warps": 16 if is_hip() else 32})
+    @make_launcher(grid_arg=1, options={"num_warps": 16 if is_hip() else 32})
     @triton.jit()
     def kernel(in_out_ptr):
         pid = tl.program_id(axis=0)
@@ -3332,14 +3331,14 @@ def test_sum_dtype(device):
         x = tl.sum(x, dtype=out_dtype)
         tl.store(out_ptr, x.to(tl.int32))
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel_default_int(out_ptr):
         x = tl.full((32, 32), 1, dtype=tl.int1)
         x = tl.sum(x)
         tl.store(out_ptr, x)
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel_default_float(out_ptr):
         x = tl.full((32, 32), 1.0, dtype=tl.bfloat16)
@@ -3688,7 +3687,7 @@ def test_histogram_compare_mask(M, N, device):
 @pytest.mark.parametrize("M, N", [(1, 64), (2, 32), (4, 16), (8, 8), (16, 4), (32, 2), (64, 1)])
 def test_scan_1d(M, N, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def scan_kernel(out_ptr, in_ptr, M: tl.constexpr, N: tl.constexpr):
         input = tl.load(in_ptr + tl.arange(0, M))
@@ -4958,7 +4957,7 @@ def test_dot_mulbroadcasted(in_dtype, device):
         if capability[0] < 8:
             pytest.skip("Requires sm >= 80 to run")
 
-    @partial(make_launcher, grid_arg=2, return_compiled=True)
+    @make_launcher(grid_arg=2, return_compiled=True)
     @triton.jit
     def kernel(Z, X, Y, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr, BM: tl.constexpr, BN: tl.constexpr,
                BK: tl.constexpr):
@@ -5700,7 +5699,7 @@ def test_value_specialization(value: int, value_type: str, device) -> None:
 @pytest.mark.parametrize("value, overflow", [(2**64 - 1, False), (2**64, True), (-2**63, False), (-2**63 - 1, True)])
 def test_value_specialization_overflow(value: int, overflow: bool, device) -> None:
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(VALUE, X):
         pass
@@ -6293,7 +6292,7 @@ def test_map_elementwise_pack(device):
                                         (15, -16, -1), (15, -16, -2), (15, -16, -3), (-18, -22, -1), (22, 18, -1)])
 def test_for_iv(lo, hi, iv, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(Out, lo, hi, iv: tl.constexpr):
         acc = 0
@@ -6570,7 +6569,7 @@ def test_constexpr_if_return(device):
     # Reproducer for #4883, return statement in an if with a constexpr causes
     # errors when combined with non-trivial control flow graphs
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(Semaphore, Out, total: tl.constexpr):
         if total == 1:
@@ -7182,7 +7181,7 @@ def test_tl_range_num_stages(device):
 
 def test_tl_range_fuse(device):
 
-    @partial(make_launcher, grid_arg=1, return_compiled=True)
+    @make_launcher(grid_arg=1, return_compiled=True)
     @triton.jit
     def kernel(ub, out_ptr):
         k = 1
@@ -7210,7 +7209,7 @@ def test_tl_range_fuse(device):
 @pytest.mark.parametrize("flatten", [False, True])
 def test_tl_range_fuse_empty_inner_bounds(bounds, flatten, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(x_ptr, out_ptr, lower, upper, step, FLATTEN: tl.constexpr):
         acc = 7
@@ -7232,7 +7231,7 @@ def test_tl_range_fuse_empty_inner_bounds(bounds, flatten, device):
 
 def test_tl_range_fuse_dependent(device):
 
-    @partial(make_launcher, grid_arg=1, return_compiled=True)
+    @make_launcher(grid_arg=1, return_compiled=True)
     @triton.jit
     def kernel(ub, out_i_ptr, out_j_ptr):
         k = 0
@@ -7443,7 +7442,7 @@ def test_side_effectful_reduction(device):
     if device != "cuda":
         pytest.skip()
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit(debug=True)
     def sanitize_sum_kernel(Z, X, BLOCK: tl.constexpr):
         vals = tl.load(X + tl.arange(0, BLOCK))
@@ -7465,7 +7464,7 @@ def test_side_effectful_reduction_2d(device, reduce_dim):
     if device != "cuda":
         pytest.skip()
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit(debug=True)
     def sanitize_sum_2d_kernel(Z, X, BLOCK_0: tl.constexpr, BLOCK_1: tl.constexpr, reduce_dim: tl.constexpr,
                                NON_REDUCE_DIM: tl.constexpr):
@@ -7502,7 +7501,7 @@ def test_side_effectful_scan(device):
     if device != "cuda":
         pytest.skip()
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit(debug=True)
     def sanitize_cumsum_kernel(Z, X, BLOCK: tl.constexpr):
         vals = tl.load(X + tl.arange(0, BLOCK))
@@ -7526,7 +7525,7 @@ def test_side_effectful_scan(device):
 ])
 def test_chained_reductions(in_shape, perm, red_dims, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(In, Out,  #
                dim_0: tl.constexpr, dim_1: tl.constexpr, dim_2: tl.constexpr, dim_3: tl.constexpr, dim_4: tl.constexpr,
@@ -7631,7 +7630,7 @@ def apply_binary_op(x, combine_op):
 
 def test_jit_function_arg(device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def square_kernel_jit_function(in_ptr, out_ptr, BLOCK_SIZE: tl.constexpr):
         offsets = tl.arange(0, BLOCK_SIZE)
@@ -7948,7 +7947,7 @@ def test_libdevice_rint(dtype_str, device):
     x_np = np.concatenate((x0_np, x1_np, x2_np)).astype(dtype_str)
     x_tri = to_triton(x_np, device=device, dst_type=dtype_str)
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def rint_kernel(outp, inp, n, BLOCK_SIZE: tl.constexpr):
         pid = tl.program_id(0)

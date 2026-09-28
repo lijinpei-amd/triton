@@ -3,7 +3,6 @@ import torch
 import triton
 import triton.language as tl
 import pytest
-from functools import partial
 from intj import make_launcher
 
 import pathlib
@@ -75,7 +74,7 @@ def test_restore(pass_kwargs_to_kernel, device):
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32}), triton.Config(kwargs={'BLOCK_SIZE': 128})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], restore_value=['src'], do_bench=do_bench)
     @triton.jit
     def _kernel(src, N, BLOCK_SIZE: tl.constexpr):
@@ -100,7 +99,7 @@ def test_reset_to_zero(pass_kwargs_to_kernel, src_is_none, device):
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32}), triton.Config(kwargs={'BLOCK_SIZE': 128})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], reset_to_zero=['src'], do_bench=do_bench)
     @triton.jit
     def _kernel(src, dst, N, BLOCK_SIZE: tl.constexpr):
@@ -129,7 +128,7 @@ def test_restore_with_none(pass_kwargs_to_kernel, device):
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32}), triton.Config(kwargs={'BLOCK_SIZE': 128})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], restore_value=['src'], do_bench=do_bench)
     @triton.jit
     def _kernel(src, dst, N, BLOCK_SIZE: tl.constexpr):
@@ -163,7 +162,7 @@ def test_hooks(device):
             values["has_exception"] = True
         assert values["counter"] == 0
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.autotune(configs=configs, key=['N'], do_bench=do_bench, pre_hook=_pre_hook, post_hook=_post_hook)
     @triton.heuristics({"N_STAGES": lambda nargs: 64 if nargs['N'] == 4096 else 4})
     @triton.jit
@@ -249,7 +248,7 @@ def test_prune_configs_fractional_top_k_keeps_one(device: str):
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32}), triton.Config(kwargs={'BLOCK_SIZE': 128})]
     prune_configs_by = {'perf_model': perf_model, 'top_k': 0.3}
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], prune_configs_by=prune_configs_by, do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -457,7 +456,7 @@ module {
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32, 'ir_override': str(temp_file)})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -507,7 +506,7 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32, 'ir_override': str(temp_file)})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -604,7 +603,7 @@ $L__func_end0:
 
     configs = [triton.Config(kwargs={'BLOCK_SIZE': 32, 'ir_override': str(temp_file)})]
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], do_bench=do_bench)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):
@@ -632,7 +631,7 @@ def test_exceed_tmem(device):
         if exception is not None:
             exception_out_of_resource = exception
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.autotune(configs=configs, key=[], do_bench=do_bench, pre_hook=None, post_hook=_post_hook)
     @triton.jit
     def dot_kernel(dst, BLOCK_SIZE: tl.constexpr):
@@ -682,7 +681,7 @@ def test_exceed_threads(device):
     def grid(n_elements: int, BLOCK_SIZE: int):
         return (triton.cdiv(n_elements, BLOCK_SIZE), )
 
-    @partial(make_launcher, grid_cpp=grid)
+    @make_launcher(grid_cpp=grid)
     @triton.autotune(configs=configs, key=['BLOCK_SIZE'], do_bench=do_bench, post_hook=_post_hook)
     @triton.jit
     def add_kernel(x_ptr, y_ptr, output_ptr, n_elements, BLOCK_SIZE: tl.constexpr):
@@ -714,7 +713,7 @@ def test_prune_all_configs(device):
 
     prune_configs_by = {'early_config_prune': early_config_prune}
 
-    @partial(make_launcher, grid_cpp=_block_grid)
+    @make_launcher(grid_cpp=_block_grid)
     @triton.autotune(configs=configs, key=['N'], prune_configs_by=prune_configs_by)
     @triton.jit
     def _kernel(dst, src, N, BLOCK_SIZE: tl.constexpr):

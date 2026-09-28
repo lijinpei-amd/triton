@@ -39,7 +39,6 @@ controlling these low-level details.
 import pytest
 import torch
 import triton
-from functools import partial
 from intj import make_launcher
 from triton.experimental import gluon
 from triton.experimental.gluon import language as gl
@@ -48,7 +47,7 @@ from triton.experimental.gluon import language as gl
 # We illustrate this with a trivial kernel that copies a scalar.
 
 
-@partial(make_launcher, grid_arg=1, options={"num_warps": 1})
+@make_launcher(grid_arg=1, options={"num_warps": 1})
 @gluon.jit
 def copy_scalar_kernel(in_ptr, out_ptr):
     value = gl.load(in_ptr)
@@ -127,7 +126,7 @@ def _memcpy_autotune_grid(xnumel: int, XBLOCK: int):
     return (triton.cdiv(xnumel, XBLOCK), )
 
 
-@partial(make_launcher, grid_cpp=_memcpy_autotune_grid)
+@make_launcher(grid_cpp=_memcpy_autotune_grid)
 @triton.autotune(
     configs=[triton.Config({"XBLOCK": 2**i}, num_warps=1) for i in range(8, 14)],
     key=["xnumel"],

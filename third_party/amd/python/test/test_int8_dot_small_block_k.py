@@ -1,5 +1,3 @@
-from functools import partial
-
 from intj import make_launcher
 import numpy as np
 import pytest
@@ -16,7 +14,7 @@ if not is_hip():
 @pytest.mark.parametrize("block_k", [1, 2, 3, 4])
 def test_int8_dot_small_block_k(block_k, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(a, b, c, K, BLOCK_K: tl.constexpr, PAD_K: tl.constexpr):
         offs_m = tl.arange(0, 32)

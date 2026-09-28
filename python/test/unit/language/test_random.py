@@ -1,5 +1,3 @@
-from functools import partial
-
 from intj import make_launcher
 from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import numpy as np
@@ -200,7 +198,7 @@ def test_rand(size, seed, dtype, device, const_seed):
 
 def test_seed_is_int(device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel(X, seed):
         offset = tl.arange(0, 1)

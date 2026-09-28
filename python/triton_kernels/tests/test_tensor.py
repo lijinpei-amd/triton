@@ -1,4 +1,3 @@
-from functools import partial
 import math
 import subprocess
 import sys
@@ -750,7 +749,7 @@ def test_make_bitmatrix_metadata(n_rows, n_cols, k):
     assert_equal(metadata_tri.col_sorted_indx, metadata_ref.col_sorted_indx)
 
 
-@partial(make_launcher, grid_arg=1)
+@make_launcher(grid_arg=1)
 @triton.jit(debug=True)
 def _keyed_add_scan_kernel(In, Out, BLOCK: tl.constexpr):
     offs = tl.arange(0, BLOCK)

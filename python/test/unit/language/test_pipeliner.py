@@ -1,6 +1,5 @@
 # End-to-end tests to check the correctness of the pipeliner
 
-from functools import partial
 
 from intj import make_launcher
 from intj.compat import launch as _intj_launch
@@ -102,7 +101,7 @@ def matmul_kernel_tma(  #
     output_ptr.store([offs_am, offs_bn], accumulator)
 
 
-@partial(make_launcher, grid_arg=2, return_compiled=True)
+@make_launcher(grid_arg=2, return_compiled=True)
 @triton.jit
 def vecadd_kernel(a_ptr, b_ptr, output_ptr, n_elements, num_blocks, BLOCK_SIZE: tl.constexpr, NUM_STAGES: tl.constexpr):
     pid = tl.program_id(axis=0)
@@ -125,7 +124,7 @@ def small_tma_load_kernel(input_desc, output_ptr, N: tl.constexpr):
         tl.store(output_ptr + block_start + offsets, value)
 
 
-@partial(make_launcher, grid_arg=1, options={"num_warps": 4})
+@make_launcher(grid_arg=1, options={"num_warps": 4})
 @triton.jit
 def mxfp_to_bf16_kernel(
     x_ptr,
@@ -377,7 +376,7 @@ def test_pipeline_vecadd(device):
 @pytest.mark.parametrize("NUM_STAGES", [1, 2, 3, 4, 5])
 def test_pipeline_epilogue(ROW_COUNT, NUM_STAGES, device):
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def kernel_up(output_ptr, input_ptr, input_row_stride, output_row_stride, n_rows, n_cols, BLOCK_SIZE: tl.constexpr,
                   NUM_STAGES: tl.constexpr):
@@ -603,7 +602,7 @@ def test_conditional_store_pipeline(num_stages, device):
     """
     check_capabilities()
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def conditional_store_kernel(
         arange_ptr,

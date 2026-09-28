@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import cloudpickle
-from functools import partial
 
 from intj import make_launcher
 import pytest
@@ -492,7 +491,7 @@ def test_kernel_in_thread(device):
     # Test calling in a new thread sets a valid device context
     buf = torch.zeros((38016 * 1024, ), dtype=torch.float32, device=device)
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def _kernel(P, BLOCK: tl.constexpr):
         pid = tl.program_id(0).to(tl.int64)

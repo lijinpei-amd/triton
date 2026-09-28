@@ -1,4 +1,3 @@
-from functools import partial
 import math
 
 from intj import make_launcher
@@ -356,7 +355,7 @@ def test_mxfp4_scale_zero_sized_roundtrip(shape, mx_axis, num_warps, device):
 # ------------------------------------------------------------
 
 
-@partial(make_launcher, grid_arg=1)
+@make_launcher(grid_arg=1)
 @triton.jit
 def _gather_scale(S, Rows, Cols, Out, STRIDE0: tl.constexpr, STRIDE1: tl.constexpr):
     i = tl.arange(0, 4)

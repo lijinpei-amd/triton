@@ -1,5 +1,3 @@
-from functools import partial
-
 from intj import make_launcher
 from intj.compat import launch_or_interpret as _intj_launch_or_interpret
 import pytest
@@ -343,7 +341,7 @@ def test_passing_tuple_to_make_tensor_descriptor(device, with_allocator):
 
 def test_modifying_tuples():
 
-    @partial(make_launcher, grid_arg=1)
+    @make_launcher(grid_arg=1)
     @triton.jit
     def set_tuple_value_at_idx():
         t = tl.tuple([5, 6, 7])
