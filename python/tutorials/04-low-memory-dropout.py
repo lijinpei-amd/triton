@@ -42,6 +42,11 @@ from intj import make_launcher
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
+def _dropout_grid(n_elements: int, BLOCK_SIZE: int):
+    return (triton.cdiv(n_elements, BLOCK_SIZE), )
+
+
+@make_launcher(grid_cpp=_dropout_grid)
 @triton.jit
 def _dropout(
     x_ptr,  # pointer to the input
@@ -64,19 +69,12 @@ def _dropout(
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
-def _dropout_grid(n_elements: int, BLOCK_SIZE: int):
-    return (triton.cdiv(n_elements, BLOCK_SIZE), )
-
-
-_dropout_launcher = make_launcher(_dropout, grid_cpp=_dropout_grid)
-
-
 def dropout(x, x_keep, p):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    _dropout_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
-                      x, x_keep, output, n_elements, p, 1024)
+    _dropout(torch.cuda.current_device(),
+             torch.cuda.current_stream().cuda_stream, x, x_keep, output, n_elements, p, 1024)
     return output
 
 
@@ -115,6 +113,7 @@ print(tabulate.tabulate([
 # Let's put it all together.
 
 
+@make_launcher(grid_cpp=_dropout_grid)
 @triton.jit
 def _seeded_dropout(
     x_ptr,
@@ -139,15 +138,12 @@ def _seeded_dropout(
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
-_seeded_dropout_launcher = make_launcher(_seeded_dropout, grid_cpp=_dropout_grid)
-
-
 def seeded_dropout(x, p, seed):
     output = torch.empty_like(x)
     assert x.is_contiguous()
     n_elements = x.numel()
-    _seeded_dropout_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
-                             x, output, n_elements, p, seed, 1024)
+    _seeded_dropout(torch.cuda.current_device(),
+                    torch.cuda.current_stream().cuda_stream, x, output, n_elements, p, seed, 1024)
     return output
 
 

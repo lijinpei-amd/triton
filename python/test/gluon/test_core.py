@@ -381,6 +381,7 @@ def _noinline_forward_convert_layout_scratch(input, output, THREADS_PER_WARP: tt
     _noinline_convert_layout_scratch(input, output, THREADS_PER_WARP)
 
 
+@make_launcher(grid_arg=1, options={"num_warps": 4}, return_compiled=True)
 @gluon.jit
 def _noinline_shared_allocation_call_kernel(input, output, sentinel_output, NESTED: ttgl.constexpr,
                                             THREADS_PER_WARP: ttgl.constexpr):
@@ -406,9 +407,8 @@ def test_noinline_call_preserves_live_shared_allocation(NESTED, fresh_knobs):
     output = torch.empty_like(values)
     sentinel_output = torch.empty_like(values)
 
-    launch = make_launcher(_noinline_shared_allocation_call_kernel, grid_arg=1, options={"num_warps": 4},
-                           return_compiled=True)
-    compiled = launch(*device_stream(), 1, values, output, sentinel_output, NESTED, THREADS_PER_WARP)
+    compiled = _noinline_shared_allocation_call_kernel(*device_stream(), 1, values, output, sentinel_output, NESTED,
+                                                       THREADS_PER_WARP)
 
     assert compiled.metadata.shared >= 2 * values.numel() * values.element_size()
     assert compiled.asm["ttgir"].count("noinline = true") >= 1 + int(NESTED)

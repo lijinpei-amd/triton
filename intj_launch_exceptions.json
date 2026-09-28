@@ -4119,7 +4119,7 @@
     },
     {
       "path": "python/tutorials/06-fused-attention.py",
-      "line": 566,
+      "line": 562,
       "target": "_attn_fwd",
       "reason": "unsupported_host_descriptor",
       "detail": "The attention kernel receives host TensorDescriptors; intj cannot decode descriptor launch arguments."

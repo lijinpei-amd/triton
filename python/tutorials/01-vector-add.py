@@ -27,6 +27,11 @@ from intj import make_launcher
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
+def add_grid(n_elements: int, BLOCK_SIZE: int):
+    return (triton.cdiv(n_elements, BLOCK_SIZE), )
+
+
+@make_launcher(grid_cpp=add_grid)
 @triton.jit
 def add_kernel(x_ptr,  # *Pointer* to first input vector.
                y_ptr,  # *Pointer* to second input vector.
@@ -55,13 +60,6 @@ def add_kernel(x_ptr,  # *Pointer* to first input vector.
     tl.store(output_ptr + offsets, output, mask=mask)
 
 
-def add_grid(n_elements: int, BLOCK_SIZE: int):
-    return (triton.cdiv(n_elements, BLOCK_SIZE),)
-
-
-add_launcher = make_launcher(add_kernel, grid_cpp=add_grid)
-
-
 # %%
 # Let's also declare a helper function to (1) allocate the `z` tensor
 # and (2) enqueue the above kernel with appropriate grid/block sizes:
@@ -74,8 +72,7 @@ def add(x: torch.Tensor, y: torch.Tensor):
     n_elements = output.numel()
     # The compiled grid uses the current n_elements and BLOCK_SIZE values.
     # Tensor arguments are converted into pointers by the launcher.
-    add_launcher(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
-                 x, y, output, n_elements, 1024)
+    add_kernel(torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream, x, y, output, n_elements, 1024)
     # We return a handle to z but, since `torch.cuda.synchronize()` hasn't been called, the kernel is still
     # running asynchronously at this point.
     return output

@@ -29,8 +29,6 @@ In doing so, you will learn about:
 # where :math:`\epsilon` is a small constant added to the denominator for numerical stability.
 # Let’s first take a look at the forward pass implementation.
 
-import functools
-
 import torch
 
 import triton
@@ -48,6 +46,7 @@ except ModuleNotFoundError:
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
+@make_launcher(grid_arg=1, dynamic_options=("num_warps", ))
 @triton.jit
 def _layer_norm_fwd_fused(
     X,  # pointer to the input
@@ -132,6 +131,7 @@ def _layer_norm_fwd_fused(
 # In the following implementation, Stage 1 is implemented by the function :code:`_layer_norm_bwd_dx_fused` and Stage 2 is implemented by the function :code:`_layer_norm_bwd_dwdb`.
 
 
+@make_launcher(grid_arg=1, dynamic_options=("num_warps", ))
 @triton.jit
 def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
                              DY,  # pointer to the output gradient
@@ -197,6 +197,7 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
     tl.atomic_xchg(Lock, 0)
 
 
+@make_launcher(grid_arg=1)
 @triton.jit
 def _layer_norm_bwd_dwdb(DW,  # pointer to the partial sum of weights gradient
                          DB,  # pointer to the partial sum of biases gradient
@@ -222,13 +223,6 @@ def _layer_norm_bwd_dwdb(DW,  # pointer to the partial sum of weights gradient
     sum_db = tl.sum(db, axis=0)
     tl.store(FINAL_DW + cols, sum_dw, mask=cols < N)
     tl.store(FINAL_DB + cols, sum_db, mask=cols < N)
-
-
-@functools.cache
-def _launcher(kernel, device, num_warps=None):
-    with torch.cuda.device(device):
-        return make_launcher(kernel, grid_arg=1,
-                             options={"num_warps": num_warps} if num_warps is not None else None)
 
 
 # %%
@@ -261,9 +255,8 @@ class LayerNorm(torch.autograd.Function):
         # enqueue kernel
         device = torch.cuda.current_device()
         stream = torch.cuda.current_stream().cuda_stream
-        _launcher(_layer_norm_fwd_fused, device, num_warps)(
-            device, stream, M, x_arg, y, weight, bias, mean, rstd,
-            x_arg.stride(0), N, eps, BLOCK_SIZE)
+        _layer_norm_fwd_fused(device, stream, M, num_warps, x_arg, y, weight, bias, mean, rstd, x_arg.stride(0), N, eps,
+                              BLOCK_SIZE)
         ctx.save_for_backward(x, weight, bias, mean, rstd)
         ctx.BLOCK_SIZE = BLOCK_SIZE
         ctx.num_warps = num_warps
@@ -292,13 +285,10 @@ class LayerNorm(torch.autograd.Function):
         M, N = x_arg.shape
         device = torch.cuda.current_device()
         stream = torch.cuda.current_stream().cuda_stream
-        _launcher(_layer_norm_bwd_dx_fused, device, ctx.num_warps)(
-            device, stream, M, dx, dy, _dw, _db, x, w, m, v, locks,
-            x_arg.stride(0), N, GROUP_SIZE_M, ctx.BLOCK_SIZE)
+        _layer_norm_bwd_dx_fused(device, stream, M, ctx.num_warps, dx, dy, _dw, _db, x, w, m, v, locks, x_arg.stride(0),
+                                 N, GROUP_SIZE_M, ctx.BLOCK_SIZE)
         # accumulate partial sums in separate kernel
-        _launcher(_layer_norm_bwd_dwdb, device)(
-            device, stream, triton.cdiv(N, 128),
-            _dw, _db, dw, db, min(GROUP_SIZE_M, M), N, 32, 128)
+        _layer_norm_bwd_dwdb(device, stream, triton.cdiv(N, 128), _dw, _db, dw, db, min(GROUP_SIZE_M, M), N, 32, 128)
         return dx, None, dw, db, None
 
 

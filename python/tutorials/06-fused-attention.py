@@ -248,6 +248,7 @@ def _attn_fwd(sm_scale, M,  #
     desc_o.store([qo_offset_y, 0], acc.to(dtype))
 
 
+@make_launcher(grid_arg=2)
 @triton.jit
 def _attn_bwd_preprocess(O, DO,  #
                          Delta,  #
@@ -263,9 +264,6 @@ def _attn_bwd_preprocess(O, DO,  #
     delta = tl.sum(o * do, axis=1)
     # write-back
     tl.store(Delta + off_hz * N_CTX + off_m, delta)
-
-
-_attn_bwd_preprocess_launcher = make_launcher(_attn_bwd_preprocess, grid_arg=2)
 
 
 # The main inner-loop logic for computing dK and dV.
@@ -369,6 +367,7 @@ def _attn_bwd_dq(dq, q, K, V,  #
     return dq
 
 
+@make_launcher(grid_arg=3, options={"num_warps": 4, "num_stages": 5})
 @triton.jit
 def _attn_bwd(Q, K, V, sm_scale,  #
               DO,  #
@@ -506,9 +505,6 @@ def _attn_bwd(Q, K, V, sm_scale,  #
     tl.store(dq_ptrs, dq)
 
 
-_attn_bwd_launcher = make_launcher(_attn_bwd, grid_arg=3, options={"num_warps": 4, "num_stages": 5})
-
-
 class _attention(torch.autograd.Function):
 
     @staticmethod
@@ -602,21 +598,19 @@ class _attention(torch.autograd.Function):
         delta = torch.empty_like(M)
         device = torch.cuda.current_device()
         stream = torch.cuda.current_stream().cuda_stream
-        _attn_bwd_preprocess_launcher(device, stream, *pre_grid,
-            o, do,  #
-            delta,  #
-            BATCH, N_HEAD, N_CTX,  #
-            PRE_BLOCK, ctx.HEAD_DIM  #
-        )
+        _attn_bwd_preprocess(device, stream, *pre_grid, o, do,  #
+                             delta,  #
+                             BATCH, N_HEAD, N_CTX,  #
+                             PRE_BLOCK, ctx.HEAD_DIM  #
+                             )
         grid = (N_CTX // BLOCK_N1, 1, BATCH * N_HEAD)
-        _attn_bwd_launcher(device, stream, *grid,
-            q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
-            M, delta,  #
-            q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
-            N_HEAD, N_CTX,  #
-            BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2,  #
-            BLK_SLICE_FACTOR, ctx.HEAD_DIM, ctx.causal,  #
-        )
+        _attn_bwd(device, stream, *grid, q, arg_k, v, ctx.sm_scale, do, dq, dk, dv,  #
+                  M, delta,  #
+                  q.stride(0), q.stride(1), q.stride(2), q.stride(3),  #
+                  N_HEAD, N_CTX,  #
+                  BLOCK_M1, BLOCK_N1, BLOCK_M2, BLOCK_N2,  #
+                  BLK_SLICE_FACTOR, ctx.HEAD_DIM, ctx.causal,  #
+                  )
 
         return dq, dk, dv, None, None, None, None
 

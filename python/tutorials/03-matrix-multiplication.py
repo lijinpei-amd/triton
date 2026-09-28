@@ -149,9 +149,7 @@ You will specifically learn about:
 # Final Result
 # ------------
 
-import functools
-
-from intj import Constexpr, make_launcher
+from intj import make_launcher
 import torch
 
 import triton
@@ -223,11 +221,22 @@ def get_autotune_config():
         return get_hip_autotune_config()
 
 
+# 1D launch grid where each block gets its own program. It reads the tuned block
+# sizes and is compiled into the launcher, so a warmed call runs no Python.
+def _matmul_grid(M: int, N: int, BLOCK_SIZE_M: int, BLOCK_SIZE_N: int):
+    return (triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), )
+
+
 # `triton.jit`'ed functions can be auto-tuned by using the `triton.autotune` decorator, which consumes:
 #   - A list of `triton.Config` objects that define different configurations of
 #       meta-parameters (e.g., `BLOCK_SIZE_M`) and compilation options (e.g., `num_warps`) to try
 #   - An auto-tuning *key* whose change in values will trigger evaluation of all the
 #       provided configs
+#
+# `make_launcher` turns the autotuned kernel into an intj launcher. It keys on
+# the ACTIVATION string by value, as Triton does, so one launcher serves every
+# activation.
+@make_launcher(grid_cpp=_matmul_grid)
 @triton.autotune(
     configs=get_autotune_config(),
     key=['M', 'N', 'K'],
@@ -334,19 +343,6 @@ def leaky_relu(x):
 # and (1) checks any shape constraint; (2) allocates the output; (3) launches the above kernel.
 
 
-# 1D launch grid where each block gets its own program. It reads the tuned block
-# sizes and is compiled into the launcher, so a warmed call runs no Python.
-def _matmul_grid(M: int, N: int, BLOCK_SIZE_M: int, BLOCK_SIZE_N: int):
-    return (triton.cdiv(M, BLOCK_SIZE_M) * triton.cdiv(N, BLOCK_SIZE_N), )
-
-
-# One launcher per ACTIVATION string, which is baked into the kernel.
-@functools.cache
-def _matmul_launcher(activation):
-    return make_launcher(matmul_kernel, grid_cpp=_matmul_grid,
-                         extra_annotation={"ACTIVATION": Constexpr(value=activation)})
-
-
 def matmul(a, b, activation=""):
     # Check constraints.
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
@@ -356,14 +352,14 @@ def matmul(a, b, activation=""):
     # Allocates output.
     c = torch.empty((M, N), device=a.device, dtype=torch.float16)
     # The tuned BLOCK_SIZE_* values are not passed: the autotuner picks them.
-    _matmul_launcher(activation)(
-        torch.cuda.current_device(), torch.cuda.current_stream().cuda_stream,
-        a, b, c,  #
-        M, N, K,  #
-        a.stride(0), a.stride(1),  #
-        b.stride(0), b.stride(1),  #
-        c.stride(0), c.stride(1),  #
-    )
+    matmul_kernel(torch.cuda.current_device(),
+                  torch.cuda.current_stream().cuda_stream, a, b, c,  #
+                  M, N, K,  #
+                  a.stride(0), a.stride(1),  #
+                  b.stride(0), b.stride(1),  #
+                  c.stride(0), c.stride(1),  #
+                  activation,  #
+                  )
     return c
 
 

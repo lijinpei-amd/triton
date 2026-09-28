@@ -11,6 +11,7 @@ IS_CDNA3_OR_CDNA4 = is_hip_cdna3() or is_hip_cdna4()
 AMD_ARCH_MODULE = ttgl.amd.cdna4 if is_hip_cdna4() else ttgl.amd.cdna3
 
 
+@make_launcher(grid_arg=1, options={"num_warps": 1}, return_compiled=True)
 @gluon.jit
 def _compact_scaled_upcast_fp4_kernel(x_ptr, scale_ptr, out_ptr, M: ttgl.constexpr, K_PACKED: ttgl.constexpr,
                                       OUT_K: ttgl.constexpr, SCALE_K: ttgl.constexpr, SPT_PACKED: ttgl.constexpr):
@@ -55,9 +56,8 @@ def test_runtime_scaled_upcast_fp4_compact_scale(k_packed, scale_k, spt_packed):
     scale = (scale_exponents + 0x7f).to(torch.uint8)
     out = torch.empty((M, out_k), dtype=torch.bfloat16, device="cuda")
 
-    launch = make_launcher(_compact_scaled_upcast_fp4_kernel, grid_arg=1, options={"num_warps": 1},
-                           return_compiled=True)
-    program = launch(*device_stream(), 1, x, scale, out, M, k_packed, out_k, scale_k, spt_packed)
+    program = _compact_scaled_upcast_fp4_kernel(*device_stream(), 1, x, scale, out, M, k_packed, out_k, scale_k,
+                                                spt_packed)
 
     expected = torch.ldexp(torch.full_like(scale_exponents, 0.5, dtype=torch.float32),
                            scale_exponents).repeat_interleave(elements_per_scale, dim=1).to(torch.bfloat16)
@@ -68,6 +68,7 @@ def test_runtime_scaled_upcast_fp4_compact_scale(k_packed, scale_k, spt_packed):
         assert "v_cvt_scalef32_pk_bf16_fp4" not in program.asm["amdgcn"]
 
 
+@make_launcher(grid_arg=1, options={"num_warps": 1, "allow_flush_denorm": False})
 @gluon.jit
 def _scaled_upcast_scale_edges_kernel(x_ptr, scale_ptr, out_ptr, FP4: ttgl.constexpr):
     layout: ttgl.constexpr = ttgl.BlockedLayout([1, 4], [8, 8], [1, 1], [1, 0])
@@ -108,9 +109,7 @@ def test_scaled_upcast_scale_edges(dtype, out_dtype, nan_scale):
     scale = torch.tensor([255] * 8 if nan_scale else [0, 1, 127, 254] * 2, dtype=torch.uint8, device="cuda")
     scale = scale[:, None].expand(8, 2 if fp4 else 64).contiguous()
     out = torch.empty((8, 64), dtype=out_dtype, device="cuda")
-    launch = make_launcher(_scaled_upcast_scale_edges_kernel, grid_arg=1,
-                           options={"num_warps": 1, "allow_flush_denorm": False})
-    launch(*device_stream(), 1, x, scale, out, fp4)
+    _scaled_upcast_scale_edges_kernel(*device_stream(), 1, x, scale, out, fp4)
 
     # Both subnormal and normal BF16 results survive; the smallest FP16
     # results underflow after scaling.
