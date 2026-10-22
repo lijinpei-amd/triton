@@ -31,13 +31,12 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
 
 bool useAutoSchedOrderBarriers() {
   static const bool enabled =
-      triton::tools::getBoolEnv("TRITON_HIP_SCHED_ORDER_BARRIER");
+      true;
   return enabled;
 }
 
 bool useAutoSchedOrderBarrierSyncAfter() {
-  static const bool enabled = triton::tools::getBoolEnv(
-      "TRITON_HIP_SCHED_ORDER_BARRIER_SYNC_AFTER");
+  static const bool enabled = true;
   return enabled;
 }
 
