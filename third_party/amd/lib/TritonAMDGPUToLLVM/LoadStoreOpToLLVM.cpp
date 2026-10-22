@@ -2505,7 +2505,10 @@ struct AsyncCommitGroupOpConversion
       if (mlir::LLVM::AMD::useAutoSchedOrderBarriers())
         mlir::LLVM::AMD::emitSchedOrderBarrier(
             rewriter, loc, mlir::LLVM::AMD::kSchedMaskLDSDMA,
-            mlir::LLVM::AMD::kSchedMaskMFMA);
+            mlir::LLVM::AMD::kSchedMaskMFMA |
+                (mlir::LLVM::AMD::useAutoSchedOrderBarrierSyncAfter()
+                     ? mlir::LLVM::AMD::kSchedMaskVMEMRead
+                     : 0));
     }
 
     // Drop the result AsyncToken

@@ -26,6 +26,7 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
 // True if TRITON_HIP_SCHED_ORDER_BARRIER requests automatic sched order
 // barriers around async copies.
 bool useAutoSchedOrderBarriers();
+bool useAutoSchedOrderBarrierSyncAfter();
 
 // Decode the target-independent compatibility payload accepted by Triton
 // memory operations. Target-specific cache policy attributes are rejected.

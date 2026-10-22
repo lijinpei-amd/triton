@@ -35,6 +35,12 @@ bool useAutoSchedOrderBarriers() {
   return enabled;
 }
 
+bool useAutoSchedOrderBarrierSyncAfter() {
+  static const bool enabled = triton::tools::getBoolEnv(
+      "TRITON_HIP_SCHED_ORDER_BARRIER_SYNC_AFTER");
+  return enabled;
+}
+
 FailureOr<triton::CacheModifier> getCacheModifier(Attribute cachePolicy) {
   if (!cachePolicy)
     return triton::CacheModifier::NONE;
