@@ -1107,6 +1107,10 @@ struct AsyncCopyGlobalToLocalOpConversion
     auto auxAttr = rewriter.getI32IntegerAttr(cacheModifiers);
 
     if (targetInfo.useAsyncMarks()) {
+      if (mlir::LLVM::AMD::useAutoSchedOrderBarriers())
+        mlir::LLVM::AMD::emitSchedOrderBarrier(
+            rewriter, loc, mlir::LLVM::AMD::kSchedMaskVMEMRead,
+            mlir::LLVM::AMD::kSchedMaskLDSDMA);
       // Use the async intrinsic so LLVM tracks these via asyncmark
       auto asyncLoadOp = ROCDL::GlobalLoadAsyncLDSOp::create(
           rewriter, loc, srcPtr, shmemAddr, vecBits / 8, /*offset=*/0u, auxAttr,
@@ -2496,8 +2500,13 @@ struct AsyncCommitGroupOpConversion
     auto b = TritonLLVMOpBuilder(loc, rewriter);
 
     // Emit asyncmark for architectures that use async tracking
-    if (targetInfo.useAsyncMarks())
+    if (targetInfo.useAsyncMarks()) {
       ROCDL::AsyncmarkOp::create(rewriter, loc);
+      if (mlir::LLVM::AMD::useAutoSchedOrderBarriers())
+        mlir::LLVM::AMD::emitSchedOrderBarrier(
+            rewriter, loc, mlir::LLVM::AMD::kSchedMaskLDSDMA,
+            mlir::LLVM::AMD::kSchedMaskMFMA);
+    }
 
     // Drop the result AsyncToken
     rewriter.replaceOp(op, b.i32_val(0));

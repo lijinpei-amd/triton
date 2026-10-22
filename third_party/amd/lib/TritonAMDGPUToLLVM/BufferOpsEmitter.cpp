@@ -114,6 +114,9 @@ BufferEmitter::emitLoadToLds(Type type, Value byteWidth, Value rsrcDesc,
   fillCommonArgs(type, rsrcDesc, offset, pred, cm, /*isBufferLoad=*/true,
                  commonArgs, aux);
 
+  if (useAutoSchedOrderBarriers())
+    emitSchedOrderBarrier(rewriter, loc, kSchedMaskVMEMRead, kSchedMaskLDSDMA);
+
   // buffer_load_to_lds is only supported on gfx942/gfx950 which always use
   // asyncmark. Emit the async intrinsic so LLVM's SIInsertWaitcnts tracks
   // these operations via asyncmark/wait_asyncmark.

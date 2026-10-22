@@ -1393,6 +1393,10 @@ void init_gluon_ir(py::module_ &m) {
                                            std::to_string(mask));
              self.create<ROCDL::SchedBarrier>(*schedMask);
            })
+      .def("create_amd_sched_order_barrier",
+           [](GluonOpBuilder &self, uint32_t before, uint32_t after) {
+             self.create<ttag::SchedOrderBarrierOp>(before, after);
+           })
       .def("create_warp_pipeline_border",
            [](GluonOpBuilder &self, const std::string &marker, int priority) {
              auto border =

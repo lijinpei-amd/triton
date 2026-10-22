@@ -1,6 +1,6 @@
 from .._core import builtin, _unwrap_if_constexpr
 
-__all__ = ["sched_barrier"]
+__all__ = ["sched_barrier", "sched_order_barrier"]
 
 
 @builtin
@@ -31,3 +31,46 @@ def sched_barrier(allow=None, _semantic=None):
         mask |= instruction_masks[instruction]
 
     _semantic.builder.create_amd_sched_barrier(mask)
+
+
+_SCHED_ORDER_CLASSES = {
+    "valu": 0x2,
+    "salu": 0x4,
+    "mfma": 0x8,
+    "vmem": 0x10,
+    "vmem_read": 0x20,
+    "vmem_write": 0x40,
+    "ds": 0x80,
+    "ds_read": 0x100,
+    "ds_write": 0x200,
+    "trans": 0x400,
+    "async_load": 0x800,
+}
+
+
+def _sched_order_mask(classes):
+    classes = _unwrap_if_constexpr(classes)
+    if classes is None:
+        return 0
+    if isinstance(classes, str):
+        classes = (classes, )
+    mask = 0
+    for c in classes:
+        c = _unwrap_if_constexpr(c)
+        if c not in _SCHED_ORDER_CLASSES:
+            raise ValueError(f"Unsupported instruction class: {c!r}")
+        mask |= _SCHED_ORDER_CLASSES[c]
+    return mask
+
+
+@builtin
+def sched_order_barrier(before=None, after=None, _semantic=None):
+    """Order instruction classes around this point for the LLVM scheduler.
+
+    Instructions before this point whose class is in ``before`` are scheduled
+    before it, and instructions after it whose class is in ``after`` are
+    scheduled after it. Other instructions may move freely. Classes:
+    "valu", "salu", "mfma", "vmem", "vmem_read" (sync loads), "vmem_write",
+    "ds", "ds_read", "ds_write", "trans", "async_load".
+    """
+    _semantic.builder.create_amd_sched_order_barrier(_sched_order_mask(before), _sched_order_mask(after))

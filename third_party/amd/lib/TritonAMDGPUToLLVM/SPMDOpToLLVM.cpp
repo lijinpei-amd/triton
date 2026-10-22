@@ -51,6 +51,20 @@ struct CondBarrierOpConversion
   }
 };
 
+struct SchedOrderBarrierOpConversion
+    : public ConvertOpToLLVMPattern<triton::amdgpu::SchedOrderBarrierOp> {
+  using ConvertOpToLLVMPattern::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(triton::amdgpu::SchedOrderBarrierOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    LLVM::AMD::emitSchedOrderBarrier(rewriter, op->getLoc(),
+                                     op.getBeforeMask(), op.getAfterMask());
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
+
 } // namespace
 
 void mlir::triton::AMD::populateSPMDOpToLLVMPattern(
@@ -58,4 +72,5 @@ void mlir::triton::AMD::populateSPMDOpToLLVMPattern(
     PatternBenefit benefit) {
   patterns.add<GetNumProgramsOpConversion>(typeConverter, benefit);
   patterns.add<CondBarrierOpConversion>(typeConverter, benefit);
+  patterns.add<SchedOrderBarrierOpConversion>(typeConverter, benefit);
 }

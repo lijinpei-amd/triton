@@ -256,6 +256,22 @@ def CondBarrierOp : TT_AMDGPU_Op<"cond_barrier"> {
   let assemblyFormat = "$pred attr-dict";
 }
 
+def SchedOrderBarrierOp : TT_AMDGPU_Op<"sched_order_barrier"> {
+  let summary = "Order instruction kinds around a point for the LLVM scheduler";
+
+  let description = [{
+    Lowers to llvm.amdgcn.sched.order.barrier. Instructions before the barrier
+    whose kind is in before_mask are scheduled before it; instructions after it
+    whose kind is in after_mask are scheduled after it. The masks use the
+    llvm.amdgcn.sched.barrier encoding (0x8 MFMA, 0x20 VMEM read, 0x100 DS
+    read, 0x800 LDS DMA, ...). This is a scheduling hint only.
+  }];
+
+  let arguments = (ins I32Attr:$before_mask, I32Attr:$after_mask);
+
+  let assemblyFormat = "attr-dict";
+}
+
 //===----------------------------------------------------------------------===//
 // BufferLoadOp
 //===----------------------------------------------------------------------===//

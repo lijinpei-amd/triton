@@ -13,6 +13,20 @@
 
 namespace mlir::LLVM::AMD {
 
+// Masks for llvm.amdgcn.sched.order.barrier (llvm.amdgcn.sched.barrier
+// encoding).
+constexpr uint32_t kSchedMaskMFMA = 0x8;
+constexpr uint32_t kSchedMaskVMEMRead = 0x20;
+constexpr uint32_t kSchedMaskLDSDMA = 0x800;
+
+// Emits llvm.amdgcn.sched.order.barrier(Before, After) at the insertion point.
+void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
+                           uint32_t before, uint32_t after);
+
+// True if TRITON_HIP_SCHED_ORDER_BARRIER requests automatic sched order
+// barriers around async copies.
+bool useAutoSchedOrderBarriers();
+
 // Decode the target-independent compatibility payload accepted by Triton
 // memory operations. Target-specific cache policy attributes are rejected.
 FailureOr<triton::CacheModifier> getCacheModifier(Attribute cachePolicy);

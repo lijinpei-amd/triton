@@ -1,4 +1,5 @@
 #include "Utility.h"
+#include "triton/Tools/Sys/GetEnv.h"
 #include "AsyncUtility.h"
 #include "Dialect/TritonAMDGPU/IR/Dialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -15,6 +16,24 @@ using mlir::triton::amdgpu::ISAFamily;
 using mlir::triton::gpu::appendOrGetExternFuncOp;
 
 namespace mlir::LLVM::AMD {
+
+void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
+                           uint32_t before, uint32_t after) {
+  auto b = TritonLLVMOpBuilder(loc, rewriter);
+  auto fnTy = LLVM::LLVMFunctionType::get(void_ty(rewriter.getContext()),
+                                          {i32_ty, i32_ty});
+  Operation *anchor = rewriter.getInsertionBlock()->getParentOp();
+  LLVM::LLVMFuncOp funcOp = appendOrGetExternFuncOp(
+      rewriter, anchor, "llvm.amdgcn.sched.order.barrier", fnTy);
+  LLVM::CallOp::create(rewriter, loc, funcOp,
+                       ValueRange{b.i32_val(before), b.i32_val(after)});
+}
+
+bool useAutoSchedOrderBarriers() {
+  static const bool enabled =
+      triton::tools::getBoolEnv("TRITON_HIP_SCHED_ORDER_BARRIER");
+  return enabled;
+}
 
 FailureOr<triton::CacheModifier> getCacheModifier(Attribute cachePolicy) {
   if (!cachePolicy)
