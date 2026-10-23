@@ -560,8 +560,14 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
   scheduleStreamOps(loadToStreamOps, schedule, stages, clusters);
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule stream ops:");
 
+  // With control flow in the loop body, LLVM schedules each block separately
+  // and register pressure across them is not ours to trade, so leave such
+  // loops alone.
+  bool straightLineBody =
+      llvm::none_of(forOp.getBody()->without_terminator(),
+                    [](Operation &op) { return op.getNumRegions() > 0; });
   if (triton::tools::getBoolEnv("TRITON_HIP_LOAD_CONSUMPTION_ORDER") &&
-      !hasTDMLoad) {
+      !hasTDMLoad && straightLineBody) {
     orderLoadsByConsumption(forOp, loadToStreamOps, schedule, clusters);
     dumpScheduleDebug(schedule, DEBUG_TYPE,
                       "Coarse schedule with loads in consumption order:");
@@ -580,7 +586,8 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule with dist 1:");
   tt::CoarseSchedule::Cluster computeCluster = clusters[SCHED_COMPUTE];
   ttg::scheduleRemainingToLastStage(forOp, schedule, computeCluster);
-  if (triton::tools::getBoolEnv("TRITON_HIP_PIN_VMEM_LOAD_ORDER"))
+  if (triton::tools::getBoolEnv("TRITON_HIP_PIN_VMEM_LOAD_ORDER") &&
+      straightLineBody)
     pinLoadOrder(forOp, loadToStreamOps, schedule);
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Final coarse schedule:");
 }
