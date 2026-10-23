@@ -10,6 +10,7 @@
 #include "triton/Dialect/TritonGPU/IR/CGAEncodingAttr.h"
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
+#include "triton/Tools/Sys/GetEnv.h"
 #include "llvm/Support/Debug.h"
 
 #undef DEBUG_TYPE
@@ -397,6 +398,107 @@ void scheduleStreamOps(const LoadToStreamOpMap &loadToStreamOp,
   }
 }
 
+// VMEM loads (register loads and async copies to LDS) all retire through the
+// in-order vmcnt counter, so a wait for one load also waits for every load
+// issued before it. Issue them in the order their data is first needed: an
+// async copy is needed at its async_wait, a register load at its first user.
+// A register load carried across two or more iterations is rotated through a
+// register copy at the next iteration's start, which needs the data too.
+using ConsumptionKey = std::tuple<int, int, int>;
+
+void orderLoadsByConsumption(scf::ForOp forOp,
+                             const LoadToStreamOpMap &loadToStreamOps,
+                             tt::CoarseSchedule &schedule,
+                             const Clusters &clusters) {
+  Block *body = forOp.getBody();
+  DenseMap<Operation *, int> opOrder;
+  for (Operation &op : body->without_terminator())
+    opOrder[&op] = opOrder.size();
+  const int lastStage = schedule.getNumStages() - 1;
+  auto stageAndCluster = [&](Operation *op) -> std::pair<int, int> {
+    if (schedule.contains(op)) {
+      auto [stage, cluster] = schedule[op];
+      return {stage, *cluster};
+    }
+    return {lastStage, *clusters[SCHED_COMPUTE]};
+  };
+
+  // Load op, ops that must move with it, and its consumption key.
+  SmallVector<std::tuple<Operation *, SmallVector<Operation *>, ConsumptionKey>>
+      loads;
+  DenseSet<Operation *> replaced;
+  for (auto &[orig, streamOps] : loadToStreamOps) {
+    replaced.insert(orig);
+    auto asyncOps = std::get_if<AsyncCopyChainOps>(&streamOps);
+    if (!asyncOps || !schedule.contains(asyncOps->waitOp))
+      continue;
+    Operation *copy = asyncOps->copyOp;
+    auto [copyStage, copyCluster] = stageAndCluster(copy);
+    auto [waitStage, waitCluster] = stageAndCluster(asyncOps->waitOp);
+    loads.push_back({copy,
+                     {copy, asyncOps->commitOp},
+                     {waitStage - copyStage, waitCluster,
+                      opOrder.lookup(asyncOps->waitOp)}});
+  }
+  for (Operation &op : body->without_terminator()) {
+    if (!isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) || op.use_empty() ||
+        replaced.contains(&op))
+      continue;
+    int loadStage = stageAndCluster(&op).first;
+    std::optional<ConsumptionKey> key;
+    for (Operation *user : op.getUsers()) {
+      Operation *u = body->findAncestorOpInBlock(*user);
+      ConsumptionKey k{1, -1, 0};
+      if (u && !isa<scf::YieldOp>(u)) {
+        auto [userStage, userCluster] = stageAndCluster(u);
+        int dist = userStage - loadStage;
+        if (dist < 2)
+          k = {dist, userCluster, opOrder.lookup(u)};
+      }
+      if (!key || k < *key)
+        key = k;
+    }
+    loads.push_back({&op, {&op}, *key});
+  }
+  if (loads.size() < 2)
+    return;
+
+  // A load may only move to an earlier cluster if every operand defined in the
+  // same stage is still defined before it.
+  auto canMoveTo = [&](ArrayRef<Operation *> group, int stage, int cluster) {
+    for (Operation *op : group) {
+      for (Value operand : op->getOperands()) {
+        Operation *def = operand.getDefiningOp();
+        if (!def || def->getBlock() != body || !schedule.contains(def) ||
+            llvm::is_contained(group, def))
+          continue;
+        auto [defStage, defCluster] = stageAndCluster(def);
+        if (defStage == stage && defCluster > cluster)
+          return false;
+      }
+    }
+    return true;
+  };
+
+  llvm::stable_sort(loads, [](const auto &a, const auto &b) {
+    return std::get<2>(a) < std::get<2>(b);
+  });
+  std::optional<ConsumptionKey> lastKey;
+  tt::CoarseSchedule::Cluster target;
+  for (auto &[load, group, key] : loads) {
+    if (!lastKey || key != *lastKey)
+      target = schedule.clusters.newBefore(clusters[SCHED_GLOBAL_LOAD]);
+    lastKey = key;
+    int stage = stageAndCluster(load).first;
+    if (!canMoveTo(group, stage, *target)) {
+      LDBG("Keep load in place: " << *load);
+      continue;
+    }
+    for (Operation *op : group)
+      schedule.insert(op, stage, target);
+  }
+}
+
 void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
                     tt::CoarseSchedule &schedule,
                     triton::AMD::ModuleAxisInfoAnalysis &axisInfoAnalysis,
@@ -425,6 +527,13 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
 
   scheduleStreamOps(loadToStreamOps, schedule, stages, clusters);
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule stream ops:");
+
+  if (triton::tools::getBoolEnv("TRITON_HIP_LOAD_CONSUMPTION_ORDER") &&
+      !hasTDMLoad) {
+    orderLoadsByConsumption(forOp, loadToStreamOps, schedule, clusters);
+    dumpScheduleDebug(schedule, DEBUG_TYPE,
+                      "Coarse schedule with loads in consumption order:");
+  }
 
   for (auto [l, _] : loadToInfo) {
     if (isa<tt::DescriptorLoadOp, tt::DescriptorGatherOp>(l)) {
