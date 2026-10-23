@@ -11,6 +11,7 @@
 #include "triton/Dialect/TritonGPU/Transforms/PipeliningUtility.h"
 #include "triton/Dialect/TritonGPU/Transforms/Utility.h"
 #include "triton/Tools/Sys/GetEnv.h"
+#include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "llvm/Support/Debug.h"
 
 #undef DEBUG_TYPE
@@ -499,6 +500,37 @@ void orderLoadsByConsumption(scf::ForOp forOp,
   }
 }
 
+// Puts an llvm.amdgcn.sched.barrier in front of every VMEM load op of the loop
+// (register loads and async copies to LDS), in the same stage and cluster, so
+// LLVM keeps the loads in this order while scheduling everything else freely.
+// One barrier per op keeps the op's own memory instructions mergeable.
+void pinLoadOrder(scf::ForOp forOp, const LoadToStreamOpMap &loadToStreamOps,
+                  tt::CoarseSchedule &schedule) {
+  DenseSet<Operation *> replaced;
+  for (auto &[orig, _] : loadToStreamOps)
+    replaced.insert(orig);
+  SmallVector<Operation *> loads;
+  for (Operation &op : forOp.getBody()->without_terminator()) {
+    if (isa<ttg::AsyncCopyGlobalToLocalOp>(op) ||
+        (isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) && !op.use_empty() &&
+         !replaced.contains(&op)))
+      loads.push_back(&op);
+  }
+  using Mask = ROCDL::SchedGroupMask;
+  const Mask crossable = Mask::non_mem_non_sideeffect | Mask::valu |
+                         Mask::salu | Mask::mfma_wmma | Mask::vmem_write |
+                         Mask::ds_read | Mask::ds_write | Mask::transcendental;
+  for (Operation *load : loads) {
+    if (!schedule.contains(load))
+      continue;
+    auto [stage, cluster] = schedule[load];
+    OpBuilder builder(load);
+    auto barrier =
+        ROCDL::SchedBarrier::create(builder, load->getLoc(), crossable);
+    schedule.insert(barrier, stage, cluster);
+  }
+}
+
 void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
                     tt::CoarseSchedule &schedule,
                     triton::AMD::ModuleAxisInfoAnalysis &axisInfoAnalysis,
@@ -548,6 +580,8 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Coarse schedule with dist 1:");
   tt::CoarseSchedule::Cluster computeCluster = clusters[SCHED_COMPUTE];
   ttg::scheduleRemainingToLastStage(forOp, schedule, computeCluster);
+  if (triton::tools::getBoolEnv("TRITON_HIP_PIN_VMEM_LOAD_ORDER"))
+    pinLoadOrder(forOp, loadToStreamOps, schedule);
   dumpScheduleDebug(schedule, DEBUG_TYPE, "Final coarse schedule:");
 }
 } // namespace

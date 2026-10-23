@@ -26,7 +26,8 @@ def TritonAMDGPUPipeline : Pass<"tritonamdgpu-pipeline", "mlir::ModuleOp"> {
     Allocate LDS buffer, convert some loads to async loads, and expand loops
   }];
 
-  let dependentDialects = ["mlir::triton::amdgpu::TritonAMDGPUDialect"];
+  let dependentDialects = ["mlir::ROCDL::ROCDLDialect",
+                           "mlir::triton::amdgpu::TritonAMDGPUDialect"];
 
   let options = [
     Option<"useAsyncCopy", "use_async_copy",

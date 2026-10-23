@@ -26,11 +26,6 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
 // True if TRITON_HIP_SCHED_ORDER_BARRIER requests automatic sched order
 // barriers around async copies.
 bool useAutoSchedOrderBarriers();
-
-// If TRITON_HIP_PIN_VMEM_LOAD_ORDER is set, emits an llvm.amdgcn.sched.barrier
-// that keeps VMEM loads (including async copies to LDS) in program order
-// while letting every other instruction class cross it.
-void emitVMEMLoadOrderPin(RewriterBase &rewriter, Location loc);
 bool useAutoSchedOrderBarrierSyncAfter();
 
 // Decode the target-independent compatibility payload accepted by Triton

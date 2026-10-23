@@ -53,19 +53,6 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
                        ValueRange{b.i32_val(before), b.i32_val(after)});
 }
 
-void emitVMEMLoadOrderPin(RewriterBase &rewriter, Location loc) {
-  static const bool enabled =
-      triton::tools::getBoolEnv("TRITON_HIP_PIN_VMEM_LOAD_ORDER");
-  if (!enabled)
-    return;
-  using Mask = ROCDL::SchedGroupMask;
-  ROCDL::SchedBarrier::create(
-      rewriter, loc,
-      Mask::non_mem_non_sideeffect | Mask::valu | Mask::salu |
-          Mask::mfma_wmma | Mask::vmem_write | Mask::ds_read |
-          Mask::ds_write | Mask::transcendental);
-}
-
 bool useAutoSchedOrderBarriers() {
   static const bool enabled =
       triton::tools::getBoolEnv("TRITON_HIP_SCHED_ORDER_BARRIER");

@@ -94,7 +94,6 @@ Value BufferEmitter::emitLoad(Type type, Value rsrcDesc, Value offset,
   fillCommonArgs(type, rsrcDesc, offset, pred, cm, /*isBufferLoad=*/true, args,
                  aux);
   Type bufferType = getBufferOpType(type, false);
-  emitVMEMLoadOrderPin(rewriter, loc);
   Value data = ROCDL::RawPtrBufferLoadOp::create(
       rewriter, loc, bufferType, args[0], args[1], args[2],
       rewriter.getI32IntegerAttr(aux), /*alias_scopes=*/nullptr,
@@ -117,7 +116,6 @@ BufferEmitter::emitLoadToLds(Type type, Value byteWidth, Value rsrcDesc,
 
   if (useAutoSchedOrderBarriers())
     emitSchedOrderBarrier(rewriter, loc, kSchedMaskVMEMRead, kSchedMaskLDSDMA);
-  emitVMEMLoadOrderPin(rewriter, loc);
 
   // buffer_load_to_lds is only supported on gfx942/gfx950 which always use
   // asyncmark. Emit the async intrinsic so LLVM's SIInsertWaitcnts tracks

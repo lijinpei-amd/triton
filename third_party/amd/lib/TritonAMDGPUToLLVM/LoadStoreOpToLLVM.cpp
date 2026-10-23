@@ -655,7 +655,6 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp>,
             rewriter, this->getTypeConverter(), loc, cast<VectorType>(vecTy),
             otherElems, vecStart);
 
-      mlir::LLVM::AMD::emitVMEMLoadOrderPin(rewriter, loc);
       Value loadVal = llLoad(rewriter, loc, ptr, vecTy, pred, falseVal,
                              multicastMask, cacheMod, op.getIsVolatile());
       for (size_t ii = 0; ii < vec; ++ii) {
@@ -1112,7 +1111,6 @@ struct AsyncCopyGlobalToLocalOpConversion
         mlir::LLVM::AMD::emitSchedOrderBarrier(
             rewriter, loc, mlir::LLVM::AMD::kSchedMaskVMEMRead,
             mlir::LLVM::AMD::kSchedMaskLDSDMA);
-      mlir::LLVM::AMD::emitVMEMLoadOrderPin(rewriter, loc);
       // Use the async intrinsic so LLVM tracks these via asyncmark
       auto asyncLoadOp = ROCDL::GlobalLoadAsyncLDSOp::create(
           rewriter, loc, srcPtr, shmemAddr, vecBits / 8, /*offset=*/0u, auxAttr,
