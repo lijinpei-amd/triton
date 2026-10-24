@@ -406,18 +406,13 @@ void scheduleStreamOps(const LoadToStreamOpMap &loadToStreamOp,
 // async copy is needed at its async_wait, a register load at its first user.
 // A register load carried across two or more iterations is rotated through a
 // register copy at the next iteration's start, which needs the data too.
-using ConsumptionKey = std::tuple<int, int, int, int>;
+using ConsumptionKey = std::tuple<int, int, int>;
 using Position = std::pair<int, int>; // (cluster index, op order)
 
-// Mode 1 keys a load by (iteration distance, consumer position). Mode 2 first
-// buckets consumers by where they sit relative to the dots: before the first
-// dot, among the dots, or after the last dot, and treats "after the last dot of
-// iteration i" and "before the first dot of iteration i+1" as the same point;
-// within a bucket outside the dots, async copies go before register loads.
 void orderLoadsByConsumption(scf::ForOp forOp,
                              const LoadToStreamOpMap &loadToStreamOps,
                              tt::CoarseSchedule &schedule,
-                             const Clusters &clusters, int mode) {
+                             const Clusters &clusters) {
   Block *body = forOp.getBody();
   DenseMap<Operation *, int> opOrder;
   for (Operation &op : body->without_terminator())
@@ -489,33 +484,6 @@ void orderLoadsByConsumption(scf::ForOp forOp,
       schedule.erase(op);
   };
 
-  std::optional<Position> firstDot, lastDot;
-  for (Operation &op : body->without_terminator()) {
-    if (!isa<tt::DotOp, tt::DotScaledOp>(op))
-      continue;
-    auto [stage, cluster, idx] = place(&op, 0);
-    Position p{cluster, idx};
-    if (!firstDot || p < *firstDot)
-      firstDot = p;
-    if (!lastDot || *lastDot < p)
-      lastDot = p;
-  }
-  auto keyOf = [&](int dist, Position consumer, bool isAsync) -> ConsumptionKey {
-    if (mode != 2 || !firstDot)
-      return {dist, consumer.first, consumer.second, 0};
-    int kind = isAsync ? 0 : 1;
-    if (consumer < *firstDot)
-      return {2 * dist - 1, 0, 0, kind};
-    if (*lastDot < consumer)
-      return {2 * dist + 1, 0, 0, kind};
-    return {2 * dist, consumer.first, consumer.second, kind};
-  };
-  // A register load carried over two or more iterations is consumed by a
-  // rotation copy at the start of the next iteration.
-  const ConsumptionKey rotationKey =
-      mode == 2 && firstDot ? ConsumptionKey{1, 0, 0, 1}
-                            : ConsumptionKey{1, -1, 0, 0};
-
   struct Load {
     Operation *op;
     SmallVector<Operation *> group; // ops that move together, op first
@@ -550,8 +518,7 @@ void orderLoadsByConsumption(scf::ForOp forOp,
                      withReplaced({copy, asyncOps->commitOp}, orig),
                      copyStage,
                      {copyCluster, copyIdx},
-                     keyOf(waitStage - copyStage, {waitCluster, waitIdx},
-                           /*isAsync=*/true)});
+                     {waitStage - copyStage, waitCluster, waitIdx}});
   }
   for (Operation &op : body->without_terminator()) {
     if (!isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) || op.use_empty() ||
@@ -561,12 +528,12 @@ void orderLoadsByConsumption(scf::ForOp forOp,
     std::optional<ConsumptionKey> key;
     for (Operation *user : op.getUsers()) {
       Operation *u = body->findAncestorOpInBlock(*user);
-      ConsumptionKey k = rotationKey;
+      ConsumptionKey k{1, -1, 0};
       if (u && !isa<scf::YieldOp>(u)) {
         auto [userStage, userCluster, userIdx] = place(u, 0);
         int dist = userStage - loadStage;
         if (dist < 2)
-          k = keyOf(dist, {userCluster, userIdx}, /*isAsync=*/false);
+          k = {dist, userCluster, userIdx};
       }
       if (!key || k < *key)
         key = k;
@@ -778,12 +745,9 @@ void updateSchedule(scf::ForOp &forOp, const LoadToInfoMap &loadToInfo,
   bool straightLineBody =
       llvm::none_of(forOp.getBody()->without_terminator(),
                     [](Operation &op) { return op.getNumRegions() > 0; });
-  std::string orderMode =
-      triton::tools::getStrEnv("TRITON_HIP_LOAD_CONSUMPTION_ORDER");
-  if (!orderMode.empty() && orderMode != "0" && !hasTDMLoad &&
-      straightLineBody) {
-    orderLoadsByConsumption(forOp, loadToStreamOps, schedule, clusters,
-                            orderMode == "2" ? 2 : 1);
+  if (triton::tools::getBoolEnv("TRITON_HIP_LOAD_CONSUMPTION_ORDER") &&
+      !hasTDMLoad && straightLineBody) {
+    orderLoadsByConsumption(forOp, loadToStreamOps, schedule, clusters);
     dumpScheduleDebug(schedule, DEBUG_TYPE,
                       "Coarse schedule with loads in consumption order:");
   }
