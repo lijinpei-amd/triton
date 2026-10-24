@@ -179,6 +179,9 @@ Operation *mlir::triton::predicateOp(RewriterBase &rewriter, Operation *op,
     return op;
   if (isa<LLVM::AssumeOp, ttng::FenceAsyncSharedOp>(op))
     return op;
+  // Scheduling hints have no effect on memory and need no predicate.
+  if (op->getName().getStringRef().starts_with("rocdl.sched."))
+    return op;
   if (isa<ttg::AsyncCommitGroupOp, ttg::AsyncWaitOp>(op))
     return op;
   if (op->hasTrait<OpTrait::LocalLoadTrait>())

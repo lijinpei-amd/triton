@@ -517,6 +517,9 @@ void MembarAnalysis::addThreadDemand(BlockInfo &effects, Operation *op) {
 
 void MembarAnalysis::update(Operation *op, MembarInfo *membarInfo,
                             FuncMapT *funcMap, OpBuilder *builder) {
+  // Scheduling hints touch no memory and order no threads.
+  if (op->getName().getStringRef().starts_with("rocdl.sched."))
+    return;
   if (auto barrier = dyn_cast<triton::gpu::BarrierOp>(op);
       barrier && barrier.isWarp()) {
     membarInfo->syncWarps();
