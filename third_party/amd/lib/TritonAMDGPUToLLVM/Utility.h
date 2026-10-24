@@ -10,6 +10,7 @@
 #include "triton/Conversion/MLIRTypes.h"
 #include "triton/Conversion/TritonGPUToLLVM/Utility.h"
 #include <cstdint>
+#include <optional>
 
 namespace mlir::LLVM::AMD {
 
@@ -26,6 +27,10 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
 // True if TRITON_HIP_SCHED_ORDER_BARRIER requests automatic sched order
 // barriers around async copies.
 bool useAutoSchedOrderBarriers();
+
+// Mask for an llvm.amdgcn.sched.barrier emitted right after each asyncmark,
+// from TRITON_HIP_ASYNCMARK_FENCE (1 = 0x40F, or an explicit mask).
+std::optional<uint32_t> asyncmarkFenceMask();
 bool useAutoSchedOrderBarrierSyncAfter();
 
 // Decode the target-independent compatibility payload accepted by Triton

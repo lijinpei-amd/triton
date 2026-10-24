@@ -2502,6 +2502,9 @@ struct AsyncCommitGroupOpConversion
     // Emit asyncmark for architectures that use async tracking
     if (targetInfo.useAsyncMarks()) {
       ROCDL::AsyncmarkOp::create(rewriter, loc);
+      if (auto mask = mlir::LLVM::AMD::asyncmarkFenceMask())
+        ROCDL::SchedBarrier::create(
+            rewriter, loc, static_cast<ROCDL::SchedGroupMask>(*mask));
       if (mlir::LLVM::AMD::useAutoSchedOrderBarriers())
         mlir::LLVM::AMD::emitSchedOrderBarrier(
             rewriter, loc, mlir::LLVM::AMD::kSchedMaskLDSDMA,

@@ -53,6 +53,19 @@ void emitSchedOrderBarrier(RewriterBase &rewriter, Location loc,
                        ValueRange{b.i32_val(before), b.i32_val(after)});
 }
 
+std::optional<uint32_t> asyncmarkFenceMask() {
+  static const std::optional<uint32_t> mask = []() -> std::optional<uint32_t> {
+    std::string value =
+        triton::tools::getStrEnv("TRITON_HIP_ASYNCMARK_FENCE");
+    if (value.empty() || value == "0")
+      return std::nullopt;
+    if (value == "1")
+      return 0x40F;
+    return static_cast<uint32_t>(std::stoul(value, nullptr, 0));
+  }();
+  return mask;
+}
+
 bool useAutoSchedOrderBarriers() {
   static const bool enabled =
       triton::tools::getBoolEnv("TRITON_HIP_SCHED_ORDER_BARRIER");
