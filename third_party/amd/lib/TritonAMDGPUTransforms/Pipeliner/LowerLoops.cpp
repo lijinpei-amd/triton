@@ -493,6 +493,19 @@ void orderLoadsByConsumption(scf::ForOp forOp,
   };
   SmallVector<Load> loads;
   DenseSet<Operation *> replaced;
+  // The replaced load stays in the body (dead) with the same operands as its
+  // replacement; it must move along, or the expander may find it scheduled
+  // before the pointer update it depends on and refuse to pipeline the loop.
+  DenseMap<Operation *, Operation *> replacedBy;
+  for (auto &[orig, streamOps] : loadToStreamOps) {
+    if (auto sOps = std::get_if<StreamCopyChainOps>(&streamOps))
+      replacedBy[sOps->loadOp] = orig;
+  }
+  auto withReplaced = [&](SmallVector<Operation *> group, Operation *orig) {
+    if (orig && orig->getBlock() == body && schedule.contains(orig))
+      group.push_back(orig);
+    return group;
+  };
   for (auto &[orig, streamOps] : loadToStreamOps) {
     replaced.insert(orig);
     auto asyncOps = std::get_if<AsyncCopyChainOps>(&streamOps);
@@ -502,7 +515,7 @@ void orderLoadsByConsumption(scf::ForOp forOp,
     auto [copyStage, copyCluster, copyIdx] = place(copy, 0);
     auto [waitStage, waitCluster, waitIdx] = place(asyncOps->waitOp, 0);
     loads.push_back({copy,
-                     {copy, asyncOps->commitOp},
+                     withReplaced({copy, asyncOps->commitOp}, orig),
                      copyStage,
                      {copyCluster, copyIdx},
                      {waitStage - copyStage, waitCluster, waitIdx}});
@@ -525,7 +538,8 @@ void orderLoadsByConsumption(scf::ForOp forOp,
       if (!key || k < *key)
         key = k;
     }
-    loads.push_back({&op, {&op}, loadStage, {loadCluster, loadIdx}, *key});
+    loads.push_back({&op, withReplaced({&op}, replacedBy.lookup(&op)),
+                     loadStage, {loadCluster, loadIdx}, *key});
   }
   if (loads.size() < 2) {
     undoPreSchedule();
