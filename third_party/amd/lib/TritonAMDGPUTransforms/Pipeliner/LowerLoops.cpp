@@ -621,13 +621,15 @@ void orderLoadsByConsumption(scf::ForOp forOp,
     return true;
   };
 
-  // The first scheduled op after `op` in the final order, if any.
-  auto nextAfter = [&](Operation *op) -> Operation * {
-    Position at = posOf(op);
+  // The first scheduled op after every op of `group` in the final order.
+  auto nextAfter = [&](ArrayRef<Operation *> group) -> Operation * {
+    Position at = posOf(group.front());
+    for (Operation *op : group)
+      at = std::max(at, posOf(op));
     Operation *next = nullptr;
     std::optional<Position> nextPos;
     for (Operation &o : body->without_terminator()) {
-      if (&o == op || !schedule.contains(&o))
+      if (llvm::is_contained(group, &o) || !schedule.contains(&o))
         continue;
       Position p = posOf(&o);
       if (at < p && (!nextPos || p < *nextPos)) {
@@ -638,10 +640,10 @@ void orderLoadsByConsumption(scf::ForOp forOp,
     return next;
   };
 
-  Operation *lastPlaced = nullptr;
+  Load *lastPlaced = nullptr;
   for (auto [r, i] : llvm::enumerate(wanted)) {
     if (kept.contains(i)) {
-      lastPlaced = loads[i].op;
+      lastPlaced = &loads[i];
       continue;
     }
     // Move right before the next kept load in the wanted order, or, if there
@@ -651,23 +653,26 @@ void orderLoadsByConsumption(scf::ForOp forOp,
       if (kept.contains(wanted[rr]))
         anchor = loads[wanted[rr]].op;
     if (!anchor && lastPlaced) {
-      anchor = nextAfter(lastPlaced);
-      if (anchor && llvm::is_contained(loads[i].group, anchor))
-        anchor = nextAfter(loads[i].group.back());
+      anchor = nextAfter(lastPlaced->group);
+      if (anchor && llvm::is_contained(loads[i].group, anchor)) {
+        SmallVector<Operation *> both(lastPlaced->group);
+        both.append(loads[i].group.begin(), loads[i].group.end());
+        anchor = nextAfter(both);
+      }
     }
     if (anchor && moveBefore(loads[i], anchor)) {
-      lastPlaced = loads[i].op;
+      lastPlaced = &loads[i];
       continue;
     }
-    if (!anchor && lastPlaced && schedule.contains(lastPlaced) &&
+    if (!anchor && lastPlaced && schedule.contains(lastPlaced->op) &&
         canPlaceAt(loads[i], {static_cast<int>(schedule.clusters.size()), 0})) {
-      auto after = std::next(schedule[lastPlaced].second);
+      auto after = std::next(schedule[lastPlaced->group.back()].second);
       auto target = after == schedule.clusters.end()
                         ? schedule.clusters.newAtBack()
                         : schedule.clusters.newBefore(after);
       for (Operation *op : loads[i].group)
         schedule.insert(op, loads[i].stage, target);
-      lastPlaced = loads[i].op;
+      lastPlaced = &loads[i];
       continue;
     }
     LDBG("Keep load in place: " << *loads[i].op);
