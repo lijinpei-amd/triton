@@ -13,6 +13,7 @@
 #include "triton/Tools/Sys/GetEnv.h"
 #include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "llvm/Support/Debug.h"
+#include <numeric>
 
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "tritonamdgpu-pipeline-lower-loops"
@@ -406,6 +407,7 @@ void scheduleStreamOps(const LoadToStreamOpMap &loadToStreamOp,
 // A register load carried across two or more iterations is rotated through a
 // register copy at the next iteration's start, which needs the data too.
 using ConsumptionKey = std::tuple<int, int, int>;
+using Position = std::pair<int, int>; // (cluster index, op order)
 
 void orderLoadsByConsumption(scf::ForOp forOp,
                              const LoadToStreamOpMap &loadToStreamOps,
@@ -416,17 +418,80 @@ void orderLoadsByConsumption(scf::ForOp forOp,
   for (Operation &op : body->without_terminator())
     opOrder[&op] = opOrder.size();
   const int lastStage = schedule.getNumStages() - 1;
-  auto stageAndCluster = [&](Operation *op) -> std::pair<int, int> {
+
+  // Stage and position of an op. An op that is not scheduled yet is expected
+  // to follow its earliest scheduled (transitive) user, else to end up in the
+  // compute cluster of the last stage.
+  std::function<std::tuple<int, int, int>(Operation *, int)> place =
+      [&](Operation *op, int depth) -> std::tuple<int, int, int> {
     if (schedule.contains(op)) {
       auto [stage, cluster] = schedule[op];
-      return {stage, *cluster};
+      return {stage, *cluster, opOrder.lookup(op)};
     }
-    return {lastStage, *clusters[SCHED_COMPUTE]};
+    std::optional<std::tuple<int, int, int>> best;
+    if (depth < 8) {
+      for (Operation *user : op->getUsers()) {
+        Operation *u = body->findAncestorOpInBlock(*user);
+        if (!u || u == op || isa<scf::YieldOp>(u))
+          continue;
+        auto p = place(u, depth + 1);
+        if (!best || p < *best)
+          best = p;
+      }
+    }
+    if (best)
+      return {std::get<0>(*best), std::get<1>(*best), opOrder.lookup(op)};
+    return {lastStage, *clusters[SCHED_COMPUTE], opOrder.lookup(op)};
   };
 
-  // Load op, ops that must move with it, and its consumption key.
-  SmallVector<std::tuple<Operation *, SmallVector<Operation *>, ConsumptionKey>>
-      loads;
+  // Give register loads that are not scheduled yet (consumed in the same
+  // iteration) the stage and cluster of their earliest scheduled user, which
+  // is where scheduleDependencies would put them, so they can be ordered.
+  SmallVector<Operation *> preScheduled;
+  for (Operation &op : body->without_terminator()) {
+    if (!isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) || op.use_empty() ||
+        schedule.contains(&op) || loadToStreamOps.contains(&op))
+      continue;
+    std::optional<std::tuple<int, int, Operation *>> best;
+    SmallVector<std::pair<Operation *, int>> work{{&op, 0}};
+    DenseSet<Operation *> seen;
+    while (!work.empty()) {
+      auto [cur, depth] = work.pop_back_val();
+      for (Operation *user : cur->getUsers()) {
+        Operation *u = body->findAncestorOpInBlock(*user);
+        if (!u || isa<scf::YieldOp>(u) || !seen.insert(u).second)
+          continue;
+        if (schedule.contains(u)) {
+          auto [stage, cluster] = schedule[u];
+          std::tuple<int, int, Operation *> cand{stage, *cluster, u};
+          if (!best || cand < *best)
+            best = cand;
+        } else if (depth < 8) {
+          work.push_back({u, depth + 1});
+        }
+      }
+    }
+    if (best) {
+      Operation *u = std::get<2>(*best);
+      schedule.insert(&op, schedule[u].first, schedule[u].second);
+    } else {
+      schedule.insert(&op, lastStage, clusters[SCHED_COMPUTE]);
+    }
+    preScheduled.push_back(&op);
+  }
+  auto undoPreSchedule = [&] {
+    for (Operation *op : preScheduled)
+      schedule.erase(op);
+  };
+
+  struct Load {
+    Operation *op;
+    SmallVector<Operation *> group; // ops that move together, op first
+    int stage;
+    Position pos;
+    ConsumptionKey key;
+  };
+  SmallVector<Load> loads;
   DenseSet<Operation *> replaced;
   for (auto &[orig, streamOps] : loadToStreamOps) {
     replaced.insert(orig);
@@ -434,69 +499,164 @@ void orderLoadsByConsumption(scf::ForOp forOp,
     if (!asyncOps || !schedule.contains(asyncOps->waitOp))
       continue;
     Operation *copy = asyncOps->copyOp;
-    auto [copyStage, copyCluster] = stageAndCluster(copy);
-    auto [waitStage, waitCluster] = stageAndCluster(asyncOps->waitOp);
+    auto [copyStage, copyCluster, copyIdx] = place(copy, 0);
+    auto [waitStage, waitCluster, waitIdx] = place(asyncOps->waitOp, 0);
     loads.push_back({copy,
                      {copy, asyncOps->commitOp},
-                     {waitStage - copyStage, waitCluster,
-                      opOrder.lookup(asyncOps->waitOp)}});
+                     copyStage,
+                     {copyCluster, copyIdx},
+                     {waitStage - copyStage, waitCluster, waitIdx}});
   }
   for (Operation &op : body->without_terminator()) {
     if (!isa<tt::LoadOp, tt::amdgpu::BufferLoadOp>(op) || op.use_empty() ||
         replaced.contains(&op))
       continue;
-    int loadStage = stageAndCluster(&op).first;
+    auto [loadStage, loadCluster, loadIdx] = place(&op, 0);
     std::optional<ConsumptionKey> key;
     for (Operation *user : op.getUsers()) {
       Operation *u = body->findAncestorOpInBlock(*user);
       ConsumptionKey k{1, -1, 0};
       if (u && !isa<scf::YieldOp>(u)) {
-        auto [userStage, userCluster] = stageAndCluster(u);
+        auto [userStage, userCluster, userIdx] = place(u, 0);
         int dist = userStage - loadStage;
         if (dist < 2)
-          k = {dist, userCluster, opOrder.lookup(u)};
+          k = {dist, userCluster, userIdx};
       }
       if (!key || k < *key)
         key = k;
     }
-    loads.push_back({&op, {&op}, *key});
+    loads.push_back({&op, {&op}, loadStage, {loadCluster, loadIdx}, *key});
   }
-  if (loads.size() < 2)
+  if (loads.size() < 2) {
+    undoPreSchedule();
     return;
+  }
 
-  // A load may only move to an earlier cluster if every operand defined in the
-  // same stage is still defined before it.
-  auto canMoveTo = [&](ArrayRef<Operation *> group, int stage, int cluster) {
-    for (Operation *op : group) {
+  // Current order of the loads in the loop body, and the wanted order. Equal
+  // keys keep their current relative order.
+  llvm::stable_sort(loads, [](const Load &a, const Load &b) {
+    return a.pos < b.pos;
+  });
+  SmallVector<int> wanted(loads.size());
+  std::iota(wanted.begin(), wanted.end(), 0);
+  llvm::stable_sort(wanted, [&](int a, int b) {
+    return loads[a].key < loads[b].key;
+  });
+  if (llvm::equal(wanted, llvm::seq<int>(0, loads.size()))) {
+    undoPreSchedule();
+    return;
+  }
+
+  // Keep the longest run of loads that is already in the wanted order in
+  // place, so copies stay interleaved with their local_loads, and move only
+  // the others, each right before the next kept load it must precede.
+  SmallVector<int> rank(loads.size());
+  for (auto [r, i] : llvm::enumerate(wanted))
+    rank[i] = r;
+  SmallVector<int> tails, prev(loads.size(), -1), tailIdx;
+  for (int i = 0, e = loads.size(); i < e; ++i) {
+    auto it = llvm::lower_bound(tails, rank[i]);
+    int len = it - tails.begin();
+    if (it == tails.end()) {
+      tails.push_back(rank[i]);
+      tailIdx.push_back(i);
+    } else {
+      *it = rank[i];
+      tailIdx[len] = i;
+    }
+    prev[i] = len ? tailIdx[len - 1] : -1;
+  }
+  DenseSet<int> kept;
+  for (int i = tailIdx.back(); i >= 0; i = prev[i])
+    kept.insert(i);
+
+  auto posOf = [&](Operation *op) -> Position {
+    auto [stage, cluster, idx] = place(op, 0);
+    return {cluster, idx};
+  };
+  // Puts the group of load `l` in a new cluster right before `anchor`, if
+  // every operand defined in the same stage is still available there and no
+  // same-stage user would end up before it.
+  auto canPlaceAt = [&](Load &l, Position at) {
+    for (Operation *op : l.group) {
       for (Value operand : op->getOperands()) {
         Operation *def = operand.getDefiningOp();
         if (!def || def->getBlock() != body || !schedule.contains(def) ||
-            llvm::is_contained(group, def))
+            llvm::is_contained(l.group, def))
           continue;
-        auto [defStage, defCluster] = stageAndCluster(def);
-        if (defStage == stage && defCluster > cluster)
+        if (std::get<0>(place(def, 0)) == l.stage && !(posOf(def) < at))
+          return false;
+      }
+      for (Operation *user : op->getUsers()) {
+        Operation *u = body->findAncestorOpInBlock(*user);
+        if (!u || llvm::is_contained(l.group, u) || isa<scf::YieldOp>(u))
+          continue;
+        if (std::get<0>(place(u, 0)) == l.stage && posOf(u) < at)
           return false;
       }
     }
     return true;
   };
+  auto moveBefore = [&](Load &l, Operation *anchor) {
+    if (!schedule.contains(anchor) || !canPlaceAt(l, posOf(anchor)))
+      return false;
+    auto cluster = schedule.splitClusterBefore(anchor, forOp);
+    auto target = schedule.clusters.newBefore(cluster);
+    for (Operation *op : l.group)
+      schedule.insert(op, l.stage, target);
+    return true;
+  };
 
-  llvm::stable_sort(loads, [](const auto &a, const auto &b) {
-    return std::get<2>(a) < std::get<2>(b);
-  });
-  std::optional<ConsumptionKey> lastKey;
-  tt::CoarseSchedule::Cluster target;
-  for (auto &[load, group, key] : loads) {
-    if (!lastKey || key != *lastKey)
-      target = schedule.clusters.newBefore(clusters[SCHED_GLOBAL_LOAD]);
-    lastKey = key;
-    int stage = stageAndCluster(load).first;
-    if (!canMoveTo(group, stage, *target)) {
-      LDBG("Keep load in place: " << *load);
+  // The first scheduled op after `op` in the final order, if any.
+  auto nextAfter = [&](Operation *op) -> Operation * {
+    Position at = posOf(op);
+    Operation *next = nullptr;
+    std::optional<Position> nextPos;
+    for (Operation &o : body->without_terminator()) {
+      if (&o == op || !schedule.contains(&o))
+        continue;
+      Position p = posOf(&o);
+      if (at < p && (!nextPos || p < *nextPos)) {
+        nextPos = p;
+        next = &o;
+      }
+    }
+    return next;
+  };
+
+  Operation *lastPlaced = nullptr;
+  for (auto [r, i] : llvm::enumerate(wanted)) {
+    if (kept.contains(i)) {
+      lastPlaced = loads[i].op;
       continue;
     }
-    for (Operation *op : group)
-      schedule.insert(op, stage, target);
+    // Move right before the next kept load in the wanted order, or, if there
+    // is none, right after the load placed before it.
+    Operation *anchor = nullptr;
+    for (int rr = r + 1, e = wanted.size(); rr < e && !anchor; ++rr)
+      if (kept.contains(wanted[rr]))
+        anchor = loads[wanted[rr]].op;
+    if (!anchor && lastPlaced) {
+      anchor = nextAfter(lastPlaced);
+      if (anchor && llvm::is_contained(loads[i].group, anchor))
+        anchor = nextAfter(loads[i].group.back());
+    }
+    if (anchor && moveBefore(loads[i], anchor)) {
+      lastPlaced = loads[i].op;
+      continue;
+    }
+    if (!anchor && lastPlaced && schedule.contains(lastPlaced) &&
+        canPlaceAt(loads[i], {static_cast<int>(schedule.clusters.size()), 0})) {
+      auto after = std::next(schedule[lastPlaced].second);
+      auto target = after == schedule.clusters.end()
+                        ? schedule.clusters.newAtBack()
+                        : schedule.clusters.newBefore(after);
+      for (Operation *op : loads[i].group)
+        schedule.insert(op, loads[i].stage, target);
+      lastPlaced = loads[i].op;
+      continue;
+    }
+    LDBG("Keep load in place: " << *loads[i].op);
   }
 }
 
