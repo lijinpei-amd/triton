@@ -21,16 +21,13 @@ struct BufferIndexExpr;
 /// allocations selected by `ttg.memdesc_index`.
 ///
 /// The analysis is intentionally narrow. It decomposes the dynamic slot index
-/// into `±base + constantOffset`, optionally under a positive constant
-/// modulus. Both wrap forms preserve the residue of `±base + constantOffset`
-/// modulo that modulus. Two accesses with the same base are compared under a
-/// shared modulus: the common one if both indices are wrapped, the wrapped
-/// index's if only one is, and exact equality if neither is. They are proven
-/// disjoint only when
-///   - the base signs match and the offsets differ modulo the shared modulus,
-///     or
-///   - the base signs are opposite, the offsets differ in parity, and the
-///     shared modulus is even or absent, because `2 * base` is then even.
+/// into `a * base + c` with `a` in {1, -1}, optionally under a positive
+/// constant modulus `m`. Both wrap forms preserve the residue of `a * base + c`
+/// modulo `m`. Two indices with the same base can therefore be equal only if
+/// `(a1 - a2) * base == c2 - c1` modulo `gcd(m1, m2)`, where an unwrapped
+/// index has modulus 0 (exact equality). The accesses are proven disjoint
+/// only when that congruence has no solution, i.e. when
+/// `gcd(a1 - a2, gcd(m1, m2))` does not divide `c2 - c1`.
 /// Scalar indices follow Triton's block-programming semantics. Comparisons
 /// also require the same indexed source in the same dynamic iteration:
 /// a source change can change both the origin and the byte stride of a slot.
@@ -54,11 +51,11 @@ struct BufferIndexExpr;
 /// Buffer-index reasoning is disabled for functions with irreducible control
 /// flow because not every cyclic edge is a dominance backedge in such CFGs.
 ///
-/// Unknown arithmetic, dynamic or non-positive moduli, nested moduli,
-/// different moduli, opposite base signs under an odd modulus or with offsets
-/// of equal parity, folded offsets outside the index type's range, different
-/// SSA bases, and slices carried across cf-form backedges all fail the
-/// disjointness proof and fall back to normal membar aliasing.
+/// Unknown arithmetic, dynamic or non-positive moduli, nested moduli, offset
+/// differences divisible by the gcd above, folded offsets outside the index
+/// type's range, different SSA bases, and slices carried across cf-form
+/// backedges all fail the disjointness proof and fall back to normal membar
+/// aliasing.
 ///
 /// The class owns and interns the analyzed expressions attached to
 /// `AllocationSlice`; callers must not keep those payloads beyond the lifetime

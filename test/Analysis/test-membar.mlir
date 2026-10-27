@@ -2309,6 +2309,29 @@ tt.func @must_barrier_offset_outside_index_range(%cst: tensor<128x128xf16>, %pha
   tt.return
 }
 
+// CHECK-LABEL: disjoint_moduli_with_common_factor
+// Write at (%phase + 1) % 2, read at %phase % 4. Both moduli are even, so
+// the two indices always differ in parity.
+tt.func @disjoint_moduli_with_common_factor(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %c4_i32 = arith.constant 4 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_off = arith.addi %phase, %c1_i32 : i32
+  %w_idx = arith.remsi %w_off, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.remsi %phase, %c4_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NOT: ttg.barrier local
+  // CHECK: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
 // CHECK-LABEL: must_barrier_zero_modulus_remsi
 // remsi with a non-positive constant modulus must not be interpreted as a
 // modular index, so disjointness cannot be proven against the write at

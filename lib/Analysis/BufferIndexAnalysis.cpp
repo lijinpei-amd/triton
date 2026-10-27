@@ -7,6 +7,7 @@
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/MathExtras.h"
+#include <numeric>
 #include <optional>
 
 namespace mlir {
@@ -15,49 +16,32 @@ static int64_t normalizeModuloOffset(int64_t offset, int64_t modulus) {
   return ((offset % modulus) + modulus) % modulus;
 }
 
-/// A buffer index decomposed as `±baseValue + constantOffset`, optionally
-/// under a known modulus (recorded when the index is wrapped by remsi or
-/// the pipeliner's select/cmpi idiom). Two expressions rooted at the
-/// same base value with the same sign and different offsets (modulo the same
-/// recorded modulus, or the wrapped one's if only one carries a modulus)
-/// provably target different slots. With opposite base signs, an odd offset
-/// difference does under an even or absent modulus.
+/// A buffer index decomposed as `baseCoefficient * baseValue +
+/// constantOffset`, optionally under a known modulus (recorded when the index
+/// is wrapped by remsi or the pipeliner's select/cmpi idiom).
 struct BufferIndexExpr {
   Value baseValue;
   int64_t constantOffset = 0;
   std::optional<int64_t> modulus;
   Value indexedSource;
-  // The index is `constantOffset - baseValue`. Constants have no base and are
-  // never negated.
-  bool negatedBase = false;
+  // 1 or -1; 0 for constants, which have no base.
+  int64_t baseCoefficient = 1;
 
-  bool operator==(const BufferIndexExpr &other) const {
-    return baseValue == other.baseValue &&
-           constantOffset == other.constantOffset && modulus == other.modulus &&
-           indexedSource == other.indexedSource &&
-           negatedBase == other.negatedBase;
-  }
+  bool operator==(const BufferIndexExpr &) const = default;
 
   bool isProvablyDifferentFrom(const BufferIndexExpr &other) const {
     if (baseValue != other.baseValue || indexedSource != other.indexedSource)
       return false;
     // Both wrap forms preserve the residue: remsi(x, N), for any sign of x,
     // and the bounded select/cmpi wrap are congruent to x modulo N. Equal
-    // slots therefore need congruent expressions modulo the recorded modulus,
-    // or equal values when neither index is wrapped (m == 0 below).
-    if (modulus && other.modulus && *modulus != *other.modulus)
-      return false;
-    int64_t m = modulus.value_or(other.modulus.value_or(0));
-    if (negatedBase == other.negatedBase) {
-      if (m == 0)
-        return constantOffset != other.constantOffset;
-      return normalizeModuloOffset(constantOffset, m) !=
-             normalizeModuloOffset(other.constantOffset, m);
-    }
-    // base + C1 and C2 - base meet only if 2 * base == C2 - C1 (mod m). The
-    // left side is even for an even or absent modulus, so an odd difference
-    // has no solution.
-    return m % 2 == 0 && ((constantOffset ^ other.constantOffset) & 1) != 0;
+    // slots a1 * base + c1 and a2 * base + c2 therefore need
+    // (a1 - a2) * base == c2 - c1 modulo the gcd of the moduli, where an
+    // unwrapped index has modulus 0 (exact equality). That congruence has a
+    // solution iff gcd(a1 - a2, gcd of the moduli) divides c2 - c1.
+    int64_t m = std::gcd(modulus.value_or(0), other.modulus.value_or(0));
+    int64_t d = std::gcd(baseCoefficient - other.baseCoefficient, m);
+    int64_t diff = other.constantOffset - constantOffset;
+    return d == 0 ? diff != 0 : diff % d != 0;
   }
 };
 
@@ -231,7 +215,7 @@ std::optional<BufferIndexExpr> matchModuloPattern(arith::SelectOp selectOp) {
 // the wrapped operand does not overflow.
 BufferIndexExpr analyzeBufferIndex(Value indexValue) {
   if (auto c = getConstantIntValue(indexValue))
-    return BufferIndexExpr{nullptr, *c};
+    return BufferIndexExpr{.constantOffset = *c, .baseCoefficient = 0};
 
   // Returns constant + x, or constant - x when `negate` is set.
   auto composeWithConstant = [&](Value nonConst, int64_t constant,
@@ -243,7 +227,7 @@ BufferIndexExpr analyzeBufferIndex(Value indexValue) {
       return BufferIndexExpr{indexValue, 0};
     if (negate) {
       expr.constantOffset = -expr.constantOffset;
-      expr.negatedBase = expr.baseValue && !expr.negatedBase;
+      expr.baseCoefficient = -expr.baseCoefficient;
     }
     expr.constantOffset += constant;
     auto intType = dyn_cast<IntegerType>(indexValue.getType());
