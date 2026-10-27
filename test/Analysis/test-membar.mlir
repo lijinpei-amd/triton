@@ -1979,6 +1979,336 @@ tt.func @must_barrier_mismatched_moduli(%cst: tensor<128x128xf16>, %phase: i32) 
   tt.return
 }
 
+// CHECK-LABEL: disjoint_loop_carried_index_vs_remsi
+// The loop reads slot %idx and writes slot (%idx + 1) % 2. Only the write is
+// wrapped, but remsi preserves the residue modulo 2, so the two indices differ
+// for every value of %idx. The backedge still requires a barrier before the
+// read of the slot written by the previous iteration.
+tt.func @disjoint_loop_carried_index_vs_remsi(%cst: tensor<128x128xf16>, %continue: i1) {
+  %c0_i32 = arith.constant 0 : i32
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable>
+  cf.br ^loop(%c0_i32 : i32)
+
+^loop(%idx: i32):
+  %r_view = ttg.memdesc_index %alloc[%idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  %w_off = arith.addi %idx, %c1_i32 : i32
+  %w_idx = arith.remsi %w_off, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NOT: ttg.barrier local
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  cf.cond_br %continue, ^loop(%w_idx : i32), ^exit
+
+^exit:
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_index_congruent_to_remsi
+// Read at %phase + 2, write at %phase % 2. The offsets differ, but they are
+// congruent modulo 2: %phase = -2 selects slot 0 for both accesses.
+tt.func @must_barrier_index_congruent_to_remsi(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_idx = arith.remsi %phase, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.addi %phase, %c2_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: disjoint_index_vs_remsi_of_predecessor
+// Write at (%phase - 1) % 2, read at %phase: the residues modulo 2 differ.
+tt.func @disjoint_index_vs_remsi_of_predecessor(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable>
+
+  %w_off = arith.subi %phase, %c1_i32 : i32
+  %w_idx = arith.remsi %w_off, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_view = ttg.memdesc_index %alloc[%phase] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NOT: ttg.barrier local
+  // CHECK: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: disjoint_loop_carried_index_vs_one_minus_index
+// The loop reads slot %idx and writes slot 1 - %idx. Equal slots would need
+// 2 * %idx == 1, which has no integer solution. The backedge still requires a
+// barrier before the read of the slot written by the previous iteration.
+tt.func @disjoint_loop_carried_index_vs_one_minus_index(%cst: tensor<128x128xf16>, %continue: i1) {
+  %c0_i32 = arith.constant 0 : i32
+  %c1_i32 = arith.constant 1 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable>
+  cf.br ^loop(%c0_i32 : i32)
+
+^loop(%idx: i32):
+  %r_view = ttg.memdesc_index %alloc[%idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  %w_idx = arith.subi %c1_i32, %idx : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NOT: ttg.barrier local
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  cf.cond_br %continue, ^loop(%w_idx : i32), ^exit
+
+^exit:
+  tt.return
+}
+
+// CHECK-LABEL: disjoint_remsi_index_vs_one_minus_index
+// Write at 1 - %phase, read at %phase % 2. The two values always have
+// different parity, so the even modulus keeps them disjoint.
+tt.func @disjoint_remsi_index_vs_one_minus_index(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable>
+
+  %w_idx = arith.subi %c1_i32, %phase : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.remsi %phase, %c2_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NOT: ttg.barrier local
+  // CHECK: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_index_vs_two_minus_index
+// Write at 2 - %phase, read at %phase: %phase = 1 selects slot 1 for both.
+tt.func @must_barrier_index_vs_two_minus_index(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_idx = arith.subi %c2_i32, %phase : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_view = ttg.memdesc_index %alloc[%phase] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_negated_index_odd_modulus
+// Write at (7 - %phase) % 3, read at %phase. The offsets differ in parity,
+// but 2 is invertible modulo 3: %phase = 2 selects slot 2 for both.
+tt.func @must_barrier_negated_index_odd_modulus(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c3_i32 = arith.constant 3 : i32
+  %c7_i32 = arith.constant 7 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable>
+
+  %w_off = arith.subi %c7_i32, %phase : i32
+  %w_idx = arith.remsi %w_off, %c3_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_view = ttg.memdesc_index %alloc[%phase] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_index_congruent_to_later_remsi
+// Read at %phase + 2, then write at %phase % 2. The unwrapped index is the
+// earlier access here; %phase = -2 selects slot 0 for both.
+tt.func @must_barrier_index_congruent_to_later_remsi(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %r_idx = arith.addi %phase, %c2_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %w_idx = arith.remsi %phase, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  // CHECK-NEXT: ttg.barrier local
+  // CHECK-NEXT: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_negated_index_mismatched_moduli
+// Write at %phase % 2, read at (1 - %phase) % 3. Different moduli are not
+// compared: %phase = 4 selects slot 0 for both.
+tt.func @must_barrier_negated_index_mismatched_moduli(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %c3_i32 = arith.constant 3 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable>
+
+  %w_idx = arith.remsi %phase, %c2_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_off = arith.subi %c1_i32, %phase : i32
+  %r_idx = arith.remsi %r_off, %c3_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_remsi_of_predecessor_congruent_to_index
+// Write at (%phase - 1) % 3, read at %phase + 2. The subtracted constant is
+// not congruent to its negation modulo 3: %phase = -2 selects slot 0 for both.
+tt.func @must_barrier_remsi_of_predecessor_congruent_to_index(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %c3_i32 = arith.constant 3 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable>
+
+  %w_off = arith.subi %phase, %c1_i32 : i32
+  %w_idx = arith.remsi %w_off, %c3_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.addi %phase, %c2_i32 : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<3x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_predecessor_vs_one_minus_index
+// Write at %phase - 1, read at 1 - %phase. Subtracting a constant keeps the
+// base sign: %phase = 1 selects slot 0 for both.
+tt.func @must_barrier_predecessor_vs_one_minus_index(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_idx = arith.subi %phase, %c1_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.subi %c1_i32, %phase : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_negated_and_positive_index_same_offset
+// Read at %phase + 1, write at 1 - %phase, read at %phase + 3. The write must
+// not be treated as the first read's expression: %phase = 0 selects slot 1
+// for the first pair and %phase = -1 selects slot 2 for the second.
+tt.func @must_barrier_negated_and_positive_index_same_offset(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c3_i32 = arith.constant 3 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %r0_idx = arith.addi %phase, %c1_i32 : i32
+  %r0_view = ttg.memdesc_index %alloc[%r0_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %w_idx = arith.subi %c1_i32, %phase : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r1_idx = arith.addi %phase, %c3_i32 : i32
+  %r1_view = ttg.memdesc_index %alloc[%r1_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_load
+  %load0 = ttg.local_load %r0_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  // CHECK-NEXT: ttg.barrier local
+  // CHECK-NEXT: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK-NEXT: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load1 = ttg.local_load %r1_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_double_negation
+// Write at 1 - (1 - %phase), read at 2 - %phase. The second subtraction
+// restores the positive base: %phase = 1 selects slot 1 for both.
+tt.func @must_barrier_double_negation(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %c2_i32 = arith.constant 2 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_neg = arith.subi %c1_i32, %phase : i32
+  %w_idx = arith.subi %c1_i32, %w_neg : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_idx = arith.subi %c2_i32, %phase : i32
+  %r_view = ttg.memdesc_index %alloc[%r_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_negated_index_plus_constant
+// Write at (1 - %phase) + 1, read at %phase. Adding to a negated base keeps
+// it negated: %phase = 1 selects slot 1 for both.
+tt.func @must_barrier_negated_index_plus_constant(%cst: tensor<128x128xf16>, %phase: i32) {
+  %c1_i32 = arith.constant 1 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable>
+
+  %w_neg = arith.subi %c1_i32, %phase : i32
+  %w_idx = arith.addi %w_neg, %c1_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_view = ttg.memdesc_index %alloc[%phase] : !ttg.memdesc<4x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
+// CHECK-LABEL: must_barrier_offset_outside_index_range
+// Write at (%phase - INT_MIN) - INT_MIN, read at %phase. The i32 subtractions
+// wrap, so the write index equals %phase although the folded offset is 2^32.
+tt.func @must_barrier_offset_outside_index_range(%cst: tensor<128x128xf16>, %phase: i32) {
+  %cmin_i32 = arith.constant -2147483648 : i32
+  %alloc = ttg.local_alloc : () -> !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable>
+
+  %w_off = arith.subi %phase, %cmin_i32 : i32
+  %w_idx = arith.subi %w_off, %cmin_i32 : i32
+  %w_view = ttg.memdesc_index %alloc[%w_idx] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  %r_view = ttg.memdesc_index %alloc[%phase] : !ttg.memdesc<2x128x128xf16, #shared, #smem, mutable> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+
+  // CHECK: ttg.local_store
+  ttg.local_store %cst, %w_view : tensor<128x128xf16> -> !ttg.memdesc<128x128xf16, #shared, #smem, mutable>
+  // CHECK: ttg.barrier local
+  // CHECK-NEXT: ttg.local_load
+  %load = ttg.local_load %r_view : !ttg.memdesc<128x128xf16, #shared, #smem, mutable> -> tensor<128x128xf16>
+  tt.return
+}
+
 // CHECK-LABEL: must_barrier_zero_modulus_remsi
 // remsi with a non-positive constant modulus must not be interpreted as a
 // modular index, so disjointness cannot be proven against the write at
