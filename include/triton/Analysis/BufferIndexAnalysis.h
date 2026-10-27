@@ -6,6 +6,7 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include <memory>
 #include <vector>
@@ -14,6 +15,9 @@ namespace mlir {
 
 class Block;
 class Operation;
+namespace triton::gpu {
+class MemDescIndexOp;
+} // namespace triton::gpu
 struct AllocationSlice;
 struct BufferIndexExpr;
 
@@ -21,9 +25,16 @@ struct BufferIndexExpr;
 /// allocations selected by `ttg.memdesc_index`.
 ///
 /// The analysis is intentionally narrow. It decomposes the dynamic slot index
-/// into `base + constantOffset`, optionally under a positive constant modulus,
-/// and proves two accesses disjoint only when the expressions have the same
-/// base and different offsets modulo the same modulus.
+/// into `a * base + c` with constant integers `a` and `c` under a positive
+/// constant modulus `m`. Both modulus forms below preserve the residue of
+/// `a * base + c` modulo `m`. An index without a modulus form takes the leading
+/// dimension of the indexed descriptor, i.e. its number of slots, as `m`.
+/// Expressions are canonicalized to `0 <= a, c < m`, e.g. `(3 - x) % 2`
+/// becomes `(1 + x) % 2`. Two indices with the same base can therefore be equal
+/// only if `(a1 - a2) * base == c2 - c1` modulo `gcd(m1, m2)`. The accesses
+/// are proven disjoint only when that congruence has no solution, i.e. when
+/// `gcd(a1 - a2, gcd(m1, m2))` does not divide `c2 - c1`. The residues assume
+/// that the folded i32 arithmetic does not wrap, unless `m` divides 2^32.
 /// Scalar indices follow Triton's block-programming semantics. Comparisons
 /// also require the same indexed source in the same dynamic iteration:
 /// a source change can change both the origin and the byte stride of a slot.
@@ -31,8 +42,11 @@ struct BufferIndexExpr;
 /// Recognized index shapes:
 ///   1. integer constants,
 ///   2. `arith.addi` with one constant operand,
-///   3. `arith.remsi` with a positive constant modulus,
-///   4. the pipeliner's select/cmpi one-step wrap:
+///   3. `arith.subi` with one constant operand; `C - x` negates `a`,
+///   4. `arith.muli` with one constant operand and `arith.shli` by a constant
+///      amount below the bit width, which scale both `a` and `c`,
+///   5. `arith.remsi` with a positive constant modulus,
+///   6. the pipeliner's select/cmpi one-step wrap:
 ///        select(cmpi sge(base + 1, N), 0, base + 1)
 ///        select(cmpi slt(base + 1, N), base + 1, 0)
 ///      only when -1 <= base < N is proven.
@@ -46,9 +60,11 @@ struct BufferIndexExpr;
 /// Buffer-index reasoning is disabled for functions with irreducible control
 /// flow because not every cyclic edge is a dominance backedge in such CFGs.
 ///
-/// Unknown arithmetic, dynamic or non-positive moduli, nested moduli, different
-/// SSA bases, and slices carried across cf-form backedges all fail the
-/// disjointness proof and fall back to normal membar aliasing.
+/// Unknown arithmetic, dynamic or non-positive moduli, nested moduli, offset
+/// differences divisible by the gcd above, folded coefficients or offsets
+/// outside the index type's range, different SSA bases, and slices carried
+/// across cf-form backedges all fail the disjointness proof and fall back to
+/// normal membar aliasing.
 ///
 /// The class owns and interns the analyzed expressions attached to
 /// `AllocationSlice`; callers must not keep those payloads beyond the lifetime
@@ -77,12 +93,15 @@ public:
 
 private:
   void attachBufferIndex(AllocationSlice &slice, Value value);
+  const BufferIndexExpr *analyzeIndexOp(triton::gpu::MemDescIndexOp index);
   const BufferIndexExpr *intern(BufferIndexExpr expr);
 
   DominanceInfo dominanceInfo;
   llvm::SmallPtrSet<Block *, 4> loopHeaders;
   bool hasReducibleCFG;
   std::vector<std::unique_ptr<BufferIndexExpr>> expressions;
+  // Interned expression per memdesc_index; null if it cannot be analyzed.
+  llvm::DenseMap<Operation *, const BufferIndexExpr *> indexExpressions;
 };
 
 /// Returns true only if the buffer-index expressions attached to `a` and `b`
