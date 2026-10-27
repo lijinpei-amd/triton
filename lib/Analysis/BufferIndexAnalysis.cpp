@@ -6,6 +6,8 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/MathExtras.h"
+#include <numeric>
 #include <optional>
 
 namespace mlir {
@@ -14,27 +16,46 @@ static int64_t normalizeModuloOffset(int64_t offset, int64_t modulus) {
   return ((offset % modulus) + modulus) % modulus;
 }
 
-/// A buffer index decomposed as `baseValue + constantOffset`, optionally
-/// under a known modulus (recorded when the index is wrapped by remsi or
-/// the pipeliner's select/cmpi idiom). Two expressions rooted at the
-/// same base value with different offsets (modulo the same recorded modulus,
-/// when both carry one) provably target different slots.
+/// A buffer index decomposed as `baseCoefficient * baseValue +
+/// constantOffset`, optionally under a known modulus (recorded for remsi and
+/// the pipeliner's select/cmpi idiom).
 struct BufferIndexExpr {
   Value baseValue;
   int64_t constantOffset = 0;
   std::optional<int64_t> modulus;
   Value indexedSource;
+  // Multiplier of baseValue; 0 for constants, which have no base.
+  int64_t baseCoefficient = 1;
 
-  bool operator==(const BufferIndexExpr &other) const {
-    return baseValue == other.baseValue &&
-           constantOffset == other.constantOffset && modulus == other.modulus &&
-           indexedSource == other.indexedSource;
-  }
+  bool operator==(const BufferIndexExpr &) const = default;
 
   bool isProvablyDifferentFrom(const BufferIndexExpr &other) const {
-    return baseValue == other.baseValue &&
-           indexedSource == other.indexedSource && modulus == other.modulus &&
-           constantOffset != other.constantOffset;
+    if (baseValue != other.baseValue || indexedSource != other.indexedSource)
+      return false;
+    // Proof. Membar compares slices only within one dynamic iteration, so
+    // baseValue has a single runtime value b. Let v0 (this) and v1 (other) be
+    // the i32 slot indices, with coefficients a0, a1, offsets c0, c1 and
+    // moduli m0, m1 (2^32 for an index without a modulus). Every m_i is
+    // positive, so m = gcd(m0, m1) >= 1 and d = gcd(a0 - a1, m) >= 1, also
+    // when a0 == a1 because gcd(0, m) == m for m != 0.
+    //   v0 == v1
+    //   => a0 * b + c0 == a1 * b + c1 (mod m)
+    //   => (a0 - a1) * b - (c1 - c0) == t * m for some integer t
+    //   => d divides c1 - c0
+    // Hence if d does not divide c1 - c0, then v0 != v1.
+    // The first step assumes that a remsi operand does not overflow, i.e.
+    // equals a_i * b + c_i, unless the modulus divides 2^32. Both pairs below
+    // are proven disjoint but select the same slot when the operand wraps:
+    //   - (b + 4) % 3 vs b % 3 at b = 2^31 - 2. Folding only addi already
+    //     has this gap, but only near the i32 limits.
+    //   - ((b << 30) + 1) % 3 vs b % 3 at b = 3, 4 and 5. Folding muli and
+    //     shli makes the gap reachable with small b.
+    constexpr int64_t kI32Modulus = int64_t{1} << 32;
+    int64_t m = std::gcd(modulus.value_or(kI32Modulus),
+                         other.modulus.value_or(kI32Modulus));
+    int64_t d = std::gcd(baseCoefficient - other.baseCoefficient, m);
+    int64_t diff = other.constantOffset - constantOffset;
+    return diff % d != 0;
   }
 };
 
@@ -196,31 +217,65 @@ std::optional<BufferIndexExpr> matchModuloPattern(arith::SelectOp selectOp) {
   // general; keep the full select as the expression root.
   if (baseExpr.modulus)
     return std::nullopt;
-  BufferIndexExpr result{baseExpr.baseValue, baseExpr.constantOffset + *c};
+  BufferIndexExpr result = baseExpr;
+  result.constantOffset += *c;
   result.modulus = *mod;
   return result;
 }
 
-// Slot indices are assumed not to overflow signed integer arithmetic; use a
-// wider index type if the pipeline counter can reach the integer range.
+// Folded coefficients and offsets stay within the signed range of the index
+// type, which also keeps the int64_t arithmetic here from overflowing.
+// Indices without a modulus are compared modulo 2^width, but the remsi
+// residue reasoning assumes that the remsi operand equals its folded
+// expression, i.e. does not overflow.
 BufferIndexExpr analyzeBufferIndex(Value indexValue) {
   if (auto c = getConstantIntValue(indexValue))
-    return BufferIndexExpr{nullptr, *c};
+    return BufferIndexExpr{.constantOffset = *c, .baseCoefficient = 0};
+
+  auto intType = dyn_cast<IntegerType>(indexValue.getType());
+
+  // Returns scale * x + constant.
+  auto composeAffine = [&](Value nonConst, int64_t scale,
+                           int64_t constant) -> BufferIndexExpr {
+    auto expr = analyzeBufferIndex(nonConst);
+    // (x mod N) * K + C is not represented as (base, offset, mod); keep the
+    // full expression as the root.
+    if (expr.modulus || !intType)
+      return BufferIndexExpr{indexValue, 0};
+    expr.baseCoefficient *= scale;
+    expr.constantOffset = expr.constantOffset * scale + constant;
+    if (!llvm::isIntN(intType.getWidth(), expr.baseCoefficient) ||
+        !llvm::isIntN(intType.getWidth(), expr.constantOffset))
+      return BufferIndexExpr{indexValue, 0};
+    return expr;
+  };
 
   if (auto addOp = indexValue.getDefiningOp<arith::AddIOp>()) {
-    auto composeWithConstant = [&](Value nonConst,
-                                   int64_t constant) -> BufferIndexExpr {
-      auto baseExpr = analyzeBufferIndex(nonConst);
-      // (x mod N) + C is not represented as (base, offset, mod); keep the
-      // full addi as the expression root.
-      if (baseExpr.modulus)
-        return BufferIndexExpr{indexValue, 0};
-      return {baseExpr.baseValue, baseExpr.constantOffset + constant};
-    };
     if (auto offset = getConstantIntValue(addOp.getRhs()))
-      return composeWithConstant(addOp.getLhs(), *offset);
+      return composeAffine(addOp.getLhs(), 1, *offset);
     if (auto offset = getConstantIntValue(addOp.getLhs()))
-      return composeWithConstant(addOp.getRhs(), *offset);
+      return composeAffine(addOp.getRhs(), 1, *offset);
+  }
+
+  if (auto subOp = indexValue.getDefiningOp<arith::SubIOp>()) {
+    if (auto offset = getConstantIntValue(subOp.getRhs()))
+      return composeAffine(subOp.getLhs(), 1, -*offset);
+    if (auto offset = getConstantIntValue(subOp.getLhs()))
+      return composeAffine(subOp.getRhs(), -1, *offset);
+  }
+
+  if (auto mulOp = indexValue.getDefiningOp<arith::MulIOp>()) {
+    if (auto scale = getConstantIntValue(mulOp.getRhs()))
+      return composeAffine(mulOp.getLhs(), *scale, 0);
+    if (auto scale = getConstantIntValue(mulOp.getLhs()))
+      return composeAffine(mulOp.getRhs(), *scale, 0);
+  }
+
+  // x << K equals x * 2^K modulo 2^width; K >= width yields poison.
+  if (auto shlOp = indexValue.getDefiningOp<arith::ShLIOp>()) {
+    auto amount = getConstantIntValue(shlOp.getRhs());
+    if (intType && amount && *amount >= 0 && *amount < intType.getWidth())
+      return composeAffine(shlOp.getLhs(), int64_t{1} << *amount, 0);
   }
 
   if (auto selectOp = indexValue.getDefiningOp<arith::SelectOp>())
@@ -277,11 +332,12 @@ bool areBufferIndicesProvablyDifferent(const AllocationSlice &a,
 }
 
 const BufferIndexExpr *BufferIndexAnalysis::intern(BufferIndexExpr expr) {
-  // Euclidean normalization: make 0 <= constantOffset < m so negative constants
+  // Euclidean normalization: make 0 <= a, c < m so negative constants
   // compare correctly against positive ones. Equivalent expressions (e.g.
   // offset 0 and offset m) share a single interned entry.
   if (expr.modulus) {
     int64_t m = *expr.modulus;
+    expr.baseCoefficient = normalizeModuloOffset(expr.baseCoefficient, m);
     expr.constantOffset = normalizeModuloOffset(expr.constantOffset, m);
   }
 
