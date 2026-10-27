@@ -3,18 +3,15 @@
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/IR/Matchers.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/Hashing.h"
 #include "llvm/Support/MathExtras.h"
 #include <numeric>
 #include <optional>
 
 namespace mlir {
-
-static int64_t normalizeModuloOffset(int64_t offset, int64_t modulus) {
-  return ((offset % modulus) + modulus) % modulus;
-}
 
 /// A buffer index decomposed as `baseCoefficient * baseValue +
 /// constantOffset`, optionally under a known modulus (recorded for remsi and
@@ -46,6 +43,22 @@ struct BufferIndexExpr {
     int64_t diff = other.constantOffset - constantOffset;
     return diff % d != 0;
   }
+};
+
+/// Hashes and compares interned expressions by value. The BufferIndexExpr
+/// overloads let `find_as` look up an expression without allocating it.
+struct BufferIndexExprPtrInfo {
+  using Ptr = std::unique_ptr<BufferIndexExpr>;
+
+  static unsigned getHashValue(const BufferIndexExpr &expr) {
+    return llvm::hash_combine(expr.baseValue, expr.constantOffset, expr.modulus,
+                              expr.indexedSource, expr.baseCoefficient);
+  }
+  static unsigned getHashValue(const Ptr &expr) { return getHashValue(*expr); }
+  static bool isEqual(const BufferIndexExpr &lhs, const Ptr &rhs) {
+    return lhs == *rhs;
+  }
+  static bool isEqual(const Ptr &lhs, const Ptr &rhs) { return *lhs == *rhs; }
 };
 
 namespace {
@@ -83,13 +96,6 @@ bool isReducibleCFG(FunctionOpInterface funcOp, DominanceInfo &dominanceInfo,
   DenseMap<Block *, DFSState> states;
   return isReducibleCFG(&funcOp.getBlocks().front(), states, dominanceInfo,
                         loopHeaders);
-}
-
-std::optional<int64_t> getConstantIntValue(Value v) {
-  APInt val;
-  if (matchPattern(v, m_ConstantInt(&val)))
-    return val.getSExtValue();
-  return std::nullopt;
 }
 
 BufferIndexExpr analyzeBufferIndex(Value indexValue);
@@ -321,23 +327,17 @@ bool areBufferIndicesProvablyDifferent(const AllocationSlice &a,
 }
 
 const BufferIndexExpr *BufferIndexAnalysis::intern(BufferIndexExpr expr) {
-  // Euclidean normalization: make 0 <= a, c < m so negative constants
-  // compare correctly against positive ones. Equivalent expressions (e.g.
-  // offset 0 and offset m) share a single interned entry.
+  // Euclidean normalization: make 0 <= a, c < m so equivalent expressions
+  // (e.g. offset -1 and offset m - 1) share a single interned entry.
   if (expr.modulus) {
-    int64_t m = *expr.modulus;
-    expr.baseCoefficient = normalizeModuloOffset(expr.baseCoefficient, m);
-    expr.constantOffset = normalizeModuloOffset(expr.constantOffset, m);
+    expr.baseCoefficient = llvm::mod(expr.baseCoefficient, *expr.modulus);
+    expr.constantOffset = llvm::mod(expr.constantOffset, *expr.modulus);
   }
 
-  for (const auto &existing : expressions)
-    if (*existing == expr)
-      return existing.get();
-
-  auto owned = std::make_unique<BufferIndexExpr>(expr);
-  const BufferIndexExpr *result = owned.get();
-  expressions.push_back(std::move(owned));
-  return result;
+  auto it = expressions.find_as(expr);
+  if (it == expressions.end())
+    it = expressions.insert(std::make_unique<BufferIndexExpr>(expr)).first;
+  return it->get();
 }
 
 AllocationSlice

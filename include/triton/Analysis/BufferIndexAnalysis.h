@@ -6,9 +6,9 @@
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Value.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include <memory>
-#include <vector>
 
 namespace mlir {
 
@@ -16,6 +16,7 @@ class Block;
 class Operation;
 struct AllocationSlice;
 struct BufferIndexExpr;
+struct BufferIndexExprPtrInfo;
 
 /// Extends membar's slice disjointness check for multi-buffered shared-memory
 /// allocations selected by `ttg.memdesc_index`.
@@ -91,7 +92,9 @@ private:
   DominanceInfo dominanceInfo;
   llvm::SmallPtrSet<Block *, 4> loopHeaders;
   bool hasReducibleCFG;
-  std::vector<std::unique_ptr<BufferIndexExpr>> expressions;
+  // The unique_ptr keeps interned addresses stable across rehashing.
+  llvm::DenseSet<std::unique_ptr<BufferIndexExpr>, BufferIndexExprPtrInfo>
+      expressions;
 };
 
 /// Returns true only if the buffer-index expressions attached to `a` and `b`
