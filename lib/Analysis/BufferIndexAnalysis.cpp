@@ -3,7 +3,7 @@
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/IR/Matchers.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/MathExtras.h"
@@ -11,10 +11,6 @@
 #include <optional>
 
 namespace mlir {
-
-static int64_t normalizeModuloOffset(int64_t offset, int64_t modulus) {
-  return ((offset % modulus) + modulus) % modulus;
-}
 
 /// A buffer index decomposed as `baseCoefficient * baseValue +
 /// constantOffset`, optionally under a known modulus (recorded when the index
@@ -80,13 +76,6 @@ bool isReducibleCFG(FunctionOpInterface funcOp, DominanceInfo &dominanceInfo,
   DenseMap<Block *, DFSState> states;
   return isReducibleCFG(&funcOp.getBlocks().front(), states, dominanceInfo,
                         loopHeaders);
-}
-
-std::optional<int64_t> getConstantIntValue(Value v) {
-  APInt val;
-  if (matchPattern(v, m_ConstantInt(&val)))
-    return val.getSExtValue();
-  return std::nullopt;
 }
 
 BufferIndexExpr analyzeBufferIndex(Value indexValue);
@@ -304,13 +293,11 @@ bool areBufferIndicesProvablyDifferent(const AllocationSlice &a,
 }
 
 const BufferIndexExpr *BufferIndexAnalysis::intern(BufferIndexExpr expr) {
-  // Euclidean normalization: make 0 <= constantOffset < m so negative constants
-  // compare correctly against positive ones. Equivalent expressions (e.g.
-  // offset 0 and offset m) share a single interned entry.
-  if (expr.modulus) {
-    int64_t m = *expr.modulus;
-    expr.constantOffset = normalizeModuloOffset(expr.constantOffset, m);
-  }
+  // Euclidean normalization: make 0 <= constantOffset < m so equivalent
+  // expressions (e.g. offset -1 and offset m - 1) share a single interned
+  // entry.
+  if (expr.modulus)
+    expr.constantOffset = llvm::mod(expr.constantOffset, *expr.modulus);
 
   for (const auto &existing : expressions)
     if (*existing == expr)
