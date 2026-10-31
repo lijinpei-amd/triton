@@ -4,7 +4,8 @@ from triton._C.libtriton.gluon_ir import (
     compute_amd_efficient_padded_shared_layout as _compute_efficient_padded_shared_layout,
 )
 
-from ..._core import builtin, int8, uint8, _unwrap_if_constexpr
+from ... import _core as ttgl
+from ..._core import builtin, int8, int32, uint8, _unwrap_if_constexpr
 from ..._layouts import DotOperandLayout
 from .._layouts import AMDMFMALayout
 from .._ops import _load_shared_fp4_repacked, _mma_scaled, _scaled_upcast, scaled_downcast
@@ -19,6 +20,7 @@ __all__ = [
     "async_copy",
     "buffer",
     "mfma_scaled",
+    "mfma_scaled_packed",
     "scaled_upcast",
     "scaled_downcast",
     "load_shared_fp4_repacked",
@@ -73,6 +75,87 @@ def mfma_scaled(a, a_scale, a_format, b, b_scale, b_format, acc, cd_regclass=Non
     ret = _mma_scaled(a, a_scale, a_format, b, b_scale, b_format, acc, get_mfma_scale_layout, _semantic)
     _set_cd_regclass(ret.handle, cd_regclass, _semantic)
     return ret
+
+
+@builtin
+def mfma_scaled_packed(a, a_scale, a_scale_sel, a_format, b, b_scale, b_scale_sel, b_format, acc, _semantic=None):
+    """
+    AMD scaled MFMA taking pre-packed scale operands.
+
+    Same arithmetic as :func:`mfma_scaled`, but the scales arrive as ``int32``
+    tensors in which the kernel has already assembled four E8M0 bytes per word,
+    and the caller states which byte each matrix instruction must select. This
+    hands the caller two things ``mfma_scaled`` decides on its own:
+
+    * **No packing code.** ``mfma_scaled`` receives ``uint8`` scales and has to
+      build the 32-bit operands itself, which costs a ``v_perm_b32`` per word.
+      Here the loaded word goes straight to ``v_mfma_scale_*`` untouched, so a
+      scale layout designed around ``ds_read_b32``/``buffer_load_dword`` keeps
+      that property all the way down.
+    * **The byte order.** ``mfma_scaled`` packs along K first and then along the
+      non-K dimension. A pre-shuffled scale tensor generally does not follow
+      that order, and ``a_scale_sel``/``b_scale_sel`` are how you say so.
+
+    The selector lists are walked against the lowering's matrix-instruction
+    order, which is row-major over ``(non_k, k)`` repetitions: instruction
+    ``i = non_k * num_rep_k + k`` uses selector ``sel[i % len(sel)]`` of scale
+    register ``i // len(sel)``. Registers are taken from the scale tensor in the
+    per-thread order its layout produces, so ``len(sel)`` must divide
+    ``num_rep_m * num_rep_k`` (respectively ``num_rep_n * num_rep_k``), and the
+    tensor must hold at least ``num_rep_m * num_rep_k // len(sel)`` words per
+    thread. None of that is checked at compile time -- a wrong selector list
+    silently scales by the wrong exponent.
+
+    Args:
+        a (tensor): The operand A to be multiplied.
+        a_scale (tensor): ``int32`` packed scale factors for operand A, or the
+            ordinary ``uint8`` scales if ``a_scale_sel`` is None.
+        a_scale_sel (Optional[List[int]]): Byte selectors, each in ``[0, 3]``,
+            for A. None leaves this operand on the ``mfma_scaled`` path, which
+            is what a scale layout that cannot be packed per lane needs.
+        a_format (str): Format of operand A: ``e2m1``, ``e4m3`` or ``e5m2``.
+        b (tensor): The operand B to be multiplied.
+        b_scale (tensor): ``int32`` packed scale factors for operand B, or the
+            ordinary ``uint8`` scales if ``b_scale_sel`` is None.
+        b_scale_sel (Optional[List[int]]): Byte selectors, each in ``[0, 3]``, for B.
+        b_format (str): Format of operand B: ``e2m1``, ``e4m3`` or ``e5m2``.
+        acc (tensor): Accumulator tensor.
+    """
+    layout = acc.type.layout
+    assert isinstance(layout, AMDMFMALayout), "Expected layout to be an instance of AMDMFMALayout"
+    assert (isinstance(a.type.layout, DotOperandLayout) and a.type.layout.parent == layout), \
+            "Expected lhs layout to be a DotOperandLayout with parent matching MFMA layout"
+    assert (isinstance(b.type.layout, DotOperandLayout) and b.type.layout.parent == layout), \
+            "Expected rhs layout to be a DotOperandLayout with parent matching MFMA layout"
+
+    a_format = _unwrap_if_constexpr(a_format)
+    b_format = _unwrap_if_constexpr(b_format)
+    assert a_format in {"e2m1", "e4m3", "e5m2"}, f"Unsupported lhs_format: {a_format}"
+    assert b_format in {"e2m1", "e4m3", "e5m2"}, f"Unsupported rhs_format: {b_format}"
+
+    def _check_operand(name, sel, scale):
+        sel = _unwrap_if_constexpr(sel)
+        if sel is None:
+            # Not pre-packed: this side falls back to mfma_scaled's own packing.
+            assert scale is not None, f"{name} must not be None"
+            return []
+        sel = [_unwrap_if_constexpr(s) for s in sel]
+        assert len(sel) > 0, f"{name}_sel must not be empty"
+        assert all(isinstance(s, int) and 0 <= s <= 3 for s in sel), \
+            f"{name}_sel entries must be ints in [0, 3], got {sel}"
+        assert scale is not None and scale.dtype == int32, \
+            f"{name} must be an int32 tensor of pre-packed scales, got {None if scale is None else scale.dtype}"
+        return sel
+
+    a_scale_sel = _check_operand("a_scale", a_scale_sel, a_scale)
+    b_scale_sel = _check_operand("b_scale", b_scale_sel, b_scale)
+    assert a_scale_sel or b_scale_sel, "at least one of a_scale_sel / b_scale_sel must be given"
+
+    handle = _semantic.builder.create_dot_scaled_packed(a.handle, a_scale.handle,
+                                                        _semantic._str_to_fp_type(a_format), b.handle, b_scale.handle,
+                                                        _semantic._str_to_fp_type(b_format), acc.handle, a_scale_sel,
+                                                        b_scale_sel)
+    return ttgl.tensor(handle, acc.type)
 
 
 @builtin

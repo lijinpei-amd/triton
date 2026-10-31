@@ -1274,13 +1274,31 @@ void init_gluon_ir(py::module_ &m) {
            })
       .def("create_buffer_load",
            [](GluonOpBuilder &self, Type resultType, Value ptr, Value offsets,
-              Value mask, Value other,
-              tt::CacheModifier cacheModifier) -> Value {
+              Value mask, Value other, tt::CacheModifier cacheModifier,
+              int32_t contiguity, Value soffset) -> Value {
              return self.create<ttag::BufferLoadOp>(
                  resultType, ptr, offsets, Value() /*stride*/,
                  buildCachePolicy(self.getBuilder(), cacheModifier), mask,
-                 other, /*contiguity=*/1, /*soffset=*/Value(),
+                 other, contiguity, soffset,
                  /*scope=*/tt::MemSyncScopeAttr());
+           })
+      .def("create_dot_scaled_packed",
+           [](GluonOpBuilder &self, Value a, Value aScale,
+              tt::ScaleDotElemType aFormat, Value b, Value bScale,
+              tt::ScaleDotElemType bFormat, Value c,
+              std::vector<int32_t> &aScaleSel,
+              std::vector<int32_t> &bScaleSel) -> Value {
+             Value res = self.create<tt::DotScaledOp>(
+                 c.getType(), a, b, c, aScale, bScale, aFormat, bFormat,
+                 /*fastMath=*/false, /*lhs_k_pack=*/true,
+                 /*rhs_k_pack=*/true);
+             Operation *op = res.getDefiningOp();
+             auto &builder = self.getBuilder();
+             op->setAttr("amdgpu.a_scale_sel",
+                         builder.getDenseI32ArrayAttr(aScaleSel));
+             op->setAttr("amdgpu.b_scale_sel",
+                         builder.getDenseI32ArrayAttr(bScaleSel));
+             return res;
            })
       .def("create_buffer_store",
            [](GluonOpBuilder &self, Value storedValue, Value ptr, Value offsets,
@@ -1293,12 +1311,12 @@ void init_gluon_ir(py::module_ &m) {
            })
       .def("create_buffer_load_to_local",
            [](GluonOpBuilder &self, Value dest, Value ptr, Value offsets,
-              Value mask, Value other, Value stride,
+              Value mask, Value other, Value stride, Value soffset,
               tt::CacheModifier cacheModifier) {
              self.create<ttag::BufferLoadToLocalOp>(
                  dest, ptr, offsets, mask, other, stride,
                  buildCachePolicy(self.getBuilder(), cacheModifier),
-                 /*contiguity=*/1, /*soffset=*/Value(),
+                 /*contiguity=*/1, soffset,
                  /*scope=*/tt::MemSyncScopeAttr());
            })
       .def("create_buffer_atomic_rmw",
@@ -1480,6 +1498,37 @@ void init_gluon_ir(py::module_ &m) {
                throw std::invalid_argument("invalid scheduling barrier mask " +
                                            std::to_string(mask));
              self.create<ROCDL::SchedBarrier>(*schedMask);
+           })
+      .def("create_amd_sched_group_barrier",
+           [](GluonOpBuilder &self, int32_t mask, int32_t size, int32_t syncid) {
+             self.create<ROCDL::SchedGroupBarrier>(
+                 static_cast<ROCDL::SchedGroupMask>(mask), size, syncid);
+           })
+      .def("create_amd_wave_id",
+           [](GluonOpBuilder &self) -> Value {
+             auto i32 = self.getBuilder().getIntegerType(32);
+             Value tid = self.create<ROCDL::ThreadIdXOp>(i32);
+             auto mod = self.getBuilder()
+                            .getBlock()
+                            ->getParentOp()
+                            ->getParentOfType<ModuleOp>();
+             int warpSize = triton::gpu::TritonGPUDialect::getThreadsPerWarp(mod);
+             Value ws = self.create<arith::ConstantIntOp>(warpSize, 32);
+             return self.create<arith::DivUIOp>(tid, ws);
+           })
+      .def("create_amd_cond_barrier",
+           [](GluonOpBuilder &self, Value pred) {
+             self.create<ttag::CondBarrierOp>(pred);
+           })
+      .def("create_amd_setprio",
+           [](GluonOpBuilder &self, int32_t prio) {
+             self.create<ROCDL::SetPrioOp>(prio);
+           })
+      .def("create_amd_bare_barrier",
+           [](GluonOpBuilder &self) { self.create<ROCDL::SBarrierOp>(); })
+      .def("create_amd_iglp_opt",
+           [](GluonOpBuilder &self, int32_t variant) {
+             self.create<ROCDL::IglpOpt>(variant);
            })
       .def("create_warp_pipeline_border",
            [](GluonOpBuilder &self, const std::string &marker, int priority) {

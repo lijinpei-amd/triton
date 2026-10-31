@@ -3047,6 +3047,93 @@ def test_amd_mfma_scaled_3d(device='cuda'):
     torch.testing.assert_close(out, ref)
 
 
+@pytest.mark.skipif(not is_hip_cdna4(), reason="Requires CDNA4")
+@pytest.mark.parametrize("scale_sel", [(0, 1, 2, 3), (3, 2, 1, 0), (2, 0, 3, 1)])
+def test_amd_mfma_scaled_packed(scale_sel, device='cuda'):
+    M, N, K = 32, 32, 512
+
+    @gluon.jit
+    def kernel(out_ptr, a_ptr, b_ptr, a_scale_ptr, b_scale_ptr,  #
+               M: ttgl.constexpr, N: ttgl.constexpr, K: ttgl.constexpr, scale_sel: ttgl.constexpr):
+        K_PACKED: ttgl.constexpr = K // 2
+        KW: ttgl.constexpr = K // 128
+
+        mfma_layout: ttgl.constexpr = ttgl.amd.AMDMFMALayout(version=4, instr_shape=[16, 16, 128], transposed=True,
+                                                             warps_per_cta=[2, 2])
+        a_load_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 8], [8, 8], [4, 1], [1, 0])
+        b_load_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 8], [16, 4], [4, 1], [1, 0])
+        a_layout: ttgl.constexpr = ttgl.DotOperandLayout(operand_index=0, parent=mfma_layout, k_width=16)
+        b_layout: ttgl.constexpr = ttgl.DotOperandLayout(operand_index=1, parent=mfma_layout, k_width=16)
+
+        # get_mfma_scale_layout gives each thread four scales, at K-groups
+        # 4*r + c for r in 0..3, where c is fixed per thread. Packing those four
+        # into one word is exactly what mfma_scaled would have emitted VALU for;
+        # here the host has done it, so the word arrives ready to use and the
+        # selector list says which byte belongs to which K repetition.
+        a_scale_layout: ttgl.constexpr = ttgl.DistributedLinearLayout(
+            reg_bases=[], lane_bases=[[1, 0], [2, 0], [4, 0], [8, 0], [0, 1], [0, 2]], warp_bases=[[0, 0], [16, 0]],
+            block_bases=[], shape=[M, KW])
+        b_scale_layout: ttgl.constexpr = ttgl.DistributedLinearLayout(
+            reg_bases=[], lane_bases=[[1, 0], [2, 0], [4, 0], [8, 0], [0, 1], [0, 2]], warp_bases=[[16, 0], [0, 0]],
+            block_bases=[], shape=[N, KW])
+
+        a_offs_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, a_load_layout))[:, None]
+        a_offs_k = ttgl.arange(0, K_PACKED, layout=ttgl.SliceLayout(0, a_load_layout))[None, :]
+        a = ttgl.amd.cdna4.buffer_load(a_ptr, a_offs_m * K_PACKED + a_offs_k)
+        a = ttgl.convert_layout(a, a_layout)
+
+        b_offs_k = ttgl.arange(0, K_PACKED, layout=ttgl.SliceLayout(1, b_load_layout))[:, None]
+        b_offs_n = ttgl.arange(0, N, layout=ttgl.SliceLayout(0, b_load_layout))[None, :]
+        b = ttgl.amd.cdna4.buffer_load(b_ptr, b_offs_k * N + b_offs_n)
+        b = ttgl.convert_layout(b, b_layout)
+
+        a_scale_m = ttgl.arange(0, M, layout=ttgl.SliceLayout(1, a_scale_layout))[:, None]
+        a_scale_k = ttgl.arange(0, KW, layout=ttgl.SliceLayout(0, a_scale_layout))[None, :]
+        a_scale = ttgl.amd.cdna4.buffer_load(a_scale_ptr, a_scale_m * KW + a_scale_k)
+
+        b_scale_n = ttgl.arange(0, N, layout=ttgl.SliceLayout(1, b_scale_layout))[:, None]
+        b_scale_k = ttgl.arange(0, KW, layout=ttgl.SliceLayout(0, b_scale_layout))[None, :]
+        b_scale = ttgl.amd.cdna4.buffer_load(b_scale_ptr, b_scale_n * KW + b_scale_k)
+
+        zero = ttgl.zeros([M, N], dtype=ttgl.float32, layout=mfma_layout)
+        c = ttgl.amd.cdna4.mfma_scaled_packed(a, a_scale, scale_sel, "e2m1", b, b_scale, scale_sel, "e2m1", zero)
+
+        out_offs_m = ttgl.arange(0, M)[:, None]
+        out_offs_n = ttgl.arange(0, N)[None, :]
+        ttgl.amd.cdna4.buffer_store(c, out_ptr, out_offs_m * N + out_offs_n)
+
+    def pack(scale, sel):
+        v = scale.view(scale.shape[0], -1, 4).to(torch.int32)
+        out = torch.zeros_like(v[:, 0])
+        for rep, byte in enumerate(sel):
+            out |= v[:, rep] << (8 * byte)
+        return out.contiguous()
+
+    torch.manual_seed(0)
+    a_mx = MXFP4Tensor(size=(M, K)).random()
+    b_mx = MXFP4Tensor(size=(K, N)).random()
+    a_scale_mx = MXScaleTensor(size=(M, K // 32)).random(1 / 32, 32)
+    b_scale_mx = MXScaleTensor(size=(N, K // 32)).random(1 / 32, 32)
+
+    out = torch.empty((M, N), dtype=torch.float32, device=device)
+    compiled = kernel[(1, )](out, a_mx.to_packed_tensor(1).to(device), b_mx.to_packed_tensor(0).to(device),
+                             pack(a_scale_mx.data, scale_sel).to(device),
+                             pack(b_scale_mx.data, scale_sel).to(device), M, N, K, scale_sel, num_warps=4)
+
+    a_ref = a_mx.to(torch.float32).to(device) * a_scale_mx.to(torch.float32).repeat_interleave(32, dim=1).to(device)
+    b_ref = b_mx.to(torch.float32).to(device) * b_scale_mx.to(torch.float32).repeat_interleave(
+        32, dim=1).T.contiguous().to(device)
+    torch.testing.assert_close(out, torch.matmul(a_ref, b_ref), atol=1e-2, rtol=1e-5)
+
+    # One scale register per operand feeding all four instructions, distinguished
+    # only by op_sel -- no per-instruction scale setup at all.
+    operands = re.compile(r"v_mfma_scale_f32_16x16x128_f8f6f4\s+(.*?)\s+(?:op_sel|cbsz)")
+    mfmas = [m.group(1) for l in compiled.asm['amdgcn'].splitlines() if (m := operands.search(l))]
+    assert len(mfmas) == 4, mfmas
+    scale_regs = {tuple(s.strip() for s in ops.split(',')[-2:]) for ops in mfmas}
+    assert len(scale_regs) == 1, scale_regs
+
+
 def test_math_fast_expf():
 
     @gluon.jit

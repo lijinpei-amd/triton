@@ -4149,6 +4149,45 @@ def test_amd_mfma_scaled_cd_regclass(target):
 
 
 @pytest.mark.parametrize("target", [HIP_TARGET_CDNA4])
+def test_amd_mfma_scaled_packed_mixed_k128(target):
+    @gluon.jit
+    def kernel():
+        mfma_layout: ttgl.constexpr = ttgl.amd.AMDMFMALayout(
+            version=4,
+            instr_shape=[16, 16, 128],
+            transposed=True,
+            warps_per_cta=[1, 1],
+            tiles_per_warp=[2, 2],
+        )
+        a_layout: ttgl.constexpr = ttgl.DotOperandLayout(0, mfma_layout, 16)
+        b_layout: ttgl.constexpr = ttgl.DotOperandLayout(1, mfma_layout, 16)
+        a_scale_layout: ttgl.constexpr = ttgl.DistributedLinearLayout(
+            reg_bases=[],
+            lane_bases=[[0, 1], [1, 0], [2, 0], [4, 0], [8, 0], [16, 0]],
+            warp_bases=[],
+            block_bases=[],
+            shape=[32, 2],
+        )
+        b_scale_layout: ttgl.constexpr = ttgl.amd.cdna4.get_mfma_scale_layout(
+            b_layout, [32, 4]
+        )
+
+        a = ttgl.full([32, 64], 0x11, ttgl.uint8, a_layout)
+        b = ttgl.full([64, 32], 0x22, ttgl.uint8, b_layout)
+        a_scale = ttgl.full([32, 2], 0x01010101, ttgl.int32, a_scale_layout)
+        b_scale = ttgl.full([32, 4], 0x01, ttgl.uint8, b_scale_layout)
+        acc = ttgl.full([32, 32], 0, ttgl.float32, mfma_layout)
+        ttgl.amd.cdna4.mfma_scaled_packed(
+            a, a_scale, [0, 1], "e2m1", b, b_scale, None, "e2m1", acc
+        )
+
+    module = run_parser(kernel, *make_args(num_warps=1), target=target)
+    text = anonymize_ir(module.str_nodebug())
+    assert "amdgpu.a_scale_sel = array<i32: 0, 1>" in text
+    assert "amdgpu.b_scale_sel = array<i32>" in text
+
+
+@pytest.mark.parametrize("target", [HIP_TARGET_CDNA4])
 def test_amd_mfma_scaled_none(target):
 
     @gluon.jit

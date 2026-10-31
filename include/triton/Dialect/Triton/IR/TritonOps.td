@@ -819,8 +819,10 @@ def TT_DotScaledOp : TT_Op<"dot_scaled", [Pure,
       RankedTensorOf<[TT_Float, I8, TT_FP4E2M1x2]>:$a,
       RankedTensorOf<[TT_Float, I8, TT_FP4E2M1x2]>:$b,
       TT_FloatTensor:$c,
-      Optional<RankedTensorOf<[TT_Float, I8]>>:$a_scale,
-      Optional<RankedTensorOf<[TT_Float, I8]>>:$b_scale,
+      // I32 scales are pre-packed: four E8M0 bytes per word, with the byte a
+      // given matrix instruction selects chosen by a target-specific attribute.
+      Optional<RankedTensorOf<[TT_Float, I8, I32]>>:$a_scale,
+      Optional<RankedTensorOf<[TT_Float, I8, I32]>>:$b_scale,
       TT_ScaleDotElemTypeAttr:$a_elem_type,
       TT_ScaleDotElemTypeAttr:$b_elem_type,
       BoolAttr:$fastMath,

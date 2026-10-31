@@ -11,7 +11,7 @@ copies with :func:`commit_group` and wait for them with :func:`wait_group` befor
 import warnings
 
 from triton.experimental.gluon.language import _core as ttgl
-from ..._core import ir, builtin, _unwrap_if_constexpr
+from ..._core import ir, builtin, int32, _unwrap_if_constexpr
 from ..._semantic import _check
 from ..._layouts import DistributedLayout
 from ..cdna3 import CachePolicy, _verify_buffer_ops
@@ -104,7 +104,8 @@ def global_load_to_shared(dest, ptr, mask=None, other=None, cache_modifier="", *
 
 
 @builtin
-def buffer_load_to_shared(dest, ptr, offsets, mask=None, other=None, cache_modifier="", _semantic=None):
+def buffer_load_to_shared(dest, ptr, offsets, mask=None, other=None, cache_modifier="", soffset=0,
+                          _semantic=None):
     """
     Deprecated. Use :func:`buffer.load_to_shared <triton.experimental.gluon.language.amd.cdna4.buffer.load_to_shared>`
     with a descriptor from :func:`buffer.make_buffer_descriptor <triton.experimental.gluon.language.amd.cdna3.buffer.make_buffer_descriptor>` instead.
@@ -149,6 +150,12 @@ def buffer_load_to_shared(dest, ptr, offsets, mask=None, other=None, cache_modif
         mask (tensor, optional): Mask tensor for predicated loads. Defaults to None.
         other (tensor or scalar, optional): Tensor or scalar providing default values for masked elements. Defaults to None.
         cache_modifier (str): Cache modifier specifier. Defaults to "".
+        soffset (int or scalar, optional): Uniform 32-bit byte offset added by the
+            hardware to every lane's address, lowered to the buffer load's ``soffset``
+            (SGPR) field. Unlike ``offsets`` it costs no VGPRs and no per-lane
+            arithmetic, so it suits a base that is uniform across the block, such as a
+            K-step or LDS-buffer rotation stride. Defaults to 0, which leaves the
+            emitted instruction unchanged.
     """
     _check(isinstance(offsets.type.layout, DistributedLayout),
            lambda: "expected offsets type layout to be a DistributedLayout")
@@ -168,8 +175,27 @@ def buffer_load_to_shared(dest, ptr, offsets, mask=None, other=None, cache_modif
     stride = ir.value()
     cache_modifier = _semantic._str_to_load_cache_modifier(cache_modifier)
 
+    # soffset is optional in the op: a literal 0 stays absent, so existing callers
+    # produce byte-identical IR and the same instruction as before. It is given in
+    # bytes here; the op counts elements of the loaded type.
+    soffset = _unwrap_if_constexpr(soffset)
+    elem_bytes = ptr.type.scalar.element_ty.primitive_bitwidth // 8
+    if isinstance(soffset, int) and soffset == 0:
+        soffset = ir.value()
+    elif isinstance(soffset, int):
+        _check(soffset % elem_bytes == 0,
+               lambda: f"soffset {soffset} is not a multiple of the {elem_bytes}-byte element")
+        soffset = _semantic.cast(_semantic.to_tensor(soffset // elem_bytes), int32).handle
+    else:
+        soffset = _semantic.to_tensor(soffset)
+        _check(not soffset.type.is_block(), lambda: "expected soffset to be a scalar")
+        soffset = _semantic.cast(soffset, int32)
+        if elem_bytes > 1:
+            soffset = _semantic.floordiv(soffset, _semantic.to_tensor(elem_bytes))
+        soffset = soffset.handle
+
     _semantic.builder.create_buffer_load_to_local(dest.handle, ptr.handle, offsets.handle, mask, other, stride,
-                                                  cache_modifier)
+                                                  soffset, cache_modifier)
 
 
 @builtin

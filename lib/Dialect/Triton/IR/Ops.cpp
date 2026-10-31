@@ -439,6 +439,47 @@ bool DotScaledOp::verifyOutputDims() {
   return true;
 }
 
+// A scale operand may be handed over pre-packed as an i32 word.  Its selector
+// names the bytes that belong to this dot; e.g. a K128 dot consumes two bytes
+// from a K256 word.  Shape checks are written against consumed scales, so
+// widen the trailing dimension by the selector length (or all four bytes for
+// an ordinary i32 scale tensor).
+static SmallVector<int64_t>
+getUnpackedScaleShape(Value scale, DenseI32ArrayAttr packedScaleSel = {}) {
+  auto ty = cast<RankedTensorType>(scale.getType());
+  SmallVector<int64_t> shape(ty.getShape());
+  if (ty.getElementType().isInteger(32)) {
+    int64_t unpackedPerWord =
+        packedScaleSel && !packedScaleSel.empty() ? packedScaleSel.size() : 4;
+    shape.back() *= unpackedPerWord;
+  }
+  return shape;
+}
+
+static LogicalResult deduceScaleFactorForOp(DotScaledOp op,
+                                            int32_t &scaleFactor,
+                                            std::string &errMsg) {
+  SmallVector<int64_t> lhsScaleStorage, rhsScaleStorage;
+  auto getScaleShape =
+      [](Value scale, DenseI32ArrayAttr packedScaleSel,
+         SmallVector<int64_t> &storage) -> std::optional<ArrayRef<int64_t>> {
+    if (!scale)
+      return std::nullopt;
+    storage = llvm::to_vector(getUnpackedScaleShape(scale, packedScaleSel));
+    return ArrayRef<int64_t>(storage);
+  };
+
+  auto lhsShape = cast<RankedTensorType>(op.getA().getType()).getShape();
+  auto rhsShape = cast<RankedTensorType>(op.getB().getType()).getShape();
+  auto lhsScaleSel = op->getAttrOfType<DenseI32ArrayAttr>("amdgpu.a_scale_sel");
+  auto rhsScaleSel = op->getAttrOfType<DenseI32ArrayAttr>("amdgpu.b_scale_sel");
+  return triton::deduceScaleFactor(
+      lhsShape, getScaleShape(op.getAScale(), lhsScaleSel, lhsScaleStorage),
+      op.getAElemType(), op.getLhsKPack(), rhsShape,
+      getScaleShape(op.getBScale(), rhsScaleSel, rhsScaleStorage),
+      op.getBElemType(), op.getRhsKPack(), scaleFactor, errMsg);
+}
+
 LogicalResult DotScaledOp::verify() {
   auto aShape = this->getA().getType().getShape();
   int64_t rank = aShape.size();
@@ -455,13 +496,13 @@ LogicalResult DotScaledOp::verify() {
   int64_t nDim = cShape[cShape.size() - 1];
   int32_t scaleFactor;
   std::string scaleErr;
-  if (failed(deduceScaleFactor(
-          getA(), getAScale(), getAElemType(), getLhsKPack(), getB(),
-          getBScale(), getBElemType(), getRhsKPack(), scaleFactor, scaleErr)))
+  if (failed(deduceScaleFactorForOp(*this, scaleFactor, scaleErr)))
     return this->emitError(scaleErr);
 
   if (getAScale()) {
-    auto aScaleShape = getAScale().getType().getShape();
+    auto aScaleShape = getUnpackedScaleShape(
+        getAScale(),
+        (*this)->getAttrOfType<DenseI32ArrayAttr>("amdgpu.a_scale_sel"));
     if (aScaleShape[rank - 2] != mDim)
       return this->emitError(
           "scales M dimension must match the operand M dimension");
@@ -470,7 +511,9 @@ LogicalResult DotScaledOp::verify() {
                              "divided by the scale factor");
   }
   if (getBScale()) {
-    auto bScaleShape = getBScale().getType().getShape();
+    auto bScaleShape = getUnpackedScaleShape(
+        getBScale(),
+        (*this)->getAttrOfType<DenseI32ArrayAttr>("amdgpu.b_scale_sel"));
     if (bScaleShape[rank - 2] != nDim)
       return this->emitError(
           "scales N dimension must match the operand N dimension");
@@ -555,28 +598,29 @@ LogicalResult DotScaledOp::deduceScaleFactor(
     Value lhs, Value lhsScale, ScaleDotElemType lhsFormat, bool lhsKPack,
     Value rhs, Value rhsScale, ScaleDotElemType rhsFormat, bool rhsKPack,
     int32_t &scaleFactor, std::string &errMsg) {
-  auto getScaleShape = [](Value scale) -> std::optional<ArrayRef<int64_t>> {
-    if (!scale) {
+  SmallVector<int64_t> lhsScaleStorage, rhsScaleStorage;
+  auto getScaleShape =
+      [](Value scale,
+         SmallVector<int64_t> &storage) -> std::optional<ArrayRef<int64_t>> {
+    if (!scale)
       return std::nullopt;
-    } else {
-      return cast<RankedTensorType>(scale.getType()).getShape();
-    }
+    storage = llvm::to_vector(getUnpackedScaleShape(scale));
+    return ArrayRef<int64_t>(storage);
   };
 
   auto lhsShape = cast<RankedTensorType>(lhs.getType()).getShape();
   auto rhsShape = cast<RankedTensorType>(rhs.getType()).getShape();
 
-  return triton::deduceScaleFactor(lhsShape, getScaleShape(lhsScale), lhsFormat,
-                                   lhsKPack, rhsShape, getScaleShape(rhsScale),
-                                   rhsFormat, rhsKPack, scaleFactor, errMsg);
+  return triton::deduceScaleFactor(
+      lhsShape, getScaleShape(lhsScale, lhsScaleStorage), lhsFormat, lhsKPack,
+      rhsShape, getScaleShape(rhsScale, rhsScaleStorage), rhsFormat, rhsKPack,
+      scaleFactor, errMsg);
 }
 
 int32_t DotScaledOp::deduceScaleFactor() {
   int32_t scaleFactor;
   std::string errMsg;
-  if (failed(deduceScaleFactor(
-          getA(), getAScale(), getAElemType(), getLhsKPack(), getB(),
-          getBScale(), getBElemType(), getRhsKPack(), scaleFactor, errMsg)))
+  if (failed(deduceScaleFactorForOp(*this, scaleFactor, errMsg)))
     llvm::report_fatal_error(errMsg.c_str());
   return scaleFactor;
 }

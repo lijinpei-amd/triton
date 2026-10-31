@@ -772,23 +772,71 @@ struct ScaledDotOpMFMAConversionHelper : DotOpMFMAConversionHelper {
         bTensorTy.getElementType(), allowXF32,
         /*preserveBF16=*/false);
 
+    // A pre-packed scale operand is an i32 tensor: the kernel has already
+    // assembled four E8M0 bytes into each word and tells us, through the
+    // amdgpu.{a,b}_scale_sel attribute, which byte every MFMA must select. The
+    // words go to the instruction untouched, so this path emits no packing
+    // VALU at all -- that is the whole point of it.
+    auto packedSel = [&](StringRef name) -> ArrayRef<int32_t> {
+      if (auto attr = op->getAttrOfType<DenseI32ArrayAttr>(name))
+        return attr.asArrayRef();
+      return {};
+    };
+    ArrayRef<int32_t> aScaleSel = packedSel("amdgpu.a_scale_sel");
+    ArrayRef<int32_t> bScaleSel = packedSel("amdgpu.b_scale_sel");
+
     // Scales have the same replica distributions as their corresponding
     // operands.
     ValueTable operandAScale;
     ValueTable operandBScale;
+    SmallVector<Value> packedAScale, packedBScale;
     if (existBothScales) {
       auto aScaleTensorTy = cast<RankedTensorType>(aScale.getType());
-      operandAScale = getValuesFromDotOperandLayoutStruct(
-          loadedAScale, numRepB, numRepM, numRepK, scaleKWidth, scaleAKBase,
-          aScaleTensorTy, aScaleTensorTy.getElementType(), allowXF32,
-          /*preserveBF16=*/false, isAScaleConstant);
+      if (!aScaleSel.empty()) {
+        if (numRepM * numRepK % aScaleSel.size() != 0)
+          return op.emitError("amdgpu.a_scale_sel length ")
+                 << aScaleSel.size() << " must divide numRepM * numRepK ("
+                 << numRepM * numRepK << ")";
+        packedAScale =
+            unpackTensorElements(loc, loadedAScale, rewriter, aScaleTensorTy);
+      } else {
+        operandAScale = getValuesFromDotOperandLayoutStruct(
+            loadedAScale, numRepB, numRepM, numRepK, scaleKWidth, scaleAKBase,
+            aScaleTensorTy, aScaleTensorTy.getElementType(), allowXF32,
+            /*preserveBF16=*/false, isAScaleConstant);
+      }
 
       auto bScaleTensorTy = cast<RankedTensorType>(bScale.getType());
-      operandBScale = getValuesFromDotOperandLayoutStruct(
-          loadedBScale, numRepB, numRepN, numRepK, scaleKWidth, scaleBKBase,
-          bScaleTensorTy, bScaleTensorTy.getElementType(), allowXF32,
-          /*preserveBF16=*/false, isBScaleConstant);
+      if (!bScaleSel.empty()) {
+        if (numRepN * numRepK % bScaleSel.size() != 0)
+          return op.emitError("amdgpu.b_scale_sel length ")
+                 << bScaleSel.size() << " must divide numRepN * numRepK ("
+                 << numRepN * numRepK << ")";
+        packedBScale =
+            unpackTensorElements(loc, loadedBScale, rewriter, bScaleTensorTy);
+      } else {
+        operandBScale = getValuesFromDotOperandLayoutStruct(
+            loadedBScale, numRepB, numRepN, numRepK, scaleKWidth, scaleBKBase,
+            bScaleTensorTy, bScaleTensorTy.getElementType(), allowXF32,
+            /*preserveBF16=*/false, isBScaleConstant);
+      }
     }
+
+    // Resolve one operand's (scale register, opSel) pair for MFMA (nonK, k).
+    auto selectScale = [&](ArrayRef<int32_t> sel, ArrayRef<Value> packed,
+                           const ValueTable &table, int packedVals,
+                           int nonKPackedVals, int b, int nonK, int k,
+                           Value &scaleVal, int &opSel) {
+      if (sel.empty()) {
+        scaleVal = table.at({b, nonK / nonKPackedVals, k / packedVals});
+        opSel = (nonK * numRepK + k) % (nonKPackedVals * packedVals);
+        return;
+      }
+      int flat = nonK * static_cast<int>(numRepK) + k;
+      int perBatch = static_cast<int>(packed.size()) / numRepB;
+      scaleVal = packed[b * perBatch + flat / static_cast<int>(sel.size())];
+      opSel = sel[flat % sel.size()];
+    };
 
     auto dstElemTy = dTensorTy.getElementType();
     auto fc = unpackTensorElements(loc, loadedC, rewriter, op.getC().getType());
@@ -852,28 +900,24 @@ struct ScaledDotOpMFMAConversionHelper : DotOpMFMAConversionHelper {
             for (innerK = 0; innerK < innerKBound; innerK++) {
               int k = is2Step ? outerK : innerK;
               if (existBothScales) {
-                int akScale = k / akPackedVals;
-                int bkScale = k / bkPackedVals;
                 int opSelA = 0, opSelB = 0;
-
-                int mScale = m / aNonKPackedVals;
-                int nScale = n / bNonKPackedVals;
-                opSelA = (m * numRepK + k) % (aNonKPackedVals * akPackedVals);
-                opSelB = (n * numRepK + k) % (bNonKPackedVals * bkPackedVals);
+                Value scaleA, scaleB;
+                selectScale(aScaleSel, packedAScale, operandAScale,
+                            akPackedVals, aNonKPackedVals, b, m, k, scaleA,
+                            opSelA);
+                selectScale(bScaleSel, packedBScale, operandBScale,
+                            bkPackedVals, bNonKPackedVals, b, n, k, scaleB,
+                            opSelB);
 
                 if (mfmaLayout.getIsTransposed()) {
                   acc = generateScaledMFMAOp(
                       intrinsicName, operandB[{b, n, k}], operandA[{b, m, k}],
-                      acc, operandBScale[{b, nScale, bkScale}],
-                      operandAScale[{b, mScale, akScale}],
-                      maybeMfmaIntrinsic->bElementType,
+                      acc, scaleB, scaleA, maybeMfmaIntrinsic->bElementType,
                       maybeMfmaIntrinsic->aElementType, opSelB, opSelA);
                 } else {
                   acc = generateScaledMFMAOp(
                       intrinsicName, operandA[{b, m, k}], operandB[{b, n, k}],
-                      acc, operandAScale[{b, mScale, akScale}],
-                      operandBScale[{b, nScale, bkScale}],
-                      maybeMfmaIntrinsic->aElementType,
+                      acc, scaleA, scaleB, maybeMfmaIntrinsic->aElementType,
                       maybeMfmaIntrinsic->bElementType, opSelA, opSelB);
                 }
               } else {
