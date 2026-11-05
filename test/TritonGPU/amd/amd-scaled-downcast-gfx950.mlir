@@ -3,6 +3,11 @@
 #blocked = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
 #unpacked = #ttg.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
 #scale = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
+// Four fp32 per thread and 32 values per scale: a thread's registers span two
+// scale blocks, so only the CDNA4 pair rule accepts it.
+#in4 = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
+#out2 = #ttg.blocked<{sizePerThread = [1, 2], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
+#scale32 = #ttg.linear<{register = [[0, 8]], lane = [[0, 0], [0, 0], [0, 0], [0, 1], [0, 2], [0, 4]], warp = [], block = []}>
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx950", "ttg.threads-per-warp" = 64 : i32} {
   tt.func public @scaled_downcast_fp4(
       %input: tensor<1x512xbf16, #unpacked>,
@@ -72,6 +77,30 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
     // CHECK: rocdl.cvt.scalef32.pk.fp8.f32
     %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x512xf32, #unpacked>, tensor<1x64xi8, #scale> -> tensor<1x512xf8E4M3FN, #unpacked>
     tt.store %output, %result : tensor<1x512x!tt.ptr<f8E4M3FN>, #unpacked>
+    tt.return
+  }
+
+  tt.func public @scaled_downcast_fp4_pair_groups(
+      %input: tensor<1x512xf32, #in4>,
+      %scale: tensor<1x16xi8, #scale32>,
+      %output: tensor<1x256x!tt.ptr<i8>, #out2>) {
+    // CHECK-LABEL: llvm.func @scaled_downcast_fp4_pair_groups
+    // CHECK-COUNT-4: rocdl.cvt.scalef32.pk.fp4.f32
+    // CHECK-NOT: rocdl.cvt.scalef32.pk.fp4.f32
+    %result = amdg.scaled_downcast_fp4 %input scale %scale {axis = 1 : i32} : tensor<1x512xf32, #in4>, tensor<1x16xi8, #scale32> -> tensor<1x256xi8, #out2>
+    tt.store %output, %result : tensor<1x256x!tt.ptr<i8>, #out2>
+    tt.return
+  }
+
+  tt.func public @scaled_downcast_fp8_pair_groups(
+      %input: tensor<1x512xf32, #in4>,
+      %scale: tensor<1x16xi8, #scale32>,
+      %output: tensor<1x512x!tt.ptr<f8E4M3FN>, #in4>) {
+    // CHECK-LABEL: llvm.func @scaled_downcast_fp8_pair_groups
+    // CHECK-COUNT-4: rocdl.cvt.scalef32.pk.fp8.f32
+    // CHECK-NOT: rocdl.cvt.scalef32.pk.fp8.f32
+    %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x512xf32, #in4>, tensor<1x16xi8, #scale32> -> tensor<1x512xf8E4M3FN, #in4>
+    tt.store %output, %result : tensor<1x512x!tt.ptr<f8E4M3FN>, #in4>
     tt.return
   }
 }

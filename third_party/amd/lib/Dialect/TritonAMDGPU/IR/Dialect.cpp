@@ -571,6 +571,18 @@ std::optional<Attribute> inferScaledDowncastScaleEncoding(OpT op,
       op.getContext(), compact->removeZeroBasesAlongDim(kRegister));
 }
 
+// Returns the number of register-consecutive output elements that one
+// conversion instruction takes with a single scale: a pk8 group on CDNA5, one
+// pair of inputs otherwise. As for scaled_upcast, the target comes from the
+// parent module.
+int64_t scaledDowncastGroupSize(Operation *op, int64_t pk8GroupSize,
+                                int64_t pairGroupSize) {
+  auto module = op->getParentOfType<ModuleOp>();
+  if (module && TargetFeatures::fromModuleOp(module).supportsCvtPkScalePk8())
+    return pk8GroupSize;
+  return pairGroupSize;
+}
+
 template <typename OpT>
 LogicalResult verifyScaledDowncastScaleLayout(OpT op, int64_t groupSize,
                                               StringRef groupDescription,
@@ -596,7 +608,7 @@ LogicalResult verifyScaledDowncastScaleLayout(OpT op, int64_t groupSize,
               "supported";
   if (*elementsPerBlock % groupSize != 0)
     return op.emitError()
-           << "each scale block along the scaled axis must cover "
+           << "each scale block along the scaled axis must cover a "
            << blockDescription << ", but got " << *elementsPerBlock
            << " output elements per scale";
   auto outputLL = gpu::toLinearLayout(
@@ -610,7 +622,7 @@ LogicalResult verifyScaledDowncastScaleLayout(OpT op, int64_t groupSize,
   auto kRegister = StringAttr::get(op.getContext(), "register");
   if (!groupSharesSingleScale(*compact, kRegister, groupSize))
     return op.emitError()
-           << "each v_cvt_scalef32_pk8 group of " << groupDescription
+           << "each v_cvt_scalef32 group of " << groupDescription
            << " must share a single scale; the scale block along the scaled "
               "axis must be a "
            << blockDescription;
@@ -1095,9 +1107,17 @@ LogicalResult ScaledDowncastFp4Op::verify() {
   if (failed(verifyScaledDowncastScaleShapeAndAxis(*this, outputTy, scaleTy)))
     return failure();
 
-  if (failed(verifyScaledDowncastScaleLayout(
-          *this, /*groupSize=*/4, /*groupDescription=*/"8 fp4 values",
-          /*blockDescription=*/"a multiple of 8 fp4 values (4 packed bytes)")))
+  // groupSize counts packed output bytes: 4 bytes (8 fp4) for pk8, 1 for pk.
+  int64_t groupSize = scaledDowncastGroupSize(*this, /*pk8GroupSize=*/4,
+                                              /*pairGroupSize=*/1);
+  std::string groupDescription =
+      llvm::formatv("{0} fp4 values", 2 * groupSize).str();
+  std::string blockDescription =
+      llvm::formatv("multiple of {0} fp4 values ({1} packed bytes)",
+                    2 * groupSize, groupSize)
+          .str();
+  if (failed(verifyScaledDowncastScaleLayout(*this, groupSize, groupDescription,
+                                             blockDescription)))
     return failure();
 
   // Reuse fp4tofp verifier for packed/unpacked relationship
@@ -1205,10 +1225,11 @@ LogicalResult ScaledDowncastFp8Op::verify() {
   if (failed(verifyScaledDowncastScaleShapeAndAxis(*this, outputTy, scaleTy)))
     return failure();
 
+  int64_t groupSize = scaledDowncastGroupSize(*this, /*pk8GroupSize=*/8,
+                                              /*pairGroupSize=*/2);
   return verifyScaledDowncastScaleLayout(
-      *this, /*groupSize=*/8,
-      /*groupDescription=*/"8 elements",
-      /*blockDescription=*/"a multiple of 8 elements");
+      *this, groupSize, llvm::formatv("{0} elements", groupSize).str(),
+      llvm::formatv("multiple of {0} elements", groupSize).str());
 }
 
 Attribute ScaledDowncastFp8Op::inferDstEncoding(unsigned opIdx,
