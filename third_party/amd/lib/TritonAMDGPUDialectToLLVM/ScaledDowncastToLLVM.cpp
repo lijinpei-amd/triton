@@ -42,13 +42,15 @@ SmallVector<int> computeScaleRegisters(OpT op, int64_t numOutputValues) {
   int64_t elementsPerScale =
       outputTy.getShape()[axis] / scaleTy.getShape()[axis];
 
-  LinearLayout outputLL = triton::gpu::toLinearLayout(outputTy);
   auto kReg = StringAttr::get(ctx, "register");
   auto kLane = StringAttr::get(ctx, "lane");
   auto kWarp = StringAttr::get(ctx, "warp");
   auto kBlock = StringAttr::get(ctx, "block");
-  // unpackUniqueTensorElements drops registers that only broadcast an already
-  // held scale value. Use the same compact register space for scale indexing.
+  // unpackUniqueTensorElements drops the registers of zero register bases,
+  // which repeat a value the thread already holds. Callers index output values
+  // in that compact register space, so build both layouts in it too.
+  LinearLayout outputLL =
+      triton::gpu::toLinearLayout(outputTy).removeZeroBasesAlongDim(kReg);
   LinearLayout scaleLL =
       triton::gpu::toLinearLayout(scaleTy).removeZeroBasesAlongDim(kReg);
 

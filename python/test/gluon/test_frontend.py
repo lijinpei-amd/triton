@@ -4311,6 +4311,30 @@ def test_amd_scaled_downcast_fp8_cdna(target, fp8_format, ir_dtype):
     assert f"-> tensor<16x64x{ir_dtype}" in module_text
 
 
+@pytest.mark.parametrize("target", [HIP_TARGET_CDNA4, HIP_TARGET_CDNA5], ids=["cdna4", "cdna5"])
+@pytest.mark.parametrize("format", ["e2m1", "e4m3"])
+def test_amd_scaled_downcast_scale_block_of_4(target, format):
+    # The CDNA4 instructions convert one pair of values per scale, so a scale
+    # block of 4 input values is valid there. The CDNA5 pk8 instructions convert
+    # 8 values per scale.
+    scaled_downcast = _get_amd_scaled_downcast(target)
+
+    @gluon.jit
+    def kernel(FORMAT: ttgl.constexpr):
+        layout: ttgl.constexpr = ttgl.BlockedLayout([1, 8], [8, 8], [1, 1], [1, 0])
+        scale_layout: ttgl.constexpr = ttgl.BlockedLayout([1, 2], [8, 8], [1, 1], [1, 0])
+        input = ttgl.full([16, 64], 1.0, ttgl.float32, layout)
+        scale = ttgl.full([16, 16], 0x7F, ttgl.uint8, scale_layout)
+        scaled_downcast(input, scale, FORMAT, axis=1)
+
+    if target == HIP_TARGET_CDNA5:
+        with pytest.raises(CompilationError, match="multiple of 8 consecutive input elements"):
+            run_parser(kernel, *make_args(format, num_warps=1), target=target)
+        return
+    module = run_parser(kernel, *make_args(format, num_warps=1), target=target)
+    assert "amdg.scaled_downcast_fp" in module.str_nodebug()
+
+
 @pytest.mark.parametrize("target, threads_per_warp, expect_layout", [
     (HIP_TARGET_CDNA3, [8, 8],
      ttgl.DistributedLinearLayout(reg_bases=[[8, 0]], lane_bases=[[0, 0], [0, 0], [0, 1], [1, 0], [2, 0], [4, 0]],

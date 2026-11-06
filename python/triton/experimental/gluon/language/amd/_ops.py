@@ -4,7 +4,7 @@ from triton import knobs
 from triton.experimental.gluon.language import _core as ttgl
 from triton.experimental.gluon.language._semantic import _check
 
-from .._core import builtin, _unwrap_if_constexpr
+from .._core import _unwrap_if_constexpr
 from .._layouts import DotOperandLayout
 from ._layouts import AMDWMMALayout
 
@@ -272,7 +272,8 @@ def _validate_scaled_downcast_common(input, scale):
     return len(input.type.shape)
 
 
-def _check_scaled_downcast_scale_shape(input_shape, scale_shape, axis, axis_extent, non_axis_error_message):
+def _check_scaled_downcast_scale_shape(input_shape, scale_shape, axis, axis_extent, block_multiple,
+                                       non_axis_error_message):
     _check(scale_shape[:axis] + scale_shape[axis + 1:] == input_shape[:axis] + input_shape[axis + 1:],
            lambda: f"{non_axis_error_message}, but got scale {scale_shape} and input {input_shape}")
     _check(scale_shape[axis] > 0 and axis_extent % scale_shape[axis] == 0,
@@ -283,11 +284,19 @@ def _check_scaled_downcast_scale_shape(input_shape, scale_shape, axis, axis_exte
         "expanded scales (one scale per output element) are not supported")
     block_size = input_shape[axis] // scale_shape[axis]
     _check(
-        block_size % 8 == 0, lambda: f"Expected each scale block to span a multiple of 8 consecutive input elements "
+        block_size % block_multiple == 0,
+        lambda: f"Expected each scale block to span a multiple of {block_multiple} consecutive input elements "
         f"along axis {axis}, but got {block_size}")
 
 
-def _scaled_downcast(input, scale, elem_type, axis, semantic):
+def _scaled_downcast(input, scale, format, axis, block_multiple, semantic):
+    """
+    Shared implementation of the per-arch ``scaled_downcast`` builtins.
+    ``block_multiple`` is the number of input elements that one conversion
+    instruction of the target scales together.
+    """
+    axis = _unwrap_if_constexpr(axis)
+    elem_type = _downcast_format_to_elem_type(format)
     rank = _validate_scaled_downcast_common(input, scale)
     input_shape = input.type.shape
     scale_shape = scale.type.shape
@@ -296,7 +305,7 @@ def _scaled_downcast(input, scale, elem_type, axis, semantic):
     if elem_type in {ttgl.float8e4nv, ttgl.float8e5}:
         axis = _normalize_axis(axis, rank, "axis is required for fp8 scaled_downcast")
         _check_scaled_downcast_scale_shape(
-            input_shape, scale_shape, axis, input_shape[axis],
+            input_shape, scale_shape, axis, input_shape[axis], block_multiple,
             "Expected scale shape for fp8 scaled_downcast to match the input shape on non-axis dimensions")
 
         handle = semantic.builder.create_scaled_downcast_fp8(input.handle, scale.handle,
@@ -312,7 +321,7 @@ def _scaled_downcast(input, scale, elem_type, axis, semantic):
     # fp4: packed output halves axis extent; scale axis uses packed output size.
     packed_output_axis_extent = input_shape[axis] // 2
     _check_scaled_downcast_scale_shape(
-        input_shape, scale_shape, axis, packed_output_axis_extent,
+        input_shape, scale_shape, axis, packed_output_axis_extent, block_multiple,
         "Expected scale shape for packed fp4 scaled_downcast to match the packed output shape on non-axis dimensions")
 
     handle = semantic.builder.create_scaled_downcast_fp4(input.handle, scale.handle, axis)
@@ -320,28 +329,3 @@ def _scaled_downcast(input, scale, elem_type, axis, semantic):
     layout = semantic.builder.get_gluon_layout_from_tensor(handle)
     ret_ty = ttgl.distributed_type(elem_type, shape, layout)
     return ttgl.tensor(handle, ret_ty)
-
-
-@builtin
-def scaled_downcast(input, scale, format, axis=-1, _semantic=None):
-    """
-    Scale and convert FP16, BF16, or FP32 values to a low-precision MX format,
-    dividing by the raw E8M0 ``scale`` payload (``int8`` or ``uint8``).
-
-    ``format`` selects the target type and packing behavior:
-
-    * ``"e4m3"`` / ``"e5m2"`` (fp8): elementwise, so the output keeps the
-      shape and layout of ``input``.
-    * ``"e2m1"`` (packed fp4): consecutive pairs of values along ``axis`` are
-      packed into one output byte (even element -> low nibble, next element ->
-      high nibble), so the result extent along ``axis`` is halved (the inverse
-      of ``scaled_upcast``).
-
-    ``axis`` (default: last dim) selects the dimension along which scales are
-    shared. ``scale`` must be compact along ``axis`` with one E8M0 byte per
-    block of consecutive input elements along ``axis``, and each block must
-    span a multiple of 8 consecutive input elements.
-    """
-    axis = _unwrap_if_constexpr(axis)
-    elem_type = _downcast_format_to_elem_type(format)
-    return _scaled_downcast(input, scale, elem_type, axis, _semantic)

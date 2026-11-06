@@ -7,7 +7,7 @@ from triton._C.libtriton.gluon_ir import (
 from ..._core import builtin, int8, uint8, _unwrap_if_constexpr
 from ..._layouts import DotOperandLayout
 from .._layouts import AMDMFMALayout
-from .._ops import _load_shared_fp4_repacked, _mma_scaled, _scaled_upcast, scaled_downcast
+from .._ops import _load_shared_fp4_repacked, _mma_scaled, _scaled_upcast, _scaled_downcast
 from ..cdna3 import _buffer_atomic_rmw_impl, _check_cd_regclass, _set_cd_regclass
 from ..cdna3 import *  # NOQA: F403
 from ..cdna3 import __all__ as __cdna3_all
@@ -91,6 +91,30 @@ def scaled_upcast(src, scale, elem_type, axis=None, _semantic=None):
     assert scale.dtype in (int8, uint8), \
         f"Expected scale to use raw E8M0 payload in int8/uint8 but got {scale.dtype}"
     return _scaled_upcast(src, scale, elem_type, axis, _semantic)
+
+
+@builtin
+def scaled_downcast(input, scale, format, axis=-1, _semantic=None):
+    """
+    Scale and convert FP16, BF16, or FP32 values to a low-precision MX format,
+    dividing by the raw E8M0 ``scale`` payload (``int8`` or ``uint8``).
+
+    ``format`` selects the target type and packing behavior:
+
+    * ``"e4m3"`` / ``"e5m2"`` (fp8): elementwise, so the output keeps the
+      shape and layout of ``input``.
+    * ``"e2m1"`` (packed fp4): consecutive pairs of values along ``axis`` are
+      packed into one output byte (even element -> low nibble, next element ->
+      high nibble), so the result extent along ``axis`` is halved (the inverse
+      of ``scaled_upcast``).
+
+    ``axis`` (default: last dim) selects the dimension along which scales are
+    shared. ``scale`` must be compact along ``axis`` with one E8M0 byte per
+    block of consecutive input elements along ``axis``, and each block must
+    span a multiple of 2 consecutive input elements: each CDNA4
+    conversion instruction scales one pair of values.
+    """
+    return _scaled_downcast(input, scale, format, axis, block_multiple=2, semantic=_semantic)
 
 
 @builtin

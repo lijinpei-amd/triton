@@ -1283,9 +1283,9 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 4 : i32, ttg.targ
 
 // -----
 
-#in4 = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
-#scale32 = #ttg.linear<{register = [[0, 8]], lane = [[0, 0], [0, 0], [0, 0], [0, 1], [0, 2], [0, 4]], warp = [], block = []}>
-module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 64 : i32} {
+#in4 = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#scale32 = #ttg.linear<{register = [[0, 4], [0, 8]], lane = [[0, 0], [0, 0], [0, 0], [0, 1], [0, 2]], warp = [], block = []}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
   tt.func @scaled_downcast_fp8_pk8_group_spans_scales(%input: tensor<1x512xf32, #in4>, %scale: tensor<1x16xi8, #scale32>) {
     // expected-error @+1 {{each v_cvt_scalef32 group of 8 elements must share a single scale}}
     %0 = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x512xf32, #in4>, tensor<1x16xi8, #scale32> -> tensor<1x512xf8E4M3FN, #in4>
