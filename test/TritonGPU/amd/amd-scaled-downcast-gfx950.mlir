@@ -13,6 +13,9 @@
 #bcast = #ttg.linear<{register = [[0, 1], [0, 0], [0, 128], [0, 256]], lane = [[0, 2], [0, 4], [0, 8], [0, 16], [0, 32], [0, 64]], warp = [], block = []}>
 #bcast_packed = #ttg.linear<{register = [[0, 0], [0, 64], [0, 128]], lane = [[0, 1], [0, 2], [0, 4], [0, 8], [0, 16], [0, 32]], warp = [], block = []}>
 #bcast_scale = #ttg.linear<{register = [[0, 4], [0, 8]], lane = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 2]], warp = [], block = []}>
+// One value per thread: the lowering pairs it with zero.
+#one = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 64], warpsPerCTA = [1, 1], order = [1, 0]}>
+#one_scale = #ttg.linear<{register = [], lane = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1]], warp = [], block = []}>
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx950", "ttg.threads-per-warp" = 64 : i32} {
   tt.func public @scaled_downcast_fp4(
       %input: tensor<1x512xbf16, #unpacked>,
@@ -161,6 +164,19 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
     // CHECK: rocdl.cvt.scalef32.pk.fp8.f32 %{{.*}}, %{{.*}}, %[[F3]] -> %{{.*}}[true]
     %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x512xf32, #bcast>, tensor<1x16xi8, #bcast_scale> -> tensor<1x512xf8E4M3FN, #bcast>
     tt.store %output, %result : tensor<1x512x!tt.ptr<f8E4M3FN>, #bcast>
+    tt.return
+  }
+
+  tt.func public @scaled_downcast_fp8_one_value_per_thread(
+      %input: tensor<1x64xf32, #one>,
+      %scale: tensor<1x2xi8, #one_scale>,
+      %output: tensor<1x64x!tt.ptr<f8E4M3FN>, #one>) {
+    // CHECK-LABEL: llvm.func @scaled_downcast_fp8_one_value_per_thread
+    // CHECK: %[[ZERO:.*]] = llvm.mlir.constant(0.000000e+00 : f32) : f32
+    // CHECK: rocdl.cvt.scalef32.pk.fp8.f32 %{{.*}}, %[[ZERO]], %{{.*}} -> %{{.*}}[false]
+    // CHECK-NOT: rocdl.cvt.scalef32.pk.fp8.f32
+    %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x64xf32, #one>, tensor<1x2xi8, #one_scale> -> tensor<1x64xf8E4M3FN, #one>
+    tt.store %output, %result : tensor<1x64x!tt.ptr<f8E4M3FN>, #one>
     tt.return
   }
 }

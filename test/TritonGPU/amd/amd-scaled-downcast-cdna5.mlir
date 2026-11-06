@@ -3,6 +3,9 @@
 #blocked = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
 #unpacked = #ttg.blocked<{sizePerThread = [1, 8], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
 #scale = #ttg.blocked<{sizePerThread = [1, 1], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+// Four values per thread: the lowering zero-pads them to one pk8 group.
+#four = #ttg.blocked<{sizePerThread = [1, 4], threadsPerWarp = [1, 32], warpsPerCTA = [1, 1], order = [1, 0]}>
+#four_scale = #ttg.linear<{register = [], lane = [[0, 0], [0, 0], [0, 0], [0, 1], [0, 2]], warp = [], block = []}>
 module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx1250", "ttg.threads-per-warp" = 32 : i32} {
   tt.func public @scaled_downcast_fp4(
       %input: tensor<1x256xbf16, #unpacked>,
@@ -70,6 +73,18 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
     // CHECK: rocdl.cvt.scalef32.pk8.fp8.f32
     %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x256xf32, #unpacked>, tensor<1x32xi8, #scale> -> tensor<1x256xf8E4M3FN, #unpacked>
     tt.store %output, %result : tensor<1x256x!tt.ptr<f8E4M3FN>, #unpacked>
+    tt.return
+  }
+
+  tt.func public @scaled_downcast_fp8_four_values_per_thread(
+      %input: tensor<1x128xf32, #four>,
+      %scale: tensor<1x4xi8, #four_scale>,
+      %output: tensor<1x128x!tt.ptr<f8E4M3FN>, #four>) {
+    // CHECK-LABEL: llvm.func @scaled_downcast_fp8_four_values_per_thread
+    // CHECK: rocdl.cvt.scalef32.pk8.fp8.f32
+    // CHECK-NOT: rocdl.cvt.scalef32.pk8.fp8.f32
+    %result = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x128xf32, #four>, tensor<1x4xi8, #four_scale> -> tensor<1x128xf8E4M3FN, #four>
+    tt.store %output, %result : tensor<1x128x!tt.ptr<f8E4M3FN>, #four>
     tt.return
   }
 }

@@ -1292,3 +1292,18 @@ module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.targ
     tt.return
   }
 }
+
+// -----
+
+// Register basis 0 is zero, so the lowering's first pair of distinct values
+// is registers 0 and 2, which are 32 columns apart and in different scale
+// blocks.
+#pair = #ttg.linear<{register = [[0, 0], [0, 32], [0, 1]], lane = [[0, 2], [0, 4], [0, 8], [0, 16], [0, 64], [0, 128]], warp = [], block = []}>
+#pair_scale = #ttg.linear<{register = [[0, 1]], lane = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 2], [0, 4]], warp = [], block = []}>
+module attributes {"ttg.num-ctas" = 1 : i32, "ttg.num-warps" = 1 : i32, ttg.target = "hip:gfx950", "ttg.threads-per-warp" = 64 : i32} {
+  tt.func @scaled_downcast_fp8_broadcast_pair_spans_scales(%input: tensor<1x256xf32, #pair>, %scale: tensor<1x8xi8, #pair_scale>) {
+    // expected-error @+1 {{each v_cvt_scalef32 group of 2 elements must share a single scale}}
+    %0 = amdg.scaled_downcast_fp8 %input scale %scale {axis = 1 : i32} : tensor<1x256xf32, #pair>, tensor<1x8xi8, #pair_scale> -> tensor<1x256xf8E4M3FN, #pair>
+    tt.return
+  }
+}

@@ -611,16 +611,23 @@ LogicalResult verifyScaledDowncastScaleLayout(OpT op, int64_t groupSize,
            << "each scale block along the scaled axis must cover a "
            << blockDescription << ", but got " << *elementsPerBlock
            << " output elements per scale";
-  auto outputLL = gpu::toLinearLayout(
-      outputTy.getShape(), cast<gpu::LayoutEncodingTrait>(outputEnc));
+  auto kRegister = StringAttr::get(op.getContext(), "register");
+  // The lowering converts only the distinct values of a thread: it drops the
+  // registers of zero register bases. Group the registers in that space.
+  auto outputLL = gpu::toLinearLayout(outputTy.getShape(),
+                                      cast<gpu::LayoutEncodingTrait>(outputEnc))
+                      .removeZeroBasesAlongDim(kRegister);
   auto compact =
       OpT::computeScaleLayout(outputLL, op.getAxis(), *elementsPerBlock);
   if (!compact)
     return op.emitError() << "the scale block along the scaled axis must be a "
                              "power of two";
 
-  auto kRegister = StringAttr::get(op.getContext(), "register");
-  if (!groupSharesSingleScale(*compact, kRegister, groupSize))
+  // A thread with fewer distinct values than a group converts them all in one
+  // zero-padded group.
+  int64_t valuesPerGroup =
+      std::min<int64_t>(groupSize, compact->getInDimSize(kRegister));
+  if (!groupSharesSingleScale(*compact, kRegister, valuesPerGroup))
     return op.emitError()
            << "each v_cvt_scalef32 group of " << groupDescription
            << " must share a single scale; the scale block along the scaled "
